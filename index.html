@@ -11,6 +11,7 @@
             --panel-border: #263352;
             --accent: #0ea5e9;
             --success: #10b981;
+            --warning: #f59e0b;
             --text-main: #f1f5f9;
             --text-muted: #94a3b8;
         }
@@ -81,6 +82,7 @@
         button:disabled { opacity: 0.4; cursor: not-allowed; }
         .btn-blue { background: var(--accent); color: white; }
         .btn-green { background: var(--success); color: white; }
+        .btn-yellow { background: var(--warning); color: #000; font-weight: bold; }
         .btn-gray { background: #334155; color: white; }
         .terminal {
             background: #050811;
@@ -89,7 +91,7 @@
             padding: 12px;
             font-family: monospace;
             font-size: 0.75rem;
-            height: 240px;
+            height: 230px;
             overflow-y: auto;
             color: #38bdf8;
             margin-top: 14px;
@@ -133,11 +135,13 @@
         </div>
         <button class="btn-gray" id="btnDownload" style="width: 100%; margin-top: 10px;">Save .bin Package</button>
     </div>
+
     <div class="card">
-        <h2>Watch Connection & Protocol Streaming</h2>
+        <h2>Watch Connection & Pairing</h2>
         <div class="btn-row" style="margin-bottom: 10px;">
             <button class="btn-blue" id="btnBleConnect" style="flex: 1;">1. Connect Watch</button>
-            <button class="btn-green" id="btnBlePush" style="flex: 1;" disabled>2. Start Push</button>
+            <button class="btn-yellow" id="btnBleBind" style="flex: 1;" disabled>2. Send Bind Prompt</button>
+            <button class="btn-green" id="btnBlePush" style="flex: 1;" disabled>3. Push Dial</button>
         </div>
         <div class="progress-bar-bg" id="progBarContainer">
             <div class="progress-bar-fill" id="progBar"></div>
@@ -216,12 +220,13 @@
 
     let rxChar = null;
     let txChar = null;
+    let isBound = false;
 
-    // Discovered service on your HT37
     const TARGET_SERVICE = '00009966-3c17-d293-8e48-14fe2e4da212';
     const CHAR_WRITE     = '0000ffb1-0000-1000-8000-00805f9b34fb';
     const CHAR_NOTIFY    = '0000ffb2-0000-1000-8000-00805f9b34fb';
 
+    // 1. Connect GATT
     document.getElementById('btnBleConnect').onclick = async () => {
         try {
             log("Prompting Bluetooth pairing dialog...");
@@ -237,22 +242,58 @@
             rxChar = await service.getCharacteristic(CHAR_WRITE);
             txChar = await service.getCharacteristic(CHAR_NOTIFY);
 
-            // Subscribe to notifications to receive ACKs from watch
+            // Subscribe to notifications to receive Bind & Dial ACKs
             await txChar.startNotifications();
             txChar.addEventListener('characteristicvaluechanged', (e) => {
                 const b = new Uint8Array(e.target.value.buffer);
                 const h = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
-                log("<b style='color:#a7f3d0;'><= Watch ACK:</b> " + h);
+                log("<b style='color:#a7f3d0;'><= Watch Response:</b> " + h);
+
+                // Check for FitCloud Bind Confirmation (Opcode 0x01)
+                if (b.length >= 3 && b[0] === 0x01) {
+                    if (b[2] === 0x00 || b[1] === 0x01) {
+                        isBound = true;
+                        document.getElementById('btnBlePush').disabled = false;
+                        log("<b style='color:#10b981;'>Watch authenticated & bound successfully! Now click Step 3.</b>");
+                    }
+                }
             });
 
-            document.getElementById('btnBlePush').disabled = false;
-            log("<b style='color:#10b981;'>Connected & Subscribed! Ready to push.</b>");
+            document.getElementById('btnBleBind').disabled = false;
+            log("<b style='color:#38bdf8;'>GATT connected! Click '2. Send Bind Prompt' to light up your watch.</b>");
         } catch (e) {
             log("<b style='color:#ef4444;'>BLE Error: " + e.message + "</b>");
         }
     };
 
-    // Paced FitCloud packet transmission
+    // 2. Send Bind Request (lights up watch screen with confirmation checkmark)
+    document.getElementById('btnBleBind').onclick = async () => {
+        if (!rxChar) return;
+
+        log("Sending FitCloud BIND packet to watch...");
+        // FitCloud Protocol Bind Request:
+        // [0x01 (Auth Cmd), 0x01 (Bind Request), UserID Hash (4 bytes), Timestamp (4 bytes), Flag (0x01)]
+        const bindPkt = new Uint8Array(16);
+        bindPkt[0] = 0x01; // Cmd: Auth
+        bindPkt[1] = 0x01; // Sub-cmd: Bind
+        bindPkt[2] = 0x68; // 'h'
+        bindPkt[3] = 0x74; // 't'
+        bindPkt[4] = 0x33; // '3'
+        bindPkt[5] = 0x37; // '7'
+        bindPkt[6] = 0x01; // Flag: request on-screen confirmation
+        
+        try {
+            await rxChar.writeValue(bindPkt);
+            log("<b style='color:#f59e0b;'>Look at your watch screen! Tap the green checkmark ✔ on the watch to accept.</b>");
+            
+            // Also enable push button in case the watch was already paired previously
+            document.getElementById('btnBlePush').disabled = false;
+        } catch (e) {
+            log("<b style='color:#ef4444;'>Bind Send Error: " + e.message + "</b>");
+        }
+    };
+
+    // 3. Paced FitCloud dial transmission
     document.getElementById('btnBlePush').onclick = async () => {
         if (!rxChar) return;
 
@@ -260,53 +301,47 @@
         const pbg = document.getElementById('progBarContainer'), pf = document.getElementById('progBar');
         pbg.style.display = 'block'; pf.style.width = '0%';
 
-        log("1. Sending FitCloud Dial Handshake Request...");
+        log("Initiating FitCloud Dial Push mode...");
         
-        // FitCloud Protocol Header for Dial Push Init:
-        // [0xED (Packet Header), 0x02 (File Feature), 0x01 (Dial Push Req), Dial Type (0x01), Size (4 bytes)]
+        // FitCloud Dial Push Prepare Packet: [0x02 (File), 0x01 (Dial Push Init), Type (0x01), Size (4 bytes)]
         const initPkt = new Uint8Array(8);
-        initPkt[0] = 0xED;
-        initPkt[1] = 0x02;
+        initPkt[0] = 0x02;
+        initPkt[1] = 0x01;
         initPkt[2] = 0x01;
-        initPkt[3] = 0x01;
+        initPkt[3] = 0x00;
         const dv = new DataView(initPkt.buffer);
-        dv.setUint32(4, bin.length, false); // Big-endian protocol length
+        dv.setUint32(4, bin.length, false);
 
         try {
             await rxChar.writeValue(initPkt);
-            log("Handshake sent. Waiting 500ms for watch to ready flash memory...");
+            log("Handshake sent. Waiting 500ms for watch flash allocation...");
             await new Promise(r => setTimeout(r, 500));
 
-            // Chunk transfer with flow control (128 bytes per chunk, ~20ms interval)
             const chunkSize = 128;
             const total = Math.ceil(bin.length / chunkSize);
-            log("2. Streaming " + bin.length + " bytes in " + total + " packets (paced at ~20ms)...");
+            log("Streaming " + bin.length + " bytes in " + total + " packets...");
 
             const startTime = Date.now();
             for (let i = 0; i < total; i++) {
                 const chunk = bin.slice(i * chunkSize, (i + 1) * chunkSize);
-
-                // Use standard write with pace to prevent packet drops
                 await rxChar.writeValueWithoutResponse(chunk);
 
                 pf.style.width = Math.round(((i + 1) / total) * 100) + '%';
-
-                // Throttle packets so the watch BLE chip buffer does not drop bytes
                 await new Promise(r => setTimeout(r, 20));
 
                 if (i % 50 === 0 && i > 0) {
-                    log("Streamed " + i + "/" + total + " packets...");
+                    log("Progress: " + i + "/" + total + " packets...");
                 }
             }
 
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-            log("3. Payload streamed in " + elapsed + "s. Sending End-of-Transfer packet...");
+            log("Payload sent in " + elapsed + "s. Sending finish notification...");
 
-            // End Packet: [0xED, 0x02, 0x02, 0x00]
-            const endPkt = new Uint8Array([0xED, 0x02, 0x02, 0x00]);
+            // End Packet: [0x02, 0x02]
+            const endPkt = new Uint8Array([0x02, 0x02, 0x00, 0x00]);
             await rxChar.writeValue(endPkt);
 
-            log("<b style='color:#10b981;'>Transmission complete! Check watch display.</b>");
+            log("<b style='color:#10b981;'>Push complete! Watch should now reload with the new face.</b>");
         } catch (e) {
             log("<b style='color:#ef4444;'>Push Error: " + e.message + "</b>");
         }
