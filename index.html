@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Watch Face Studio</title>
+  <title>HT37 Studio [V3.0]</title>
   <style>
     :root {
-      --bg: #0f172a;
+      --bg: #0b0f19;
       --panel: #1e293b;
       --accent: #38bdf8;
       --text: #f8fafc;
@@ -25,24 +25,25 @@
       padding: 20px;
       min-height: 100vh;
     }
-    header { text-align: center; margin-bottom: 20px; }
-    header h1 { font-size: 1.5rem; color: var(--accent); }
-    header p { font-size: 0.85rem; color: #94a3b8; }
-    
+    header { text-align: center; margin-bottom: 15px; }
+    header h1 { font-size: 1.6rem; color: var(--accent); }
+    .badge {
+      display: inline-block;
+      background: #0284c7;
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: bold;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-top: 5px;
+    }
     .workspace {
       display: flex;
       flex-wrap: wrap;
-      gap: 25px;
+      gap: 20px;
       justify-content: center;
       width: 100%;
       max-width: 1000px;
-    }
-    
-    .preview-section {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 15px;
     }
     .watch-bezel {
       width: 380px;
@@ -53,8 +54,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), inset 0 0 10px rgba(0,0,0,0.8);
-      position: relative;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.7);
     }
     #watchCanvas {
       width: 360px;
@@ -62,7 +62,6 @@
       border-radius: 50%;
       background: #000;
     }
-
     .editor-panel {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -71,10 +70,10 @@
       width: 380px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
     }
     .section-title {
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -82,11 +81,7 @@
       border-bottom: 1px solid var(--border);
       padding-bottom: 5px;
     }
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
     label { font-size: 0.8rem; color: #cbd5e1; }
     input, select, button {
       background: #0f172a;
@@ -96,36 +91,14 @@
       border-radius: 6px;
       font-size: 0.85rem;
     }
-    input[type="color"] {
-      height: 38px;
-      padding: 2px;
-      cursor: pointer;
-    }
-    .inline-fields {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    button.btn-primary {
-      background: #0284c7;
-      border-color: #38bdf8;
-      color: #fff;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
+    input[type="color"] { height: 36px; padding: 2px; cursor: pointer; }
+    .inline-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    button.btn-primary { background: #0284c7; border-color: #38bdf8; font-weight: 600; cursor: pointer; }
     button.btn-primary:hover { background: #0369a1; }
-    button.btn-secondary {
-      background: #334155;
-      cursor: pointer;
-    }
-    button.btn-danger {
-      background: #991b1b;
-      border-color: var(--danger);
-      cursor: pointer;
-    }
+    button.btn-secondary { background: #334155; cursor: pointer; }
+    button.btn-danger { background: #991b1b; border-color: var(--danger); cursor: pointer; }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
-
+    
     .progress-bar-container {
       width: 100%;
       background: #0f172a;
@@ -133,26 +106,21 @@
       overflow: hidden;
       height: 12px;
       display: none;
-      margin-top: 5px;
     }
-    .progress-bar {
-      width: 0%;
-      height: 100%;
-      background: var(--accent);
-      transition: width 0.1s linear;
-    }
+    .progress-bar { width: 0%; height: 100%; background: var(--accent); transition: width 0.1s linear; }
+    
     #logBox {
       background: #000;
       color: #38bdf8;
-      font-family: monospace;
+      font-family: Consolas, monospace;
       font-size: 0.72rem;
-      padding: 10px;
-      border-radius: 6px;
-      height: 120px;
+      padding: 12px;
+      border-radius: 8px;
+      height: 150px;
       overflow-y: auto;
       margin-top: 15px;
       width: 100%;
-      max-width: 785px;
+      max-width: 780px;
       border: 1px solid var(--border);
       white-space: pre-wrap;
     }
@@ -162,7 +130,7 @@
 
   <header>
     <h1>HT37 Watch Face Studio</h1>
-    <p>MoYoung V2 BLE Communicator & Watch Face Studio</p>
+    <div class="badge">ENGINE V3.0 - RAW GATT EXPLORER</div>
   </header>
 
   <div class="workspace">
@@ -171,15 +139,14 @@
       <div class="watch-bezel">
         <canvas id="watchCanvas" width="360" height="360"></canvas>
       </div>
-
-      <div class="editor-panel" style="width: 380px;">
-        <span class="section-title">Bluetooth Connection</span>
+      <div class="editor-panel" style="margin-top: 15px;">
+        <span class="section-title">Bluetooth Manager</span>
         <div class="inline-fields">
           <button id="btnConnect" class="btn-primary">1. Pair HT37</button>
           <button id="btnDisconnect" class="btn-danger" disabled>Disconnect</button>
         </div>
         <div class="inline-fields">
-          <button id="btnPing" class="btn-secondary" disabled>2. Wake Watch</button>
+          <button id="btnPing" class="btn-secondary" disabled>2. Wake / Vibrate</button>
           <button id="btnFlash" class="btn-primary" disabled>3. Flash Watch</button>
         </div>
         <div class="progress-bar-container" id="progressContainer">
@@ -192,70 +159,66 @@
     <div class="editor-panel">
       <span class="section-title">Wallpaper</span>
       <div class="form-group">
-        <label>Upload Image (Auto-scaled to 360x360)</label>
+        <label>Custom Image (Auto 360x360)</label>
         <input type="file" id="bgInput" accept="image/*">
       </div>
 
-      <span class="section-title">Clock Typography</span>
+      <span class="section-title">Time Display</span>
       <div class="inline-fields">
         <div class="form-group">
-          <label>Text Color</label>
+          <label>Color</label>
           <input type="color" id="timeColor" value="#ffffff">
         </div>
         <div class="form-group">
-          <label>Font Size (px)</label>
+          <label>Font Size</label>
           <input type="number" id="timeSize" value="64" min="20" max="120">
         </div>
       </div>
       <div class="inline-fields">
         <div class="form-group">
-          <label>Vertical Position (Y)</label>
+          <label>Vertical Position</label>
           <input type="range" id="timePosY" min="60" max="300" value="160">
         </div>
         <div class="form-group">
-          <label>Font Family</label>
+          <label>Font Style</label>
           <select id="timeFont">
-            <option value="sans-serif">Sans-Serif</option>
+            <option value="sans-serif">Modern Sans</option>
             <option value="monospace">Digital Monospace</option>
-            <option value="Impact">Impact</option>
-            <option value="Trebuchet MS">Trebuchet</option>
+            <option value="Impact">Bold Impact</option>
           </select>
         </div>
       </div>
 
-      <span class="section-title">Active Widgets</span>
+      <span class="section-title">Fitness Widgets</span>
       <div class="inline-fields">
         <div class="form-group">
-          <label><input type="checkbox" id="showDate" checked> Show Date</label>
+          <label><input type="checkbox" id="showDate" checked> Date</label>
           <input type="color" id="dateColor" value="#38bdf8">
         </div>
         <div class="form-group">
-          <label><input type="checkbox" id="showBattery" checked> Show Battery</label>
+          <label><input type="checkbox" id="showBattery" checked> Battery</label>
           <input type="color" id="batteryColor" value="#4ade80">
         </div>
       </div>
       <div class="inline-fields">
         <div class="form-group">
-          <label><input type="checkbox" id="showSteps" checked> Show Steps</label>
+          <label><input type="checkbox" id="showSteps" checked> Steps</label>
           <input type="color" id="stepsColor" value="#facc15">
         </div>
         <div class="form-group">
-          <label><input type="checkbox" id="showHeart" checked> Show Heart Rate</label>
+          <label><input type="checkbox" id="showHeart" checked> Heart Rate</label>
           <input type="color" id="heartColor" value="#f87171">
         </div>
       </div>
     </div>
   </div>
 
-  <div id="logBox">Status: Ready. Make sure phone Bluetooth is off. Click "Pair HT37".</div>
+  <div id="logBox">[ENGINE V3.0 READY] Factory reset your watch, ensure Phone Bluetooth is OFF, and click "1. Pair HT37".</div>
 
   <script>
-    // Known MoYoung / DaFit UUIDs
-    const SERVICE_UUIDS = [
-      '0000feea-0000-1000-8000-00805f9b34fb', // Standard MoYoung V2
-      '0000fee7-0000-1000-8000-00805f9b34fb', // DaFit Tencent service
-      '0000fee0-0000-1000-8000-00805f9b34fb'  // SPP UART
-    ];
+    // Standard MoYoung / DaFit GATT service specifications
+    const PRIMARY_FEEA = '0000feea-0000-1000-8000-00805f9b34fb';
+    const PRIMARY_FEE7 = '0000fee7-0000-1000-8000-00805f9b34fb';
 
     let bleDevice = null;
     let charOut = null;
@@ -286,7 +249,7 @@
 
     function cleanupConnection() {
       if (bleDevice && bleDevice.gatt.connected) {
-        log('Closing connection...');
+        log('Closing GATT link...');
         bleDevice.gatt.disconnect();
       }
       charOut = null;
@@ -298,21 +261,22 @@
 
     document.getElementById('btnDisconnect').onclick = () => {
       cleanupConnection();
-      log('Disconnected cleanly.');
+      log('Disconnected.');
     };
 
-    // --- BLUETOOTH CONNECTION ENGINE ---
+    // --- PAIRING & CONNECTION ROUTINE ---
     document.getElementById('btnConnect').onclick = async () => {
       try {
         cleanupConnection();
 
-        log('Requesting Bluetooth device...');
+        log('[1/4] Scanning for HT37 via MoYoung filters...');
         bleDevice = await navigator.bluetooth.requestDevice({
           filters: [
-            { namePrefix: 'HT37' },
-            { namePrefix: 'MOY' }
+            { services: [PRIMARY_FEEA] },
+            { services: [PRIMARY_FEE7] },
+            { namePrefix: 'HT37' }
           ],
-          optionalServices: SERVICE_UUIDS
+          optionalServices: [PRIMARY_FEEA, PRIMARY_FEE7, 0xfee0, 0x1800, 0x180a]
         });
 
         bleDevice.addEventListener('gattserverdisconnected', () => {
@@ -320,102 +284,83 @@
           cleanupConnection();
         });
 
-        log(`Connecting to GATT Server on ${bleDevice.name}...`);
+        log(`[2/4] Selected: ${bleDevice.name || 'HT37'}. Connecting GATT server...`);
         const server = await bleDevice.gatt.connect();
 
-        // Critical delay: Windows Bluetooth requires up to 1 second to populate GATT tables
-        log('Connected! Waiting for Windows to resolve GATT services...');
+        // 1000ms delay to let Windows Bluetooth stack enumerate services
+        log('[3/4] Connected! Waiting 1s for Windows GATT database enumeration...');
         await sleep(1000);
 
         let activeService = null;
-        for (const uuid of SERVICE_UUIDS) {
+        try {
+          activeService = await server.getPrimaryService(PRIMARY_FEEA);
+          log(' -> Bound to Primary Service: FEEA');
+        } catch (e1) {
           try {
-            log(`Checking service: ${uuid}...`);
-            activeService = await server.getPrimaryService(uuid);
-            if (activeService) {
-              log(`Found active service: ${uuid}`);
-              break;
-            }
-          } catch (e) {
-            // Service not found in this iteration, keep trying candidates
+            activeService = await server.getPrimaryService(PRIMARY_FEE7);
+            log(' -> Bound to Alternate Service: FEE7');
+          } catch (e2) {
+            throw new Error('Neither FEEA nor FEE7 found. Please verify the watch was factory reset.');
           }
         }
 
-        if (!activeService) {
-          // Second chance attempt after brief delay
-          await sleep(500);
-          for (const uuid of SERVICE_UUIDS) {
-            try {
-              activeService = await server.getPrimaryService(uuid);
-              if (activeService) break;
-            } catch (e) {}
-          }
-        }
-
-        if (!activeService) {
-          throw new Error('Watch GATT server returned no MoYoung services. Restart the watch and retry.');
-        }
-
-        log('Querying characteristics...');
+        log('[4/4] Locating TX / RX characteristics...');
         const characteristics = await activeService.getCharacteristics();
 
         for (const c of characteristics) {
-          const cUuid = c.uuid.toLowerCase();
-          const props = c.properties;
-          log(`Characteristic: ${cUuid} (Write: ${props.write || props.writeWithoutResponse}, Notify: ${props.notify})`);
+          const u = c.uuid.toLowerCase();
+          const p = c.properties;
+          log(`Found Char: ${u.substring(4, 8)} [write:${p.write || p.writeWithoutResponse}, notify:${p.notify}]`);
 
-          // Assign TX (Write)
-          if (!charOut && (props.write || props.writeWithoutResponse)) {
+          if (!charOut && (p.write || p.writeWithoutResponse)) {
             charOut = c;
-            log(`  -> Configured as TX: ${cUuid}`);
+            log(` -> Selected as TX (Out): ${u}`);
           }
-
-          // Assign RX (Notify)
-          if (!charIn && props.notify) {
+          if (!charIn && p.notify) {
             charIn = c;
-            log(`  -> Configured as RX: ${cUuid}`);
+            log(` -> Selected as RX (In): ${u}`);
           }
         }
 
-        if (!charOut) throw new Error('No writable characteristic found.');
+        if (!charOut) throw new Error('No writable characteristic discovered.');
 
         if (charIn) {
           await charIn.startNotifications();
           charIn.addEventListener('characteristicvaluechanged', (e) => {
-            const val = new Uint8Array(e.target.value.buffer);
-            log(`RX Packet: [${Array.from(val).map(b => b.toString(16).padStart(2, '0')).join(' ')}]`);
+            const b = new Uint8Array(e.target.value.buffer);
+            log(`RX: [${Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ')}]`);
           });
         }
 
-        log('SUCCESS: HT37 communications established!');
+        log('SUCCESS: HT37 ready! Click "Wake / Vibrate" to test.');
         document.getElementById('btnPing').disabled = false;
         document.getElementById('btnFlash').disabled = false;
         document.getElementById('btnDisconnect').disabled = false;
 
       } catch (err) {
-        log('Connection error: ' + err.message);
+        log('Connection aborted: ' + err.message);
         cleanupConnection();
       }
     };
 
-    // --- TEST / WAKE WATCH (Command 0x19) ---
+    // --- TEST WATCH WAKE (Cmd 0x19) ---
     document.getElementById('btnPing').onclick = async () => {
       if (!charOut) return;
       try {
-        log('Transmitting Wake / Find Watch frame (0x19)...');
+        log('Transmitting Wake frame (0x19)...');
         const pkt = buildPacket(0x19, [0x01]);
         if (charOut.properties.write) {
           await charOut.writeValue(pkt);
         } else {
           await charOut.writeValueWithoutResponse(pkt);
         }
-        log('Delivered! Watch screen should light up and vibrate.');
-      } catch (err) {
-        log('Error: ' + err.message);
+        log('Frame delivered! Screen should light up and vibrate.');
+      } catch (e) {
+        log('Wake failed: ' + e.message);
       }
     };
 
-    // --- CANVAS ENGINE (360x360) ---
+    // --- CANVAS RENDERING (360x360) ---
     const canvas = document.getElementById('watchCanvas');
     const ctx = canvas.getContext('2d');
     let userBgImage = null;
@@ -497,7 +442,7 @@
 
       bin[0] = 0x43; // 'C'
       bin[1] = 0x81;
-      bin[2] = 0xC3; // Face number 50001
+      bin[2] = 0xC3; // Face 50001
       bin[3] = 0x50;
       bin[4] = 360 & 0xFF; // Width
       bin[5] = (360 >> 8) & 0xFF;
@@ -521,7 +466,7 @@
     // --- WATCH FACE OTA TRANSFER ---
     document.getElementById('btnFlash').onclick = async () => {
       try {
-        log('Generating 360x360 Watch Face binary...');
+        log('Generating 360x360 Type C binary...');
         const bin = generateWatchFaceBinary();
         log(`Binary size: ${bin.byteLength} bytes.`);
 
@@ -530,7 +475,7 @@
         progressContainer.style.display = 'block';
         progressBar.style.width = '0%';
 
-        log('Sending OTA handshake (Cmd 0xB9)...');
+        log('Initiating OTA handshake (Cmd 0xB9)...');
         const initPayload = [
           0x01,
           bin.byteLength & 0xFF,
@@ -563,12 +508,12 @@
           if (offset % 2000 === 0 || offset === bin.byteLength) {
             const percent = ((offset / bin.byteLength) * 100).toFixed(1);
             progressBar.style.width = percent + '%';
-            log(`Progress: ${percent}% (${offset}/${bin.byteLength})`);
+            log(`Streaming: ${percent}% (${offset}/${bin.byteLength})`);
             await sleep(12);
           }
         }
 
-        log('Flash complete! Watch is updating display.');
+        log('Flash complete! Watch should refresh to your new dial.');
       } catch (err) {
         log('Flash error: ' + err.message);
       }
