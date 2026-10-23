@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Studio [Build 13.0]</title>
+  <title>HT37 Studio [Build 14.0]</title>
   <style>
     :root {
       --bg: #090d16;
@@ -134,7 +134,7 @@
 
   <header>
     <h1>HT37 Watch Face Studio</h1>
-    <div class="badge">BUILD 13.0 - NATIVE FITCLOUD TEMPLATE INJECTOR</div>
+    <div class="badge">BUILD 14.0 - DYNAMIC PAYLOAD & PACED STREAMING</div>
   </header>
 
   <div class="workspace">
@@ -149,6 +149,15 @@
           <button id="btnConnect" class="btn-primary">1. Connect HT37</button>
           <button id="btnDisconnect" class="btn-danger" disabled>Disconnect</button>
         </div>
+
+        <div class="form-group" style="margin-top: 5px;">
+          <label>Flash Mode:</label>
+          <select id="flashMode">
+            <option value="direct">Flash Genuine .BIN Directly (Unmodified)</option>
+            <option value="inject">Inject Canvas Artwork into Template</option>
+          </select>
+        </div>
+
         <div class="inline-fields">
           <button id="btnPrepare" class="btn-secondary" disabled>2. Prepare Watch</button>
           <button id="btnFlash" class="btn-success" disabled>3. Flash to Watch</button>
@@ -224,7 +233,7 @@
     </div>
   </div>
 
-  <div id="logBox">Status: Build 13.0 Ready. Connect HT37 via Bluetooth or export custom .bin for phone.</div>
+  <div id="logBox">Status: Build 14.0 Ready. Connect HT37 via Bluetooth.</div>
 
   <script>
     const SERVICE_VENDOR_9966 = '00009966-3c17-d293-8e48-14fe2e4da212';
@@ -270,7 +279,6 @@
         reader.onload = (evt) => {
           loadedTemplateBin = new Uint8Array(evt.target.result);
           log(`Genuine template loaded: ${file.name} (${loadedTemplateBin.byteLength} bytes).`);
-          log('Realtek hardware pointers & font tables preserved!');
         };
         reader.readAsArrayBuffer(file);
       }
@@ -279,7 +287,7 @@
     // --- 1. CONNECT HANDLER ---
     document.getElementById('btnConnect').onclick = async () => {
       try {
-        log('Connecting to HT37...');
+        log('Scanning for HT37...');
         bleDevice = await navigator.bluetooth.requestDevice({
           filters: [
             { name: 'HT37' },
@@ -313,8 +321,10 @@
         await charVendorRx.startNotifications();
         charVendorRx.addEventListener('characteristicvaluechanged', (e) => {
           const b = new Uint8Array(e.target.value.buffer);
+          const hex = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
+          log(`--> RX Notification (${b.length} bytes): ${hex}`);
           if (b.length === 32) {
-            log('--> Watch accepted OTA Mode! Screen is ready at 0%.');
+            log('--> Watch confirmed OTA Mode! Screen is ready.');
           }
         });
 
@@ -334,16 +344,47 @@
       setButtons(false);
     };
 
-    // --- 2. PREPARE WATCH ---
+    // --- GET BINARY TO FLASH ---
+    function getActiveBinary() {
+      const mode = document.getElementById('flashMode').value;
+      if (mode === 'direct') {
+        if (!loadedTemplateBin) {
+          throw new Error('Please load a genuine .BIN file first using the template picker.');
+        }
+        log(`Using unmodified genuine .BIN (${loadedTemplateBin.byteLength} bytes).`);
+        return loadedTemplateBin;
+      } else {
+        return compileWatchFace();
+      }
+    }
+
+    // --- 2. PREPARE WATCH WITH DYNAMIC FILE SIZE ---
+    async function prepareWatchForFile(fileSize) {
+      log(`Transmitting Dial OTA Initiation packet for ${fileSize} bytes...`);
+      // Dynamic little-endian file size in bytes 8..11
+      const initPkt = new Uint8Array([
+        0x01, 0, 0, 0, 0, 0, 0, 0,
+        (fileSize & 0xFF),
+        ((fileSize >> 8) & 0xFF),
+        ((fileSize >> 16) & 0xFF),
+        ((fileSize >> 24) & 0xFF),
+        0x04 // Dial slot ID
+      ]);
+      await sendVendorPacket(initPkt);
+      log('--> Sent init packet. Watch screen should show arrow/circle at 0%.');
+    }
+
     document.getElementById('btnPrepare').onclick = async () => {
       if (!charVendorTx) {
         log('Error: Watch not connected. Click "1. Connect HT37" first.');
         return;
       }
-      log('Transmitting Dial OTA Initiation packet...');
-      const initPkt = new Uint8Array([0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xC3, 0x01, 0x00, 0x04]);
-      await sendVendorPacket(initPkt);
-      log('--> Watch screen should illuminate with the arrow progress circle (0%).');
+      try {
+        const bin = getActiveBinary();
+        await prepareWatchForFile(bin.byteLength);
+      } catch (err) {
+        log('Prepare failed: ' + err.message);
+      }
     };
 
     // --- 3. BINARY COMPILER (INJECTS CANVAS INTO TEMPLATE) ---
@@ -365,12 +406,11 @@
       if (loadedTemplateBin) {
         log('Injecting custom artwork into genuine HT37 template .BIN...');
         const modifiedBin = new Uint8Array(loadedTemplateBin);
-        // Target offset in TBUI template is located at image block
         const targetOffset = modifiedBin.length >= rawBmpSize ? (modifiedBin.length - rawBmpSize) : 32;
         modifiedBin.set(rgb565Buf, targetOffset);
         return modifiedBin;
       } else {
-        log('Warning: Flashing without genuine base template. If watch rejects verify, load your template from phone.');
+        log('Flashing standalone TBUI structure...');
         const headerSize = 32;
         const bin = new Uint8Array(headerSize + rawBmpSize);
         bin[0] = 0x54; bin[1] = 0x42; bin[2] = 0x55; bin[3] = 0x49; // "TBUI"
@@ -383,30 +423,38 @@
 
     // --- EXPORT .BIN ---
     document.getElementById('btnExportBin').onclick = () => {
-      const bin = compileWatchFace();
-      const blob = new Blob([bin], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'HT37_Custom_Watchface.bin';
-      a.click();
-      URL.revokeObjectURL(url);
-      log('Exported: HT37_Custom_Watchface.bin');
+      try {
+        const bin = compileWatchFace();
+        const blob = new Blob([bin], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'HT37_Custom_Watchface.bin';
+        a.click();
+        URL.revokeObjectURL(url);
+        log('Exported: HT37_Custom_Watchface.bin');
+      } catch (err) {
+        log('Export failed: ' + err.message);
+      }
     };
 
-    // --- 4. FLOW-CONTROLLED FLASH STREAM ---
+    // --- 4. PACED FLASH STREAM ---
     document.getElementById('btnFlash').onclick = async () => {
       if (!charVendorTx) {
-        log('Error: Watch not connected. Click "1. Connect HT37" first.');
+        log('Error: Watch not connected.');
         return;
       }
       if (isFlashing) return;
       isFlashing = true;
 
       try {
-        const bin = compileWatchFace();
-        log(`Streaming binary: ${bin.byteLength} bytes...`);
+        const bin = getActiveBinary();
+        
+        // Ensure watch is initialized with exact file size
+        await prepareWatchForFile(bin.byteLength);
+        await sleep(500);
 
+        log(`Starting paced flash: ${bin.byteLength} bytes...`);
         const progressContainer = document.getElementById('progressContainer');
         const progressBar = document.getElementById('progressBar');
         progressContainer.style.display = 'block';
@@ -418,6 +466,7 @@
         while (offset < bin.byteLength) {
           if (!charVendorTx) throw new Error('Watch disconnected during stream.');
           const chunk = bin.subarray(offset, Math.min(offset + CHUNK_SIZE, bin.byteLength));
+          
           if (charVendorTx.properties.writeWithoutResponse) {
             await charVendorTx.writeValueWithoutResponse(chunk);
           } else {
@@ -425,16 +474,17 @@
           }
           offset += chunk.length;
 
-          await sleep(6);
+          // 20ms delay allows watch MCU flash write cycle to complete
+          await sleep(20);
 
-          if (offset % 2500 === 0 || offset === bin.byteLength) {
+          if (offset % 2000 === 0 || offset === bin.byteLength) {
             const percent = ((offset / bin.byteLength) * 100).toFixed(1);
             progressBar.style.width = percent + '%';
             log(`Progress: ${percent}% (${offset}/${bin.byteLength} bytes)`);
           }
         }
 
-        log('Stream complete! Watch is verifying and applying watch face.');
+        log('Transmission finished! Watch is verifying CRC and committing to screen.');
       } catch (err) {
         log('Flashing error: ' + err.message);
       } finally {
