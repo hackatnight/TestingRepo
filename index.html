@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Studio [Build 14.0]</title>
+  <title>HT37 Studio & Device Inspector [Build 15.0]</title>
   <style>
     :root {
       --bg: #090d16;
@@ -13,6 +13,7 @@
       --border: #1e293b;
       --danger: #ef4444;
       --success: #10b981;
+      --warning: #facc15;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -37,6 +38,53 @@
       border-radius: 4px;
       margin-top: 4px;
     }
+
+    /* Status Grid */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      width: 100%;
+      max-width: 1050px;
+      margin-bottom: 15px;
+    }
+    .metric-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .metric-label { font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; }
+    .metric-value { font-size: 1.15rem; font-weight: bold; color: #f8fafc; display: flex; align-items: center; gap: 8px; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); display: inline-block; }
+    .status-dot.active { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+    /* Diagnostic Actions */
+    .diag-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      width: 100%;
+      max-width: 1050px;
+      margin-bottom: 15px;
+    }
+    .diag-actions button {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .diag-actions button:hover:not(:disabled) { background: #334155; }
+    .diag-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Workspace */
     .workspace {
       display: flex;
       flex-wrap: wrap;
@@ -124,7 +172,7 @@
       overflow-y: auto;
       margin-top: 15px;
       width: 100%;
-      max-width: 800px;
+      max-width: 1050px;
       border: 1px solid var(--border);
       white-space: pre-wrap;
     }
@@ -133,10 +181,44 @@
 <body>
 
   <header>
-    <h1>HT37 Watch Face Studio</h1>
-    <div class="badge">BUILD 14.0 - DYNAMIC PAYLOAD & PACED STREAMING</div>
+    <h1>HT37 Studio & Telemetry Inspector</h1>
+    <div class="badge">BUILD 15.0 - SENSOR & STATUS DIAGNOSTIC DASHBOARD</div>
   </header>
 
+  <!-- LIVE SENSOR & STATUS DASHBOARD -->
+  <div class="dashboard-grid">
+    <div class="metric-card">
+      <span class="metric-label">Connection State</span>
+      <div class="metric-value">
+        <span id="connDot" class="status-dot"></span>
+        <span id="connStatus">Disconnected</span>
+      </div>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Watch Battery</span>
+      <div class="metric-value" id="valBattery">--</div>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Firmware / Model</span>
+      <div class="metric-value" id="valModel" style="font-size:0.95rem;">--</div>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Packets RX / TX</span>
+      <div class="metric-value" id="valPackets">0 / 0</div>
+    </div>
+  </div>
+
+  <!-- DIAGNOSTIC TEST CONTROLS -->
+  <div class="diag-actions">
+    <button id="btnConnect" class="btn-primary">Connect HT37</button>
+    <button id="btnDisconnect" class="btn-danger" disabled>Disconnect</button>
+    <button id="btnVibrate" disabled>📳 Test Vibrate</button>
+    <button id="btnTestWake" disabled>💡 Test Screen Wake (Trigger)</button>
+    <button id="btnPing" disabled>📡 Vendor Ping (FFB1/FFB2)</button>
+    <button id="btnClearLog">Clear Log</button>
+  </div>
+
+  <!-- WORKSPACE -->
   <div class="workspace">
     <div class="preview-section">
       <div class="watch-bezel">
@@ -145,11 +227,6 @@
 
       <div class="editor-panel" style="margin-top: 15px;">
         <span class="section-title">OTA Flashing Engine</span>
-        <div class="inline-fields">
-          <button id="btnConnect" class="btn-primary">1. Connect HT37</button>
-          <button id="btnDisconnect" class="btn-danger" disabled>Disconnect</button>
-        </div>
-
         <div class="form-group" style="margin-top: 5px;">
           <label>Flash Mode:</label>
           <select id="flashMode">
@@ -158,10 +235,7 @@
           </select>
         </div>
 
-        <div class="inline-fields">
-          <button id="btnPrepare" class="btn-secondary" disabled>2. Prepare Watch</button>
-          <button id="btnFlash" class="btn-success" disabled>3. Flash to Watch</button>
-        </div>
+        <button id="btnFlash" class="btn-success" disabled>Flash Watch Face to HT37</button>
         <button id="btnExportBin" class="btn-secondary">Export Custom .BIN File</button>
         
         <div class="progress-bar-container" id="progressContainer">
@@ -233,7 +307,7 @@
     </div>
   </div>
 
-  <div id="logBox">Status: Build 14.0 Ready. Connect HT37 via Bluetooth.</div>
+  <div id="logBox">Status: Build 15.0 Ready. Turn off phone Bluetooth, then click 'Connect HT37'.</div>
 
   <script>
     const SERVICE_VENDOR_9966 = '00009966-3c17-d293-8e48-14fe2e4da212';
@@ -241,35 +315,200 @@
     const CHAR_VENDOR_RX     = '0000ffb2-0000-1000-8000-00805f9b34fb';
 
     let bleDevice = null;
+    let gattServer = null;
     let charVendorTx = null;
     let charVendorRx = null;
+    let charAlert = null;
+    let rxCount = 0;
+    let txCount = 0;
     let isFlashing = false;
     let loadedTemplateBin = null;
 
     const logBox = document.getElementById('logBox');
     function log(msg) {
-      console.log(msg);
-      logBox.innerText += "\n" + msg;
+      const ts = new Date().toLocaleTimeString();
+      logBox.innerText += `\n[${ts}] ${msg}`;
       logBox.scrollTop = logBox.scrollHeight;
+      console.log(msg);
     }
+
+    document.getElementById('btnClearLog').onclick = () => { logBox.innerText = 'Log cleared.'; };
 
     const sleep = ms => new Promise(res => setTimeout(res, ms));
 
-    function setButtons(connected) {
-      document.getElementById('btnDisconnect').disabled = !connected;
-      document.getElementById('btnPrepare').disabled    = !connected;
-      document.getElementById('btnFlash').disabled      = !connected;
+    function updatePackets() {
+      document.getElementById('valPackets').textContent = `${rxCount} / ${txCount}`;
     }
 
-    async function sendVendorPacket(bytes) {
-      if (!charVendorTx) return;
-      const data = new Uint8Array(bytes);
-      if (charVendorTx.properties.write) {
-        await charVendorTx.writeValue(data);
-      } else {
-        await charVendorTx.writeValueWithoutResponse(data);
+    function setUIConnected(connected) {
+      document.getElementById('connDot').className = 'status-dot' + (connected ? ' active' : '');
+      document.getElementById('connStatus').textContent = connected ? 'Connected' : 'Disconnected';
+      document.getElementById('btnDisconnect').disabled = !connected;
+      document.getElementById('btnVibrate').disabled = !connected;
+      document.getElementById('btnTestWake').disabled = !connected;
+      document.getElementById('btnPing').disabled = !connected;
+      document.getElementById('btnFlash').disabled = !connected;
+    }
+
+    async function safeReadString(service, uuid) {
+      try {
+        const char = await service.getCharacteristic(uuid);
+        const val = await char.readValue();
+        return new TextDecoder().decode(val).replace(/\0/g, '').trim();
+      } catch (e) {
+        return null;
       }
     }
+
+    // --- 1. CONNECT & STATUS DUMP ---
+    document.getElementById('btnConnect').onclick = async () => {
+      try {
+        log('Scanning for HT37 smartwatch...');
+        bleDevice = await navigator.bluetooth.requestDevice({
+          filters: [
+            { name: 'HT37' },
+            { namePrefix: 'HT37' }
+          ],
+          optionalServices: [
+            SERVICE_VENDOR_9966,
+            '0000180a-0000-1000-8000-00805f9b34fb', // Device Info
+            '0000180f-0000-1000-8000-00805f9b34fb', // Battery
+            '00001802-0000-1000-8000-00805f9b34fb', // Immediate Alert (Vibrate)
+            '00001800-0000-1000-8000-00805f9b34fb'
+          ]
+        });
+
+        bleDevice.addEventListener('gattserverdisconnected', () => {
+          log('Notice: Watch disconnected.');
+          setUIConnected(false);
+          document.getElementById('valBattery').textContent = '--';
+          document.getElementById('valModel').textContent = '--';
+        });
+
+        log(`Connecting to GATT server on ${bleDevice.name}...`);
+        gattServer = await bleDevice.gatt.connect();
+        log('Connected! Querying device sensors and hardware information...');
+        setUIConnected(true);
+
+        // A. Read Battery Service (0x180F / 0x2A19)
+        try {
+          const batService = await gattServer.getPrimaryService('0000180f-0000-1000-8000-00805f9b34fb');
+          const batChar = await batService.getCharacteristic('00002a19-0000-1000-8000-00805f9b34fb');
+          const batVal = await batChar.readValue();
+          const batLevel = batVal.getUint8(0);
+          document.getElementById('valBattery').textContent = `${batLevel}%`;
+          log(`Sensor Dump -> Battery Level: ${batLevel}%`);
+        } catch (e) {
+          document.getElementById('valBattery').textContent = 'Vendor Handled';
+          log('Battery: Handled via Vendor Stream');
+        }
+
+        // B. Read Device Info (0x180A)
+        try {
+          const infoService = await gattServer.getPrimaryService('0000180a-0000-1000-8000-00805f9b34fb');
+          const model = await safeReadString(infoService, '00002a24-0000-1000-8000-00805f9b34fb') || 'HT37';
+          const fw = await safeReadString(infoService, '00002a26-0000-1000-8000-00805f9b34fb') || '';
+          document.getElementById('valModel').textContent = `${model} ${fw}`.trim();
+          log(`Sensor Dump -> Model: ${model}, Firmware: ${fw || 'Standard'}`);
+        } catch (e) {
+          document.getElementById('valModel').textContent = 'HT37 Realtek';
+        }
+
+        // C. Check Immediate Alert (Vibrate / 0x1802)
+        try {
+          const alertService = await gattServer.getPrimaryService('00001802-0000-1000-8000-00805f9b34fb');
+          charAlert = await alertService.getCharacteristic('00002a06-0000-1000-8000-00805f9b34fb');
+        } catch (e) {
+          charAlert = null;
+        }
+
+        // D. Vendor 9966 Service & RX Notifications
+        const vService = await gattServer.getPrimaryService(SERVICE_VENDOR_9966);
+        charVendorTx = await vService.getCharacteristic(CHAR_VENDOR_TX);
+        charVendorRx = await vService.getCharacteristic(CHAR_VENDOR_RX);
+
+        await charVendorRx.startNotifications();
+        charVendorRx.addEventListener('characteristicvaluechanged', (e) => {
+          rxCount++;
+          updatePackets();
+          const b = new Uint8Array(e.target.value.buffer);
+          const hex = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
+          log(`<< RX [${b.length}B]: ${hex}`);
+
+          // If watch reports 32-byte OTA handshake
+          if (b.length === 32) {
+            log('--> [Watch Status] Confirmed OTA Ready Screen.');
+          }
+        });
+
+        log('SUCCESS: All services mapped and live RX stream subscribed!');
+      } catch (err) {
+        log('Connection error: ' + err.message);
+        setUIConnected(false);
+      }
+    };
+
+    document.getElementById('btnDisconnect').onclick = () => {
+      if (bleDevice && bleDevice.gatt.connected) {
+        bleDevice.gatt.disconnect();
+      }
+      setUIConnected(false);
+    };
+
+    // --- 2. HARDWARE TEST BUTTONS ---
+    document.getElementById('btnVibrate').onclick = async () => {
+      try {
+        log('Sending Vibrate / Alert command...');
+        if (charAlert) {
+          await charAlert.writeValue(new Uint8Array([0x02])); // High Alert
+          log('>> Alert command written to 0x2A06.');
+        } else {
+          // Vendor alert fallback packet
+          const vibPkt = new Uint8Array([0x03, 0x01, 0x01]);
+          await charVendorTx.writeValueWithoutResponse(vibPkt);
+          log('>> Vendor vibrate packet sent.');
+        }
+      } catch (e) {
+        log('Vibrate error: ' + e.message);
+      }
+    };
+
+    // Proven wake trigger: 13-byte OTA trigger
+    document.getElementById('btnTestWake').onclick = async () => {
+      if (!charVendorTx) return;
+      try {
+        log('Transmitting screen wake / OTA initiation packet...');
+        const initPkt = new Uint8Array([0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xC3, 0x01, 0x00, 0x04]);
+        if (charVendorTx.properties.write) {
+          await charVendorTx.writeValue(initPkt);
+        } else {
+          await charVendorTx.writeValueWithoutResponse(initPkt);
+        }
+        txCount++;
+        updatePackets();
+        log('>> [TX 13B]: Screen wake sent. Watch display should turn on.');
+      } catch (e) {
+        log('Wake error: ' + e.message);
+      }
+    };
+
+    document.getElementById('btnPing').onclick = async () => {
+      if (!charVendorTx) return;
+      try {
+        log('Pinging watch over FFB1...');
+        const pingPkt = new Uint8Array([0x02, 0x01]);
+        if (charVendorTx.properties.write) {
+          await charVendorTx.writeValue(pingPkt);
+        } else {
+          await charVendorTx.writeValueWithoutResponse(pingPkt);
+        }
+        txCount++;
+        updatePackets();
+        log('>> [TX 2B Ping]: 02 01. Listening for watch response in RX...');
+      } catch (e) {
+        log('Ping error: ' + e.message);
+      }
+    };
 
     // --- TEMPLATE LOADER ---
     document.getElementById('binTemplateInput').addEventListener('change', (e) => {
@@ -278,142 +517,43 @@
         const reader = new FileReader();
         reader.onload = (evt) => {
           loadedTemplateBin = new Uint8Array(evt.target.result);
-          log(`Genuine template loaded: ${file.name} (${loadedTemplateBin.byteLength} bytes).`);
+          log(`Template loaded: ${file.name} (${loadedTemplateBin.byteLength} bytes).`);
         };
         reader.readAsArrayBuffer(file);
       }
     });
 
-    // --- 1. CONNECT HANDLER ---
-    document.getElementById('btnConnect').onclick = async () => {
-      try {
-        log('Scanning for HT37...');
-        bleDevice = await navigator.bluetooth.requestDevice({
-          filters: [
-            { name: 'HT37' },
-            { namePrefix: 'HT37' }
-          ],
-          optionalServices: [
-            SERVICE_VENDOR_9966,
-            '00001800-0000-1000-8000-00805f9b34fb',
-            '0000180a-0000-1000-8000-00805f9b34fb'
-          ]
-        });
-
-        bleDevice.addEventListener('gattserverdisconnected', () => {
-          log('Notice: HT37 disconnected.');
-          setButtons(false);
-          charVendorTx = null;
-          charVendorRx = null;
-          isFlashing = false;
-        });
-
-        log('Connecting GATT Server...');
-        const server = await bleDevice.gatt.connect();
-
-        log('Waiting 800ms for Windows GATT initialization...');
-        await sleep(800);
-
-        const vService = await server.getPrimaryService(SERVICE_VENDOR_9966);
-        charVendorTx = await vService.getCharacteristic(CHAR_VENDOR_TX);
-        charVendorRx = await vService.getCharacteristic(CHAR_VENDOR_RX);
-
-        await charVendorRx.startNotifications();
-        charVendorRx.addEventListener('characteristicvaluechanged', (e) => {
-          const b = new Uint8Array(e.target.value.buffer);
-          const hex = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
-          log(`--> RX Notification (${b.length} bytes): ${hex}`);
-          if (b.length === 32) {
-            log('--> Watch confirmed OTA Mode! Screen is ready.');
-          }
-        });
-
-        log('SUCCESS: HT37 connected! Click "2. Prepare Watch" to light up screen.');
-        setButtons(true);
-
-      } catch (err) {
-        log('Connection failed: ' + err.message);
-        setButtons(false);
-      }
-    };
-
-    document.getElementById('btnDisconnect').onclick = () => {
-      if (bleDevice && bleDevice.gatt.connected) {
-        bleDevice.gatt.disconnect();
-      }
-      setButtons(false);
-    };
-
-    // --- GET BINARY TO FLASH ---
     function getActiveBinary() {
       const mode = document.getElementById('flashMode').value;
       if (mode === 'direct') {
-        if (!loadedTemplateBin) {
-          throw new Error('Please load a genuine .BIN file first using the template picker.');
-        }
-        log(`Using unmodified genuine .BIN (${loadedTemplateBin.byteLength} bytes).`);
+        if (!loadedTemplateBin) throw new Error('Please select a genuine .BIN file first.');
         return loadedTemplateBin;
       } else {
         return compileWatchFace();
       }
     }
 
-    // --- 2. PREPARE WATCH WITH DYNAMIC FILE SIZE ---
-    async function prepareWatchForFile(fileSize) {
-      log(`Transmitting Dial OTA Initiation packet for ${fileSize} bytes...`);
-      // Dynamic little-endian file size in bytes 8..11
-      const initPkt = new Uint8Array([
-        0x01, 0, 0, 0, 0, 0, 0, 0,
-        (fileSize & 0xFF),
-        ((fileSize >> 8) & 0xFF),
-        ((fileSize >> 16) & 0xFF),
-        ((fileSize >> 24) & 0xFF),
-        0x04 // Dial slot ID
-      ]);
-      await sendVendorPacket(initPkt);
-      log('--> Sent init packet. Watch screen should show arrow/circle at 0%.');
-    }
-
-    document.getElementById('btnPrepare').onclick = async () => {
-      if (!charVendorTx) {
-        log('Error: Watch not connected. Click "1. Connect HT37" first.');
-        return;
-      }
-      try {
-        const bin = getActiveBinary();
-        await prepareWatchForFile(bin.byteLength);
-      } catch (err) {
-        log('Prepare failed: ' + err.message);
-      }
-    };
-
-    // --- 3. BINARY COMPILER (INJECTS CANVAS INTO TEMPLATE) ---
     function compileWatchFace() {
       const imgData = ctx.getImageData(0, 0, 360, 360).data;
-      const rawBmpSize = 360 * 360 * 2; // 259,200 bytes
-
+      const rawBmpSize = 360 * 360 * 2;
       const rgb565Buf = new Uint8Array(rawBmpSize);
       let p = 0;
       for (let i = 0; i < imgData.length; i += 4) {
-        const r = imgData[i];
-        const g = imgData[i + 1];
-        const b = imgData[i + 2];
+        const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2];
         const color = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
         rgb565Buf[p++] = color & 0xFF;
         rgb565Buf[p++] = (color >> 8) & 0xFF;
       }
 
       if (loadedTemplateBin) {
-        log('Injecting custom artwork into genuine HT37 template .BIN...');
         const modifiedBin = new Uint8Array(loadedTemplateBin);
         const targetOffset = modifiedBin.length >= rawBmpSize ? (modifiedBin.length - rawBmpSize) : 32;
         modifiedBin.set(rgb565Buf, targetOffset);
         return modifiedBin;
       } else {
-        log('Flashing standalone TBUI structure...');
         const headerSize = 32;
         const bin = new Uint8Array(headerSize + rawBmpSize);
-        bin[0] = 0x54; bin[1] = 0x42; bin[2] = 0x55; bin[3] = 0x49; // "TBUI"
+        bin[0] = 0x54; bin[1] = 0x42; bin[2] = 0x55; bin[3] = 0x49;
         bin[4] = 360 & 0xFF; bin[5] = (360 >> 8) & 0xFF;
         bin[6] = 360 & 0xFF; bin[7] = (360 >> 8) & 0xFF;
         bin.set(rgb565Buf, headerSize);
@@ -421,7 +561,6 @@
       }
     }
 
-    // --- EXPORT .BIN ---
     document.getElementById('btnExportBin').onclick = () => {
       try {
         const bin = compileWatchFace();
@@ -438,23 +577,34 @@
       }
     };
 
-    // --- 4. PACED FLASH STREAM ---
+    // --- FLASH WITH PROGRESS BAR ---
     document.getElementById('btnFlash').onclick = async () => {
-      if (!charVendorTx) {
-        log('Error: Watch not connected.');
-        return;
-      }
+      if (!charVendorTx) return;
       if (isFlashing) return;
       isFlashing = true;
 
       try {
         const bin = getActiveBinary();
-        
-        // Ensure watch is initialized with exact file size
-        await prepareWatchForFile(bin.byteLength);
+        log(`Initiating flash for ${bin.byteLength} bytes...`);
+
+        // Send initiation packet dynamically encoding exact file size
+        const initPkt = new Uint8Array([
+          0x01, 0, 0, 0, 0, 0, 0, 0,
+          (bin.byteLength & 0xFF),
+          ((bin.byteLength >> 8) & 0xFF),
+          ((bin.byteLength >> 16) & 0xFF),
+          ((bin.byteLength >> 24) & 0xFF),
+          0x04
+        ]);
+        if (charVendorTx.properties.write) {
+          await charVendorTx.writeValue(initPkt);
+        } else {
+          await charVendorTx.writeValueWithoutResponse(initPkt);
+        }
+        txCount++;
+        updatePackets();
         await sleep(500);
 
-        log(`Starting paced flash: ${bin.byteLength} bytes...`);
         const progressContainer = document.getElementById('progressContainer');
         const progressBar = document.getElementById('progressBar');
         progressContainer.style.display = 'block';
@@ -464,35 +614,34 @@
         let offset = 0;
 
         while (offset < bin.byteLength) {
-          if (!charVendorTx) throw new Error('Watch disconnected during stream.');
+          if (!charVendorTx) throw new Error('Disconnected.');
           const chunk = bin.subarray(offset, Math.min(offset + CHUNK_SIZE, bin.byteLength));
-          
           if (charVendorTx.properties.writeWithoutResponse) {
             await charVendorTx.writeValueWithoutResponse(chunk);
           } else {
             await charVendorTx.writeValue(chunk);
           }
           offset += chunk.length;
+          txCount++;
 
-          // 20ms delay allows watch MCU flash write cycle to complete
           await sleep(20);
 
           if (offset % 2000 === 0 || offset === bin.byteLength) {
-            const percent = ((offset / bin.byteLength) * 100).toFixed(1);
-            progressBar.style.width = percent + '%';
-            log(`Progress: ${percent}% (${offset}/${bin.byteLength} bytes)`);
+            const pct = ((offset / bin.byteLength) * 100).toFixed(1);
+            progressBar.style.width = pct + '%';
+            updatePackets();
+            log(`Stream: ${pct}% (${offset}/${bin.byteLength}B)`);
           }
         }
-
-        log('Transmission finished! Watch is verifying CRC and committing to screen.');
-      } catch (err) {
-        log('Flashing error: ' + err.message);
+        log('Transfer complete. Awaiting watch validation.');
+      } catch (e) {
+        log('Flash error: ' + e.message);
       } finally {
         isFlashing = false;
       }
     };
 
-    // Canvas Preview Engine
+    // Canvas Preview
     const canvas = document.getElementById('watchCanvas');
     const ctx = canvas.getContext('2d');
     let userBgImage = null;
