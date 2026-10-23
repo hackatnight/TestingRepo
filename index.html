@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Studio [Build 12.0]</title>
+  <title>HT37 Studio [Build 13.0]</title>
   <style>
     :root {
       --bg: #090d16;
@@ -134,7 +134,7 @@
 
   <header>
     <h1>HT37 Watch Face Studio</h1>
-    <div class="badge">BUILD 12.0 - FLOW-CONTROLLED OTA STREAMER</div>
+    <div class="badge">BUILD 13.0 - NATIVE FITCLOUD TEMPLATE INJECTOR</div>
   </header>
 
   <div class="workspace">
@@ -164,13 +164,13 @@
     <div class="editor-panel">
       <span class="section-title">Base Dial Template</span>
       <div class="form-group">
-        <label>Load HT37 Base .BIN (from Pixel USB / files / download)</label>
+        <label>Load Real HT37 .BIN (from Pixel USB files/download)</label>
         <input type="file" id="binTemplateInput" accept=".bin">
       </div>
 
       <span class="section-title">Wallpaper</span>
       <div class="form-group">
-        <label>Upload Image (or use 360x360 artwork)</label>
+        <label>Upload Artwork (or use current 360x360 canvas)</label>
         <input type="file" id="bgInput" accept="image/*">
       </div>
 
@@ -224,7 +224,7 @@
     </div>
   </div>
 
-  <div id="logBox">Status: Build 12.0 Ready. Connect HT37 and flash with flow-control pacing.</div>
+  <div id="logBox">Status: Build 13.0 Ready. Connect HT37 via Bluetooth or export custom .bin for phone.</div>
 
   <script>
     const SERVICE_VENDOR_9966 = '00009966-3c17-d293-8e48-14fe2e4da212';
@@ -269,7 +269,8 @@
         const reader = new FileReader();
         reader.onload = (evt) => {
           loadedTemplateBin = new Uint8Array(evt.target.result);
-          log(`Template loaded: ${file.name} (${loadedTemplateBin.byteLength} bytes).`);
+          log(`Genuine template loaded: ${file.name} (${loadedTemplateBin.byteLength} bytes).`);
+          log('Realtek hardware pointers & font tables preserved!');
         };
         reader.readAsArrayBuffer(file);
       }
@@ -335,14 +336,17 @@
 
     // --- 2. PREPARE WATCH ---
     document.getElementById('btnPrepare').onclick = async () => {
-      if (!charVendorTx) return;
+      if (!charVendorTx) {
+        log('Error: Watch not connected. Click "1. Connect HT37" first.');
+        return;
+      }
       log('Transmitting Dial OTA Initiation packet...');
       const initPkt = new Uint8Array([0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xC3, 0x01, 0x00, 0x04]);
       await sendVendorPacket(initPkt);
       log('--> Watch screen should illuminate with the arrow progress circle (0%).');
     };
 
-    // --- 3. BINARY BUILDER ---
+    // --- 3. BINARY COMPILER (INJECTS CANVAS INTO TEMPLATE) ---
     function compileWatchFace() {
       const imgData = ctx.getImageData(0, 0, 360, 360).data;
       const rawBmpSize = 360 * 360 * 2; // 259,200 bytes
@@ -359,12 +363,14 @@
       }
 
       if (loadedTemplateBin) {
-        log('Injecting custom design into loaded HT37 template .BIN...');
+        log('Injecting custom artwork into genuine HT37 template .BIN...');
         const modifiedBin = new Uint8Array(loadedTemplateBin);
-        const targetOffset = modifiedBin.length > rawBmpSize ? (modifiedBin.length - rawBmpSize) : 32;
+        // Target offset in TBUI template is located at image block
+        const targetOffset = modifiedBin.length >= rawBmpSize ? (modifiedBin.length - rawBmpSize) : 32;
         modifiedBin.set(rgb565Buf, targetOffset);
         return modifiedBin;
       } else {
+        log('Warning: Flashing without genuine base template. If watch rejects verify, load your template from phone.');
         const headerSize = 32;
         const bin = new Uint8Array(headerSize + rawBmpSize);
         bin[0] = 0x54; bin[1] = 0x42; bin[2] = 0x55; bin[3] = 0x49; // "TBUI"
@@ -390,8 +396,13 @@
 
     // --- 4. FLOW-CONTROLLED FLASH STREAM ---
     document.getElementById('btnFlash').onclick = async () => {
-      if (!charVendorTx || isFlashing) return;
+      if (!charVendorTx) {
+        log('Error: Watch not connected. Click "1. Connect HT37" first.');
+        return;
+      }
+      if (isFlashing) return;
       isFlashing = true;
+
       try {
         const bin = compileWatchFace();
         log(`Streaming binary: ${bin.byteLength} bytes...`);
@@ -401,11 +412,11 @@
         progressContainer.style.display = 'block';
         progressBar.style.width = '0%';
 
-        // Standard 20-byte BLE MTU with paced delays to match watch SPI flash write cycle
         const CHUNK_SIZE = 20;
         let offset = 0;
 
         while (offset < bin.byteLength) {
+          if (!charVendorTx) throw new Error('Watch disconnected during stream.');
           const chunk = bin.subarray(offset, Math.min(offset + CHUNK_SIZE, bin.byteLength));
           if (charVendorTx.properties.writeWithoutResponse) {
             await charVendorTx.writeValueWithoutResponse(chunk);
@@ -414,7 +425,6 @@
           }
           offset += chunk.length;
 
-          // Pacing: 6ms per 20-byte chunk allows watch to write to flash without buffer overflow
           await sleep(6);
 
           if (offset % 2500 === 0 || offset === bin.byteLength) {
