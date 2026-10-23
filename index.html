@@ -136,8 +136,23 @@
     </div>
     <div class="card">
         <h2>Watch Connection & Transmission</h2>
+        <div class="field-group">
+            <label>Target Service (Auto or Custom UUID)</label>
+            <select id="selectService">
+                <option value="AUTO">Auto-Scan Known FitCloud/Realtek Services</option>
+                <option value="0000e0ff-3c17-d293-8e48-14fe2e4da212">0000e0ff-3c17-d293-8e48-14fe2e4da212 (Realtek Comm)</option>
+                <option value="0000d0ff-3c17-d293-8e48-14fe2e4da212">0000d0ff-3c17-d293-8e48-14fe2e4da212 (Realtek OTA)</option>
+                <option value="00001601-0000-1000-8000-00805f9b34fb">00001601-0000-1000-8000-00805f9b34fb (Linwear/FitCloud 1601)</option>
+                <option value="00001600-0000-1000-8000-00805f9b34fb">00001600-0000-1000-8000-00805f9b34fb (Linwear/FitCloud 1600)</option>
+                <option value="6e400001-b5a3-f393-e0a9-e50e24dcca9f">6e400001-b5a3-f393-e0a9-e50e24dcca9f (Nordic UART)</option>
+                <option value="0000feea-0000-1000-8000-00805f9b34fb">0000feea-0000-1000-8000-00805f9b34fb (FitCloud FEEA)</option>
+                <option value="CUSTOM">Custom UUID (Enter manually below)</option>
+            </select>
+            <input type="text" id="customUuidInput" placeholder="Paste custom service UUID here..." style="display:none; margin-top: 6px;">
+        </div>
+
         <div class="btn-row" style="margin-bottom: 10px;">
-            <button class="btn-blue" id="btnBleConnect" style="flex: 1;">1. Pair & Scan Services</button>
+            <button class="btn-blue" id="btnBleConnect" style="flex: 1;">1. Connect Watch</button>
             <button class="btn-green" id="btnBlePush" style="flex: 1;" disabled>2. Push Dial</button>
         </div>
         <button class="btn-gray" id="btnSimulate" style="width: 100%; font-size: 0.8rem; padding: 6px;">Simulate Push (Test Run)</button>
@@ -157,6 +172,10 @@
         term.innerHTML += '<div>[' + new Date().toTimeString().split(' ')[0] + '] ' + m + '</div>';
         term.scrollTop = term.scrollHeight;
     }
+
+    document.getElementById('selectService').onchange = (e) => {
+        document.getElementById('customUuidInput').style.display = (e.target.value === 'CUSTOM') ? 'block' : 'none';
+    };
 
     function createDefaultWallpaper() {
         const off = document.createElement('canvas'); off.width = WIDTH; off.height = HEIGHT;
@@ -216,85 +235,82 @@
         log("Saved ht37_watchface.bin");
     };
 
-    // Candidate vendor services for FitCloudPro / RealTek / Nordic chipsets
-    const CANDIDATE_SERVICES = [
-        '00001800-0000-1000-8000-00805f9b34fb', // Generic Access
-        '00001801-0000-1000-8000-00805f9b34fb', // Generic Attribute
-        '0000180a-0000-1000-8000-00805f9b34fb', // Device Info
-        '6e400001-b5a3-f393-e0a9-e50e24dcca9f', // Nordic UART
-        '0000d0ff-3c17-d293-8e48-14fe2e4da212', // RealTek OTA
-        '00006287-3c17-d293-8e48-14fe2e4da212', // RealTek DFU
+    // Full set of Realtek, Nordic, and Topstep Smartwatch GATT UUIDs
+    const ALL_KNOWN_SERVICES = [
+        '0000e0ff-3c17-d293-8e48-14fe2e4da212',
+        '0000d0ff-3c17-d293-8e48-14fe2e4da212',
+        '00006287-3c17-d293-8e48-14fe2e4da212',
+        '00000aa0-3c17-d293-8e48-14fe2e4da212',
+        '6e400001-b5a3-f393-e0a9-e50e24dcca9f',
+        '00001600-0000-1000-8000-00805f9b34fb',
+        '00001601-0000-1000-8000-00805f9b34fb',
+        '00001602-0000-1000-8000-00805f9b34fb',
+        '00005833-0000-1000-8000-00805f9b34fb',
+        '0000feea-0000-1000-8000-00805f9b34fb',
+        '0000fee7-0000-1000-8000-00805f9b34fb',
         '0000fff0-0000-1000-8000-00805f9b34fb',
         '0000ffe0-0000-1000-8000-00805f9b34fb',
         '0000ffd0-0000-1000-8000-00805f9b34fb',
-        '0000ff12-0000-1000-8000-00805f9b34fb',
-        '0000fee7-0000-1000-8000-00805f9b34fb',
-        '0000feea-0000-1000-8000-00805f9b34fb',
-        '0000fee9-0000-1000-8000-00805f9b34fb'
+        '0000180a-0000-1000-8000-00805f9b34fb',
+        '0000180f-0000-1000-8000-00805f9b34fb',
+        '0000180d-0000-1000-8000-00805f9b34fb'
     ];
 
     let rxChar = null;
-    let txChar = null;
 
     document.getElementById('btnBleConnect').onclick = async () => {
         try {
-            log("Opening Web Bluetooth scan dialog...");
-            const dev = await navigator.bluetooth.requestDevice({
-                filters: [
-                    { namePrefix: "HT37" },
-                    { namePrefix: "Watch" }
-                ],
-                optionalServices: CANDIDATE_SERVICES
-            });
+            const selectVal = document.getElementById('selectService').value;
+            let targetList = ALL_KNOWN_SERVICES;
 
-            log("Connecting GATT to " + (dev.name || "Device") + "...");
-            const srv = await dev.gatt.connect();
-
-            log("Discovering available primary services...");
-            const services = await srv.getPrimaryServices();
-
-            rxChar = null;
-            txChar = null;
-
-            if (services.length === 0) {
-                log("Warning: No pre-registered services matched. Watch may use a custom 128-bit base UUID.");
+            if (selectVal === 'CUSTOM') {
+                const custom = document.getElementById('customUuidInput').value.trim().toLowerCase();
+                if (custom) targetList = [custom];
+            } else if (selectVal !== 'AUTO') {
+                targetList = [selectVal];
             }
 
-            for (const s of services) {
-                log("Service found: " + s.uuid);
-                try {
-                    const chars = await s.getCharacteristics();
-                    for (const c of chars) {
-                        const canWrite = c.properties.write || c.properties.writeWithoutResponse;
-                        const canNotify = c.properties.notify;
-                        log("  * Char: " + c.uuid + " [write=" + canWrite + ", notify=" + canNotify + "]");
+            log("Prompting Bluetooth pairing dialog...");
+            const dev = await navigator.bluetooth.requestDevice({
+                filters: [{ namePrefix: "HT37" }, { namePrefix: "Watch" }],
+                optionalServices: targetList
+            });
 
-                        if (!rxChar && canWrite) rxChar = c;
-                        if (!txChar && canNotify) txChar = c;
+            log("Connecting to GATT server on " + (dev.name || "HT37") + "...");
+            const srv = await dev.gatt.connect();
+
+            rxChar = null;
+            let foundService = null;
+
+            // Try each allowed service in sequence
+            for (const uuid of targetList) {
+                try {
+                    const s = await srv.getPrimaryService(uuid);
+                    if (s) {
+                        foundService = s;
+                        log("<b style='color:#34d399;'>Matched Service: " + uuid + "</b>");
+                        const chars = await s.getCharacteristics();
+                        for (const c of chars) {
+                            const w = c.properties.write || c.properties.writeWithoutResponse;
+                            log("  * Characteristic: " + c.uuid + " [write=" + w + ", notify=" + c.properties.notify + "]");
+                            if (!rxChar && w) rxChar = c;
+                        }
+                        if (rxChar) break;
                     }
                 } catch (e) {
-                    log("  (Could not read chars for " + s.uuid + ")");
+                    // Service not on device, continue scanning
                 }
             }
 
             if (rxChar) {
                 document.getElementById('btnBlePush').disabled = false;
-                log("<b style='color:#10b981;'>Ready! Write channel: " + rxChar.uuid + "</b>");
+                log("<b style='color:#10b981;'>Ready! Write Characteristic: " + rxChar.uuid + "</b>");
             } else {
-                log("<b style='color:#f59e0b;'>Connected, but no writable characteristic identified yet. Check discovered list above.</b>");
-            }
-
-            if (txChar) {
-                await txChar.startNotifications();
-                txChar.addEventListener('characteristicvaluechanged', (e) => {
-                    const b = new Uint8Array(e.target.value.buffer);
-                    const h = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
-                    log("<= Watch Ack: " + h);
-                });
-                log("Notifications enabled on " + txChar.uuid);
+                log("<b style='color:#f59e0b;'>Connected, but none of the candidate services matched. Open chrome://bluetooth-internals/#devices in a new tab to see your watch's exact UUID.</b>");
             }
         } catch (e) {
-            log("BLE Error: " + e.message);
+            log("<b style='color:#ef4444;'>BLE Error: " + e.message + "</b>");
+            log("Tip: Make sure phone Bluetooth is OFF so the watch is not in-use.");
         }
     };
 
