@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Studio [Build 8.0]</title>
+  <title>HT37 Studio [Build 9.0]</title>
   <style>
     :root {
       --bg: #090d16;
@@ -121,7 +121,7 @@
 
   <header>
     <h1>HT37 Watch Face Studio</h1>
-    <div class="badge">BUILD 8.0 - AUTO-HANDSHAKE & AUTHENTICATION</div>
+    <div class="badge">BUILD 9.0 - CONTROLLED PAIRING & SCREEN WAKE</div>
   </header>
 
   <div class="workspace">
@@ -137,7 +137,7 @@
           <button id="btnDisconnect" class="btn-danger" disabled>Disconnect</button>
         </div>
         <div class="inline-fields">
-          <button id="btnAuth" class="btn-success" disabled>2. Handshake Auth</button>
+          <button id="btnPair" class="btn-success" disabled>2. Request Watch Pairing</button>
           <button id="btnWake" class="btn-primary" disabled>3. Wake / Vibrate</button>
         </div>
         
@@ -206,7 +206,7 @@
     </div>
   </div>
 
-  <div id="logBox">Status: Build 8.0 Ready. Auto-Handshake active. Click "1. Connect HT37".</div>
+  <div id="logBox">Status: Build 9.0 Ready. Click "1. Connect HT37" to pair.</div>
 
   <script>
     const SERVICE_VENDOR_9966 = '00009966-3c17-d293-8e48-14fe2e4da212';
@@ -217,7 +217,6 @@
     let charVendorTx = null;
     let charVendorRx = null;
     let keepAliveTimer = null;
-    let isAuthenticated = false;
 
     const logBox = document.getElementById('logBox');
     function log(msg) {
@@ -230,7 +229,7 @@
 
     function setButtons(connected) {
       document.getElementById('btnDisconnect').disabled = !connected;
-      document.getElementById('btnAuth').disabled       = !connected;
+      document.getElementById('btnPair').disabled       = !connected;
       document.getElementById('btnWake').disabled       = !connected;
       document.getElementById('btnSendHex').disabled    = !connected;
     }
@@ -268,22 +267,21 @@
 
     function startKeepAlive() {
       stopKeepAlive();
+      // Steady 4-second keep-alive to maintain connection without flooding
       keepAliveTimer = setInterval(async () => {
         if (charVendorTx && bleDevice && bleDevice.gatt.connected) {
           try {
-            // Authenticated keep-alive frame
-            const ping = make13BytePkt(0x01, 0x01, 0x00, 0x00);
+            const ping = make13BytePkt(0x01, 0x00, 0x00, 0x00);
             await charVendorTx.writeValueWithoutResponse(ping);
           } catch (e) {}
         }
-      }, 3000);
+      }, 4000);
     }
 
-    // --- CONNECTION HANDLER ---
+    // --- 1. CONNECT HANDLER ---
     document.getElementById('btnConnect').onclick = async () => {
       try {
         stopKeepAlive();
-        isAuthenticated = false;
         log('Connecting to HT37...');
         bleDevice = await navigator.bluetooth.requestDevice({
           filters: [
@@ -303,10 +301,9 @@
           setButtons(false);
           charVendorTx = null;
           charVendorRx = null;
-          isAuthenticated = false;
         });
 
-        log(`Connecting GATT server...`);
+        log('Connecting GATT Server...');
         const server = await bleDevice.gatt.connect();
 
         log('Waiting 800ms for Windows GATT initialization...');
@@ -316,26 +313,23 @@
         charVendorTx = await vService.getCharacteristic(CHAR_VENDOR_TX);
         charVendorRx = await vService.getCharacteristic(CHAR_VENDOR_RX);
 
-        // RX Notification Router with AUTO-HANDSHAKE responder
+        // RX Notification Router (Passive monitoring only - NO recursive looping)
         await charVendorRx.startNotifications();
-        charVendorRx.addEventListener('characteristicvaluechanged', async (e) => {
+        charVendorRx.addEventListener('characteristicvaluechanged', (e) => {
           const b = new Uint8Array(e.target.value.buffer);
           log(`RX [${b.length}B]: ${Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ')}`);
 
-          // If watch sends challenge 0x81, immediately answer with 0x01 handshake response
-          if (b[0] === 0x81) {
-            log('--> Watch sent Auth Challenge (0x81). Answering handshake automatically...');
-            const authResponse = make13BytePkt(0x01, b[8], b[9], 0x00);
-            await sendVendorPacket(authResponse);
-            isAuthenticated = true;
-            log('--> Handshake ACK transmitted. Session unlocking...');
+          if (b[0] === 0x81 && b[8] === 0x01) {
+            log('--> Watch is waiting for Pairing Authorization. Click "2. Request Watch Pairing" below and tap "Agree" on your watch screen.');
           } else if (b[0] === 0x82 && b[8] !== 0x40) {
-            log(`--> Command executed successfully by watch! Status: ${b[8].toString(16)}`);
+            log(`--> Command accepted! Return status: 0x${b[8].toString(16)}`);
+          } else if (b[0] === 0x82 && b[8] === 0x40) {
+            log('--> Watch replied 0x40 (Unauthorized). You must tap "Agree" on the watch screen to authorize.');
           }
         });
 
         startKeepAlive();
-        log('SUCCESS: Connected! Listening for handshake challenge...');
+        log('SUCCESS: Connection open! Click "2. Request Watch Pairing".');
         setButtons(true);
 
       } catch (err) {
@@ -353,29 +347,30 @@
       setButtons(false);
     };
 
-    // --- MANUAL HANDSHAKE TRIGGER ---
-    document.getElementById('btnAuth').onclick = async () => {
+    // --- 2. REQUEST PAIRING / HANDSHAKE ---
+    document.getElementById('btnPair').onclick = async () => {
       if (!charVendorTx) return;
-      log('Sending manual Authentication Unlock sequences...');
-      // 1. Send Login Key Response
-      await sendVendorPacket(make13BytePkt(0x01, 0x01, 0xC3, 0x00));
-      await sleep(300);
-      // 2. Send Bind Confirm
-      await sendVendorPacket(make13BytePkt(0x01, 0x02, 0x01, 0x00));
-      log('Auth frames sent. Check log for confirmation.');
+      log('Transmitting single Bind Request to watch...');
+      
+      // Send single Bind Frame: [0x01, 7 zeros, 0x01, 0xC3, 0x01, 0x00, 0x04]
+      const bindPkt = new Uint8Array([0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xC3, 0x01, 0x00, 0x04]);
+      await sendVendorPacket(bindPkt);
+      
+      log('>>> LOOK AT YOUR WATCH SCREEN NOW! <<<');
+      log('If a pop-up appears with a Green Checkmark or "Agree / Pair", tap it immediately.');
     };
 
-    // --- WAKE / VIBRATE BUTTON ---
+    // --- 3. WAKE / VIBRATE ---
     document.getElementById('btnWake').onclick = async () => {
       if (!charVendorTx) return;
-      log('Transmitting Find Watch / Vibrate frame (0x08)...');
+      log('Transmitting Find Watch / Vibrate (0x08)...');
       await sendVendorPacket(make13BytePkt(0x02, 0x08, 0x01, 0x01));
-      await sleep(300);
-      log('Transmitting Screen Light Up frame (0x0E)...');
+      await sleep(350);
+      log('Transmitting Screen Light Up (0x0E)...');
       await sendVendorPacket(make13BytePkt(0x02, 0x0E, 0x01, 0x01));
     };
 
-    // --- RAW HEX CONSOLE ---
+    // --- RAW HEX SENDER ---
     document.getElementById('btnSendHex').onclick = async () => {
       const hex = document.getElementById('hexInput').value.trim();
       if (!hex) return;
