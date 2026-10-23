@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Telemetry & Protocol Explorer [Build 19.0]</title>
+  <title>HT37 Data Harvester [Build 20.0]</title>
   <style>
     :root {
       --bg: #090d16;
@@ -13,6 +13,7 @@
       --border: #1e293b;
       --danger: #ef4444;
       --success: #10b981;
+      --warn: #facc15;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -86,19 +87,13 @@
     button.btn-success { background: #059669; border-color: var(--success); }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    /* Interactive Hex Terminal */
-    .terminal-panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
     .terminal-row {
       display: flex;
       gap: 8px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
     }
     .terminal-row input {
       flex: 1;
@@ -113,75 +108,65 @@
 
     #logTable {
       width: 100%;
-      height: 350px;
+      height: 380px;
       background: #020617;
       border: 1px solid var(--border);
       border-radius: 8px;
       overflow-y: auto;
-      padding: 8px;
+      padding: 10px;
       font-family: Consolas, monospace;
       font-size: 0.75rem;
-      line-height: 1.4;
+      line-height: 1.45;
       white-space: pre-wrap;
     }
     .rx-line { color: #4ade80; }
     .tx-line { color: #38bdf8; }
     .sys-line { color: #facc15; }
-    .err-line { color: #ef4444; }
+    .val-line { color: #c084fc; font-weight: bold; }
   </style>
 </head>
 <body>
 
   <header>
-    <h1>HT37 Telemetry & Protocol Explorer</h1>
-    <div class="badge">BUILD 19.0 - REVERSE ENGINEERING & SENSOR SUITE</div>
+    <h1>HT37 Telemetry Harvester</h1>
+    <div class="badge">BUILD 20.0 - 13-BYTE PROTOCOL HARVESTER</div>
   </header>
 
   <div class="container">
-
-    <!-- METRICS GRID -->
     <div class="grid">
       <div class="card">
-        <span class="card-label">Watch Connection</span>
+        <span class="card-label">Link Status</span>
         <div class="card-value" id="valStatus" style="color:var(--danger)">Disconnected</div>
       </div>
       <div class="card">
-        <span class="card-label">Hardware Info</span>
-        <div class="card-value" id="valModel" style="font-size:0.9rem;">--</div>
+        <span class="card-label">Last Decoded Value</span>
+        <div class="card-value" id="valDecoded">--</div>
       </div>
       <div class="card">
-        <span class="card-label">Last Opcode Returned</span>
-        <div class="card-value" id="valOpcode">None</div>
+        <span class="card-label">Reported Dial Capacity</span>
+        <div class="card-value" id="valCapacity">--</div>
       </div>
       <div class="card">
-        <span class="card-label">Telemetry Packets</span>
+        <span class="card-label">Packets Logged</span>
         <div class="card-value" id="valPackets">0 RX / 0 TX</div>
       </div>
     </div>
 
-    <!-- MAIN ACTION BAR -->
     <div class="action-bar">
       <button id="btnConnect" class="btn-primary">1. Connect HT37</button>
       <button id="btnDisconnect" class="btn-danger" disabled>Disconnect</button>
-      <button id="btnProbeAll" class="btn-success" disabled>Run Full Probe Suite</button>
-      <button id="btnQueryBattery" disabled>Query Battery</button>
-      <button id="btnTriggerScreen" disabled>Trigger Screen Wake</button>
-      <button id="btnExportLog">Export Telemetry Log (.txt)</button>
-      <button id="btnClearLog">Clear Screen</button>
+      <button id="btnHarvestAll" class="btn-success" disabled>2. Harvest All Watch Telemetry</button>
+      <button id="btnWakeScreen" disabled>Trigger Screen Wake</button>
+      <button id="btnExportLog">Export Harvester Log (.txt)</button>
+      <button id="btnClearLog">Clear Log</button>
     </div>
 
-    <!-- MANUAL COMMAND SENDER -->
-    <div class="terminal-panel">
-      <span class="card-label">Manual Vendor Command Terminal (Sends to FFB1)</span>
-      <div class="terminal-row">
-        <input type="text" id="customHex" placeholder="Enter hex bytes (e.g. 02 01 or 01 00 00 00 00 00 00 00 01 C3 01 00 04)">
-        <button id="btnSendCustom" class="btn-primary" disabled>Send to Watch</button>
-      </div>
+    <div class="terminal-row">
+      <input type="text" id="customHex" placeholder="Enter custom 13-byte packet or opcode (e.g. 02 00 00 00 00 00 00 00 03 00 00 00 05)">
+      <button id="btnSendCustom" class="btn-primary" disabled>Send 13B Packet</button>
     </div>
 
-    <!-- LIVE TELEMETRY TERMINAL -->
-    <div id="logTable">Build 19.0 Telemetry Suite Ready. Turn phone Bluetooth OFF, then click '1. Connect HT37'.</div>
-
+    <div id="logTable">Build 20.0 Ready. Turn phone Bluetooth OFF, then click '1. Connect HT37'.</div>
   </div>
 
   <script>
@@ -204,10 +189,10 @@
       const line = `[${ts}] ${msg}`;
       fullSessionLog += line + "\n";
       
-      const span = document.createElement('div');
-      span.className = `${type}-line`;
-      span.textContent = line;
-      logEl.appendChild(span);
+      const div = document.createElement('div');
+      div.className = `${type}-line`;
+      div.textContent = line;
+      logEl.appendChild(div);
       logEl.scrollTop = logEl.scrollHeight;
     }
 
@@ -217,22 +202,33 @@
       document.getElementById('valPackets').textContent = `${rxCount} RX / ${txCount} TX`;
     }
 
-    async function sendBytes(arr, label = '') {
+    // Helper to generate a valid 13-byte frame
+    function make13BytePacket(opcode, param0 = 0, param1 = 0, param2 = 0, param3 = 0, tag = 0) {
+      const pkt = new Uint8Array(13);
+      pkt[0] = opcode;
+      // bytes 1..7 are 0
+      pkt[8] = param0;
+      pkt[9] = param1;
+      pkt[10] = param2;
+      pkt[11] = param3;
+      pkt[12] = tag === 0 ? ((opcode + param0 + param1 + param2 + param3) & 0xFF) : tag;
+      return pkt;
+    }
+
+    async function send13B(pkt, label = '') {
       if (!charVendorTx) return;
-      const data = new Uint8Array(arr);
-      const hex = Array.from(data).map(x => x.toString(16).padStart(2, '0')).join(' ');
-      
+      const hex = Array.from(pkt).map(x => x.toString(16).padStart(2, '0')).join(' ');
       if (charVendorTx.properties.write) {
-        await charVendorTx.writeValue(data);
+        await charVendorTx.writeValue(pkt);
       } else {
-        await charVendorTx.writeValueWithoutResponse(data);
+        await charVendorTx.writeValueWithoutResponse(pkt);
       }
       txCount++;
       updateCounters();
-      log(`>> TX [${data.length}B]: ${hex} ${label ? '(' + label + ')' : ''}`, 'tx');
+      log(`>> TX [13B]: ${hex} ${label ? '(' + label + ')' : ''}`, 'tx');
     }
 
-    // --- 1. CONNECT & MAP SERVICES ---
+    // --- 1. CONNECT ---
     document.getElementById('btnConnect').onclick = async () => {
       try {
         log('Scanning for HT37...', 'sys');
@@ -240,13 +236,12 @@
           filters: [{ name: 'HT37' }, { namePrefix: 'HT37' }],
           optionalServices: [
             SERVICE_VENDOR_9966,
-            '0000180a-0000-1000-8000-00805f9b34fb', // Device Info
             '00001800-0000-1000-8000-00805f9b34fb'
           ]
         });
 
         bleDevice.addEventListener('gattserverdisconnected', () => {
-          log('Notice: Watch disconnected.', 'err');
+          log('Notice: Watch disconnected.', 'sys');
           document.getElementById('valStatus').textContent = 'Disconnected';
           document.getElementById('valStatus').style.color = 'var(--danger)';
           toggleButtons(false);
@@ -258,19 +253,6 @@
         log(`Connected to GATT server on ${bleDevice.name}!`, 'sys');
         toggleButtons(true);
 
-        // Read standard Device Information (0x180A)
-        try {
-          const infoSvc = await gattServer.getPrimaryService('0000180a-0000-1000-8000-00805f9b34fb');
-          const modelChar = await infoSvc.getCharacteristic('00002a24-0000-1000-8000-00805f9b34fb');
-          const val = await modelChar.readValue();
-          const modelStr = new TextDecoder().decode(val).replace(/\0/g, '');
-          document.getElementById('valModel').textContent = modelStr || 'HT37 Realtek';
-          log(`Hardware Model: ${modelStr}`, 'sys');
-        } catch (e) {
-          document.getElementById('valModel').textContent = 'HT37 Topstep';
-        }
-
-        // Map Vendor Channel
         const vService = await gattServer.getPrimaryService(SERVICE_VENDOR_9966);
         charVendorTx = await vService.getCharacteristic(CHAR_VENDOR_TX);
         charVendorRx = await vService.getCharacteristic(CHAR_VENDOR_RX);
@@ -281,24 +263,36 @@
           updateCounters();
           const b = new Uint8Array(e.target.value.buffer);
           const hex = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
-          const ascii = Array.from(b).map(x => (x >= 32 && x <= 126) ? String.fromCharCode(x) : '.').join('');
           
-          document.getElementById('valOpcode').textContent = `0x${b[0].toString(16).toUpperCase()} (${b.length}B)`;
-          log(`<< RX [${b.length}B]: ${hex} | ASCII: "${ascii}"`, 'rx');
+          if (b.length === 13) {
+            // Decode 4-byte little-endian value at bytes 8..11
+            const val32 = b[8] | (b[9] << 8) | (b[10] << 16) | (b[11] << 24);
+            const opcodeHex = `0x${b[0].toString(16).toUpperCase()}`;
+
+            let interpretation = `Val: ${val32} (0x${val32.toString(16)})`;
+            if (b[0] === 0xA0) {
+              interpretation = `Max Slot Capacity: ${val32} bytes (~${Math.round(val32/1024)} KB)`;
+              document.getElementById('valCapacity').textContent = `${val32} B`;
+            }
+
+            document.getElementById('valDecoded').textContent = `${opcodeHex}: ${val32}`;
+            log(`<< RX [13B]: ${hex} --> [${opcodeHex}] ${interpretation}`, 'rx');
+          } else {
+            log(`<< RX [${b.length}B]: ${hex}`, 'rx');
+          }
         });
 
-        log('SUCCESS: Subscribed to live vendor notifications.', 'sys');
+        log('SUCCESS: Subscribed to live RX notifications. Click "2. Harvest All Watch Telemetry".', 'sys');
 
       } catch (err) {
-        log('Connection error: ' + err.message, 'err');
+        log('Connection error: ' + err.message, 'sys');
       }
     };
 
     function toggleButtons(connected) {
       document.getElementById('btnDisconnect').disabled = !connected;
-      document.getElementById('btnProbeAll').disabled = !connected;
-      document.getElementById('btnQueryBattery').disabled = !connected;
-      document.getElementById('btnTriggerScreen').disabled = !connected;
+      document.getElementById('btnHarvestAll').disabled = !connected;
+      document.getElementById('btnWakeScreen').disabled = !connected;
       document.getElementById('btnSendCustom').disabled = !connected;
     }
 
@@ -306,54 +300,59 @@
       if (bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect();
     };
 
-    // --- 2. AUTOMATED PROBE SUITE ---
-    document.getElementById('btnProbeAll').onclick = async () => {
-      log('--- INITIATING SYSTEM PROBE SUITE ---', 'sys');
-      
-      const probeCommands = [
-        { name: 'Query Battery Status', bytes: [0x02, 0x03] },
-        { name: 'Query Watch Hardware / Firmware Info', bytes: [0x02, 0x01] },
-        { name: 'Query LCD Resolution & Shape', bytes: [0x02, 0x05] },
-        { name: 'Query UI & Tool Version', bytes: [0x02, 0x07] },
-        { name: 'Query Dial Spaces & Capacity', bytes: [0x02, 0x08] },
-        { name: 'Query Realtime Steps & Activity', bytes: [0x03, 0x01] }
+    // --- 2. HARVEST TELEMETRY (ALL 13-BYTE PACKETS) ---
+    document.getElementById('btnHarvestAll').onclick = async () => {
+      log('--- STARTING 13-BYTE PROTOCOL HARVEST ---', 'val');
+
+      const probes = [
+        { name: 'Probe Battery (0x02 sub 0x03)', pkt: make13BytePacket(0x02, 0x03, 0, 0, 0, 0x05) },
+        { name: 'Probe Device Info (0x02 sub 0x01)', pkt: make13BytePacket(0x02, 0x01, 0, 0, 0, 0x03) },
+        { name: 'Probe LCD Shape / Res (0x02 sub 0x05)', pkt: make13BytePacket(0x02, 0x05, 0, 0, 0, 0x07) },
+        { name: 'Probe UI / Tool Version (0x02 sub 0x07)', pkt: make13BytePacket(0x02, 0x07, 0, 0, 0, 0x09) },
+        { name: 'Probe Dial Spaces (0x02 sub 0x08)', pkt: make13BytePacket(0x02, 0x08, 0, 0, 0, 0x0A) },
+        { name: 'Probe Sensor Stream (0x03 sub 0x01)', pkt: make13BytePacket(0x03, 0x01, 0, 0, 0, 0x04) },
+        { name: 'Probe Config Read (0xA0 sub 0x01)', pkt: make13BytePacket(0xA0, 0x01, 0, 0, 0, 0xA1) },
+        { name: 'Probe Status Query (0xB0 sub 0x01)', pkt: make13BytePacket(0xB0, 0x01, 0, 0, 0, 0xB1) }
       ];
 
-      for (const cmd of probeCommands) {
-        log(`Running Probe: ${cmd.name}...`, 'sys');
-        await sendBytes(cmd.bytes, cmd.name);
-        await sleep(750); // Pause to allow watch to reply
+      for (const p of probes) {
+        log(`Transmitting: ${p.name}...`, 'sys');
+        await send13B(p.pkt, p.name);
+        await sleep(900); // 900ms response window
       }
 
-      log('--- PROBE SUITE COMPLETE. Review received packets above. ---', 'sys');
+      log('--- HARVEST COMPLETED. Check received decoded metrics above. ---', 'val');
     };
 
-    // --- 3. DEDICATED BUTTONS ---
-    document.getElementById('btnQueryBattery').onclick = async () => {
-      await sendBytes([0x02, 0x03], 'Query Battery');
+    // Screen Wake
+    document.getElementById('btnWakeScreen').onclick = async () => {
+      const wakePkt = new Uint8Array([0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xC3, 0x01, 0x00, 0x04]);
+      await send13B(wakePkt, 'Screen Wake Trigger');
     };
 
-    document.getElementById('btnTriggerScreen').onclick = async () => {
-      await sendBytes([0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xC3, 0x01, 0x00, 0x04], 'Screen Wake Trigger');
-    };
-
-    // --- 4. MANUAL HEX TERMINAL ---
+    // Custom 13-byte Sender
     document.getElementById('btnSendCustom').onclick = async () => {
       const raw = document.getElementById('customHex').value.trim();
       if (!raw) return;
       const clean = raw.replace(/0x/g, '').replace(/[\s,]/g, '');
-      if (clean.length % 2 !== 0) {
-        alert('Invalid Hex string: length must be even.');
-        return;
-      }
       const bytes = [];
       for (let i = 0; i < clean.length; i += 2) {
         bytes.push(parseInt(clean.substr(i, 2), 16));
       }
-      await sendBytes(bytes, 'Manual Custom Command');
+      
+      let pkt;
+      if (bytes.length === 13) {
+        pkt = new Uint8Array(bytes);
+      } else if (bytes.length <= 5) {
+        // Automatically frame into 13 bytes
+        pkt = make13BytePacket(bytes[0] || 0, bytes[1] || 0, bytes[2] || 0, bytes[3] || 0, bytes[4] || 0);
+      } else {
+        alert('Please enter either 13 bytes or a short opcode array.');
+        return;
+      }
+      await send13B(pkt, 'Custom Terminal Send');
     };
 
-    // --- 5. LOG UTILITIES ---
     document.getElementById('btnClearLog').onclick = () => {
       logEl.innerHTML = '';
       fullSessionLog = '';
@@ -364,7 +363,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `HT37_Telemetry_Dump_${Date.now()}.txt`;
+      a.download = `HT37_Harvest_Log_${Date.now()}.txt`;
       a.click();
       URL.revokeObjectURL(url);
     };
