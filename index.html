@@ -10,7 +10,6 @@
             --panel-bg: #151d30;
             --panel-border: #263352;
             --accent: #0ea5e9;
-            --accent-hover: #0284c7;
             --success: #10b981;
             --text-main: #f1f5f9;
             --text-muted: #94a3b8;
@@ -90,7 +89,7 @@
             padding: 12px;
             font-family: monospace;
             font-size: 0.75rem;
-            height: 220px;
+            height: 240px;
             overflow-y: auto;
             color: #38bdf8;
             margin-top: 14px;
@@ -99,7 +98,7 @@
         .progress-bar-bg {
             background: #1e293b;
             border-radius: 6px;
-            height: 10px;
+            height: 12px;
             width: 100%;
             overflow: hidden;
             margin-top: 10px;
@@ -109,7 +108,7 @@
             background: var(--accent);
             height: 100%;
             width: 0%;
-            transition: width 0.08s ease;
+            transition: width 0.1s ease;
         }
     </style>
 </head>
@@ -135,27 +134,11 @@
         <button class="btn-gray" id="btnDownload" style="width: 100%; margin-top: 10px;">Save .bin Package</button>
     </div>
     <div class="card">
-        <h2>Watch Connection & Transmission</h2>
-        <div class="field-group">
-            <label>Target Service (Auto or Custom UUID)</label>
-            <select id="selectService">
-                <option value="AUTO">Auto-Scan Known FitCloud/Realtek Services</option>
-                <option value="0000e0ff-3c17-d293-8e48-14fe2e4da212">0000e0ff-3c17-d293-8e48-14fe2e4da212 (Realtek Comm)</option>
-                <option value="0000d0ff-3c17-d293-8e48-14fe2e4da212">0000d0ff-3c17-d293-8e48-14fe2e4da212 (Realtek OTA)</option>
-                <option value="00001601-0000-1000-8000-00805f9b34fb">00001601-0000-1000-8000-00805f9b34fb (Linwear/FitCloud 1601)</option>
-                <option value="00001600-0000-1000-8000-00805f9b34fb">00001600-0000-1000-8000-00805f9b34fb (Linwear/FitCloud 1600)</option>
-                <option value="6e400001-b5a3-f393-e0a9-e50e24dcca9f">6e400001-b5a3-f393-e0a9-e50e24dcca9f (Nordic UART)</option>
-                <option value="0000feea-0000-1000-8000-00805f9b34fb">0000feea-0000-1000-8000-00805f9b34fb (FitCloud FEEA)</option>
-                <option value="CUSTOM">Custom UUID (Enter manually below)</option>
-            </select>
-            <input type="text" id="customUuidInput" placeholder="Paste custom service UUID here..." style="display:none; margin-top: 6px;">
-        </div>
-
+        <h2>Watch Connection & Protocol Streaming</h2>
         <div class="btn-row" style="margin-bottom: 10px;">
             <button class="btn-blue" id="btnBleConnect" style="flex: 1;">1. Connect Watch</button>
-            <button class="btn-green" id="btnBlePush" style="flex: 1;" disabled>2. Push Dial</button>
+            <button class="btn-green" id="btnBlePush" style="flex: 1;" disabled>2. Start Push</button>
         </div>
-        <button class="btn-gray" id="btnSimulate" style="width: 100%; font-size: 0.8rem; padding: 6px;">Simulate Push (Test Run)</button>
         <div class="progress-bar-bg" id="progBarContainer">
             <div class="progress-bar-fill" id="progBar"></div>
         </div>
@@ -172,10 +155,6 @@
         term.innerHTML += '<div>[' + new Date().toTimeString().split(' ')[0] + '] ' + m + '</div>';
         term.scrollTop = term.scrollHeight;
     }
-
-    document.getElementById('selectService').onchange = (e) => {
-        document.getElementById('customUuidInput').style.display = (e.target.value === 'CUSTOM') ? 'block' : 'none';
-    };
 
     function createDefaultWallpaper() {
         const off = document.createElement('canvas'); off.width = WIDTH; off.height = HEIGHT;
@@ -235,107 +214,104 @@
         log("Saved ht37_watchface.bin");
     };
 
-    // Full set of Realtek, Nordic, and Topstep Smartwatch GATT UUIDs
-    const ALL_KNOWN_SERVICES = [
-        '0000e0ff-3c17-d293-8e48-14fe2e4da212',
-        '0000d0ff-3c17-d293-8e48-14fe2e4da212',
-        '00006287-3c17-d293-8e48-14fe2e4da212',
-        '00000aa0-3c17-d293-8e48-14fe2e4da212',
-        '6e400001-b5a3-f393-e0a9-e50e24dcca9f',
-        '00001600-0000-1000-8000-00805f9b34fb',
-        '00001601-0000-1000-8000-00805f9b34fb',
-        '00001602-0000-1000-8000-00805f9b34fb',
-        '00005833-0000-1000-8000-00805f9b34fb',
-        '0000feea-0000-1000-8000-00805f9b34fb',
-        '0000fee7-0000-1000-8000-00805f9b34fb',
-        '0000fff0-0000-1000-8000-00805f9b34fb',
-        '0000ffe0-0000-1000-8000-00805f9b34fb',
-        '0000ffd0-0000-1000-8000-00805f9b34fb',
-        '0000180a-0000-1000-8000-00805f9b34fb',
-        '0000180f-0000-1000-8000-00805f9b34fb',
-        '0000180d-0000-1000-8000-00805f9b34fb'
-    ];
-
     let rxChar = null;
+    let txChar = null;
+
+    // Discovered service on your HT37
+    const TARGET_SERVICE = '00009966-3c17-d293-8e48-14fe2e4da212';
+    const CHAR_WRITE     = '0000ffb1-0000-1000-8000-00805f9b34fb';
+    const CHAR_NOTIFY    = '0000ffb2-0000-1000-8000-00805f9b34fb';
 
     document.getElementById('btnBleConnect').onclick = async () => {
         try {
-            const selectVal = document.getElementById('selectService').value;
-            let targetList = ALL_KNOWN_SERVICES;
-
-            if (selectVal === 'CUSTOM') {
-                const custom = document.getElementById('customUuidInput').value.trim().toLowerCase();
-                if (custom) targetList = [custom];
-            } else if (selectVal !== 'AUTO') {
-                targetList = [selectVal];
-            }
-
             log("Prompting Bluetooth pairing dialog...");
             const dev = await navigator.bluetooth.requestDevice({
                 filters: [{ namePrefix: "HT37" }, { namePrefix: "Watch" }],
-                optionalServices: targetList
+                optionalServices: [TARGET_SERVICE]
             });
 
             log("Connecting to GATT server on " + (dev.name || "HT37") + "...");
             const srv = await dev.gatt.connect();
+            const service = await srv.getPrimaryService(TARGET_SERVICE);
 
-            rxChar = null;
-            let foundService = null;
+            rxChar = await service.getCharacteristic(CHAR_WRITE);
+            txChar = await service.getCharacteristic(CHAR_NOTIFY);
 
-            // Try each allowed service in sequence
-            for (const uuid of targetList) {
-                try {
-                    const s = await srv.getPrimaryService(uuid);
-                    if (s) {
-                        foundService = s;
-                        log("<b style='color:#34d399;'>Matched Service: " + uuid + "</b>");
-                        const chars = await s.getCharacteristics();
-                        for (const c of chars) {
-                            const w = c.properties.write || c.properties.writeWithoutResponse;
-                            log("  * Characteristic: " + c.uuid + " [write=" + w + ", notify=" + c.properties.notify + "]");
-                            if (!rxChar && w) rxChar = c;
-                        }
-                        if (rxChar) break;
-                    }
-                } catch (e) {
-                    // Service not on device, continue scanning
-                }
-            }
+            // Subscribe to notifications to receive ACKs from watch
+            await txChar.startNotifications();
+            txChar.addEventListener('characteristicvaluechanged', (e) => {
+                const b = new Uint8Array(e.target.value.buffer);
+                const h = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
+                log("<b style='color:#a7f3d0;'><= Watch ACK:</b> " + h);
+            });
 
-            if (rxChar) {
-                document.getElementById('btnBlePush').disabled = false;
-                log("<b style='color:#10b981;'>Ready! Write Characteristic: " + rxChar.uuid + "</b>");
-            } else {
-                log("<b style='color:#f59e0b;'>Connected, but none of the candidate services matched. Open chrome://bluetooth-internals/#devices in a new tab to see your watch's exact UUID.</b>");
-            }
+            document.getElementById('btnBlePush').disabled = false;
+            log("<b style='color:#10b981;'>Connected & Subscribed! Ready to push.</b>");
         } catch (e) {
             log("<b style='color:#ef4444;'>BLE Error: " + e.message + "</b>");
-            log("Tip: Make sure phone Bluetooth is OFF so the watch is not in-use.");
         }
     };
 
-    async function send(sim) {
-        const bin = packDialBinary(), chunk = 240, total = Math.ceil(bin.length / chunk);
+    // Paced FitCloud packet transmission
+    document.getElementById('btnBlePush').onclick = async () => {
+        if (!rxChar) return;
+
+        const bin = packDialBinary();
         const pbg = document.getElementById('progBarContainer'), pf = document.getElementById('progBar');
         pbg.style.display = 'block'; pf.style.width = '0%';
-        log("Transmitting " + bin.length + " bytes (" + total + " packets)...");
-        try {
-            if (!sim && rxChar) {
-                const init = new Uint8Array([0x02, 0x01, 0, 0, 0, 0, 0, 0]);
-                new DataView(init.buffer).setUint32(2, bin.length, true);
-                await rxChar.writeValue(init);
-            }
-            for (let i = 0; i < total; i++) {
-                if (!sim && rxChar) await rxChar.writeValueWithoutResponse(bin.slice(i * chunk, (i + 1) * chunk));
-                else await new Promise(r => setTimeout(r, 6));
-                pf.style.width = Math.round(((i + 1) / total) * 100) + '%';
-            }
-            log("Push finished successfully!");
-        } catch (e) { log("Push Error: " + e.message); }
-    }
 
-    document.getElementById('btnBlePush').onclick = () => send(false);
-    document.getElementById('btnSimulate').onclick = () => send(true);
+        log("1. Sending FitCloud Dial Handshake Request...");
+        
+        // FitCloud Protocol Header for Dial Push Init:
+        // [0xED (Packet Header), 0x02 (File Feature), 0x01 (Dial Push Req), Dial Type (0x01), Size (4 bytes)]
+        const initPkt = new Uint8Array(8);
+        initPkt[0] = 0xED;
+        initPkt[1] = 0x02;
+        initPkt[2] = 0x01;
+        initPkt[3] = 0x01;
+        const dv = new DataView(initPkt.buffer);
+        dv.setUint32(4, bin.length, false); // Big-endian protocol length
+
+        try {
+            await rxChar.writeValue(initPkt);
+            log("Handshake sent. Waiting 500ms for watch to ready flash memory...");
+            await new Promise(r => setTimeout(r, 500));
+
+            // Chunk transfer with flow control (128 bytes per chunk, ~20ms interval)
+            const chunkSize = 128;
+            const total = Math.ceil(bin.length / chunkSize);
+            log("2. Streaming " + bin.length + " bytes in " + total + " packets (paced at ~20ms)...");
+
+            const startTime = Date.now();
+            for (let i = 0; i < total; i++) {
+                const chunk = bin.slice(i * chunkSize, (i + 1) * chunkSize);
+
+                // Use standard write with pace to prevent packet drops
+                await rxChar.writeValueWithoutResponse(chunk);
+
+                pf.style.width = Math.round(((i + 1) / total) * 100) + '%';
+
+                // Throttle packets so the watch BLE chip buffer does not drop bytes
+                await new Promise(r => setTimeout(r, 20));
+
+                if (i % 50 === 0 && i > 0) {
+                    log("Streamed " + i + "/" + total + " packets...");
+                }
+            }
+
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            log("3. Payload streamed in " + elapsed + "s. Sending End-of-Transfer packet...");
+
+            // End Packet: [0xED, 0x02, 0x02, 0x00]
+            const endPkt = new Uint8Array([0xED, 0x02, 0x02, 0x00]);
+            await rxChar.writeValue(endPkt);
+
+            log("<b style='color:#10b981;'>Transmission complete! Check watch display.</b>");
+        } catch (e) {
+            log("<b style='color:#ef4444;'>Push Error: " + e.message + "</b>");
+        }
+    };
+
     createDefaultWallpaper();
     log("HT37 Studio Ready.");
 </script>
