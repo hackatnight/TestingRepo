@@ -90,10 +90,11 @@
             padding: 12px;
             font-family: monospace;
             font-size: 0.75rem;
-            height: 180px;
+            height: 220px;
             overflow-y: auto;
             color: #38bdf8;
             margin-top: 14px;
+            line-height: 1.45;
         }
         .progress-bar-bg {
             background: #1e293b;
@@ -135,11 +136,8 @@
     </div>
     <div class="card">
         <h2>Watch Connection & Transmission</h2>
-        <p style="font-size: 0.85rem; color: var(--text-muted);">
-            Streams the compiled RGB565 binary directly to the HT37 watch via Web Bluetooth.
-        </p>
         <div class="btn-row" style="margin-bottom: 10px;">
-            <button class="btn-blue" id="btnBleConnect" style="flex: 1;">1. Pair Watch</button>
+            <button class="btn-blue" id="btnBleConnect" style="flex: 1;">1. Pair & Scan Services</button>
             <button class="btn-green" id="btnBlePush" style="flex: 1;" disabled>2. Push Dial</button>
         </div>
         <button class="btn-gray" id="btnSimulate" style="width: 100%; font-size: 0.8rem; padding: 6px;">Simulate Push (Test Run)</button>
@@ -218,21 +216,86 @@
         log("Saved ht37_watchface.bin");
     };
 
+    // Candidate vendor services for FitCloudPro / RealTek / Nordic chipsets
+    const CANDIDATE_SERVICES = [
+        '00001800-0000-1000-8000-00805f9b34fb', // Generic Access
+        '00001801-0000-1000-8000-00805f9b34fb', // Generic Attribute
+        '0000180a-0000-1000-8000-00805f9b34fb', // Device Info
+        '6e400001-b5a3-f393-e0a9-e50e24dcca9f', // Nordic UART
+        '0000d0ff-3c17-d293-8e48-14fe2e4da212', // RealTek OTA
+        '00006287-3c17-d293-8e48-14fe2e4da212', // RealTek DFU
+        '0000fff0-0000-1000-8000-00805f9b34fb',
+        '0000ffe0-0000-1000-8000-00805f9b34fb',
+        '0000ffd0-0000-1000-8000-00805f9b34fb',
+        '0000ff12-0000-1000-8000-00805f9b34fb',
+        '0000fee7-0000-1000-8000-00805f9b34fb',
+        '0000feea-0000-1000-8000-00805f9b34fb',
+        '0000fee9-0000-1000-8000-00805f9b34fb'
+    ];
+
     let rxChar = null;
+    let txChar = null;
+
     document.getElementById('btnBleConnect').onclick = async () => {
         try {
             log("Opening Web Bluetooth scan dialog...");
             const dev = await navigator.bluetooth.requestDevice({
-                filters: [{ services: [0xFEE7] }, { namePrefix: "HT37" }, { namePrefix: "Watch" }],
-                optionalServices: [0xFEE7]
+                filters: [
+                    { namePrefix: "HT37" },
+                    { namePrefix: "Watch" }
+                ],
+                optionalServices: CANDIDATE_SERVICES
             });
-            log("Connecting to " + dev.name + "...");
+
+            log("Connecting GATT to " + (dev.name || "Device") + "...");
             const srv = await dev.gatt.connect();
-            const svc = await srv.getPrimaryService(0xFEE7);
-            rxChar = await svc.getCharacteristic(0x36F5);
-            document.getElementById('btnBlePush').disabled = false;
-            log("Connected to watch. Ready to push!");
-        } catch (e) { log("BLE Error: " + e.message); }
+
+            log("Discovering available primary services...");
+            const services = await srv.getPrimaryServices();
+
+            rxChar = null;
+            txChar = null;
+
+            if (services.length === 0) {
+                log("Warning: No pre-registered services matched. Watch may use a custom 128-bit base UUID.");
+            }
+
+            for (const s of services) {
+                log("Service found: " + s.uuid);
+                try {
+                    const chars = await s.getCharacteristics();
+                    for (const c of chars) {
+                        const canWrite = c.properties.write || c.properties.writeWithoutResponse;
+                        const canNotify = c.properties.notify;
+                        log("  * Char: " + c.uuid + " [write=" + canWrite + ", notify=" + canNotify + "]");
+
+                        if (!rxChar && canWrite) rxChar = c;
+                        if (!txChar && canNotify) txChar = c;
+                    }
+                } catch (e) {
+                    log("  (Could not read chars for " + s.uuid + ")");
+                }
+            }
+
+            if (rxChar) {
+                document.getElementById('btnBlePush').disabled = false;
+                log("<b style='color:#10b981;'>Ready! Write channel: " + rxChar.uuid + "</b>");
+            } else {
+                log("<b style='color:#f59e0b;'>Connected, but no writable characteristic identified yet. Check discovered list above.</b>");
+            }
+
+            if (txChar) {
+                await txChar.startNotifications();
+                txChar.addEventListener('characteristicvaluechanged', (e) => {
+                    const b = new Uint8Array(e.target.value.buffer);
+                    const h = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
+                    log("<= Watch Ack: " + h);
+                });
+                log("Notifications enabled on " + txChar.uuid);
+            }
+        } catch (e) {
+            log("BLE Error: " + e.message);
+        }
     };
 
     async function send(sim) {
