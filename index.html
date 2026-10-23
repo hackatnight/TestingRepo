@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Studio [Build 9.0]</title>
+  <title>HT37 Studio [Build 10.0]</title>
   <style>
     :root {
       --bg: #090d16;
@@ -97,9 +97,22 @@
     button.btn-primary:hover { background: #0369a1; }
     button.btn-secondary { background: #1e293b; cursor: pointer; }
     button.btn-danger { background: #991b1b; border-color: var(--danger); cursor: pointer; }
-    button.btn-success { background: #065f46; border-color: var(--success); cursor: pointer; }
+    button.btn-success { background: #059669; border-color: var(--success); font-weight: bold; cursor: pointer; }
+    button.btn-success:hover { background: #047857; }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
     
+    .progress-bar-container {
+      width: 100%;
+      background: #090d16;
+      border-radius: 6px;
+      overflow: hidden;
+      height: 14px;
+      display: none;
+      border: 1px solid var(--border);
+      margin-top: 5px;
+    }
+    .progress-bar { width: 0%; height: 100%; background: var(--accent); transition: width 0.1s linear; }
+
     #logBox {
       background: #020617;
       color: #38bdf8;
@@ -121,7 +134,7 @@
 
   <header>
     <h1>HT37 Watch Face Studio</h1>
-    <div class="badge">BUILD 9.0 - CONTROLLED PAIRING & SCREEN WAKE</div>
+    <div class="badge">BUILD 10.0 - OTA WATCH FACE FLASHER</div>
   </header>
 
   <div class="workspace">
@@ -131,20 +144,16 @@
       </div>
 
       <div class="editor-panel" style="margin-top: 15px;">
-        <span class="section-title">Hardware Link (00009966)</span>
+        <span class="section-title">OTA Flashing Engine</span>
         <div class="inline-fields">
           <button id="btnConnect" class="btn-primary">1. Connect HT37</button>
           <button id="btnDisconnect" class="btn-danger" disabled>Disconnect</button>
         </div>
-        <div class="inline-fields">
-          <button id="btnPair" class="btn-success" disabled>2. Request Watch Pairing</button>
-          <button id="btnWake" class="btn-primary" disabled>3. Wake / Vibrate</button>
-        </div>
+        <button id="btnPrepare" class="btn-secondary" disabled>2. Prepare Watch (Enter 0% Mode)</button>
+        <button id="btnFlash" class="btn-success" disabled>3. Flash to Watch</button>
         
-        <span class="section-title" style="margin-top: 5px;">Raw Packet Console</span>
-        <div style="display: flex; gap: 6px;">
-          <input type="text" id="hexInput" placeholder="e.g. 02 00 00 00 00 00 00 00 08 01 01 00 0c" style="flex: 1;">
-          <button id="btnSendHex" class="btn-secondary" disabled>Send</button>
+        <div class="progress-bar-container" id="progressContainer">
+          <div class="progress-bar" id="progressBar"></div>
         </div>
       </div>
     </div>
@@ -206,7 +215,7 @@
     </div>
   </div>
 
-  <div id="logBox">Status: Build 9.0 Ready. Click "1. Connect HT37" to pair.</div>
+  <div id="logBox">Status: Build 10.0 Ready. Click "1. Connect HT37" to pair.</div>
 
   <script>
     const SERVICE_VENDOR_9966 = '00009966-3c17-d293-8e48-14fe2e4da212';
@@ -216,7 +225,7 @@
     let bleDevice = null;
     let charVendorTx = null;
     let charVendorRx = null;
-    let keepAliveTimer = null;
+    let isFlashing = false;
 
     const logBox = document.getElementById('logBox');
     function log(msg) {
@@ -229,28 +238,13 @@
 
     function setButtons(connected) {
       document.getElementById('btnDisconnect').disabled = !connected;
-      document.getElementById('btnPair').disabled       = !connected;
-      document.getElementById('btnWake').disabled       = !connected;
-      document.getElementById('btnSendHex').disabled    = !connected;
-    }
-
-    function make13BytePkt(header, cmd, sub = 0x01, val = 0x01) {
-      const p = new Uint8Array(13);
-      p[0] = header;
-      p[8] = cmd;
-      p[9] = sub;
-      p[10] = val;
-      p[11] = 0x00;
-      let sum = 0;
-      for (let i = 0; i < 12; i++) sum = (sum + p[i]) & 0xFF;
-      p[12] = sum;
-      return p;
+      document.getElementById('btnPrepare').disabled    = !connected;
+      document.getElementById('btnFlash').disabled      = !connected;
     }
 
     async function sendVendorPacket(bytes) {
       if (!charVendorTx) return;
       const data = new Uint8Array(bytes);
-      log(`TX [${data.length}B]: ${Array.from(data).map(x => x.toString(16).padStart(2, '0')).join(' ')}`);
       if (charVendorTx.properties.write) {
         await charVendorTx.writeValue(data);
       } else {
@@ -258,30 +252,9 @@
       }
     }
 
-    function stopKeepAlive() {
-      if (keepAliveTimer) {
-        clearInterval(keepAliveTimer);
-        keepAliveTimer = null;
-      }
-    }
-
-    function startKeepAlive() {
-      stopKeepAlive();
-      // Steady 4-second keep-alive to maintain connection without flooding
-      keepAliveTimer = setInterval(async () => {
-        if (charVendorTx && bleDevice && bleDevice.gatt.connected) {
-          try {
-            const ping = make13BytePkt(0x01, 0x00, 0x00, 0x00);
-            await charVendorTx.writeValueWithoutResponse(ping);
-          } catch (e) {}
-        }
-      }, 4000);
-    }
-
     // --- 1. CONNECT HANDLER ---
     document.getElementById('btnConnect').onclick = async () => {
       try {
-        stopKeepAlive();
         log('Connecting to HT37...');
         bleDevice = await navigator.bluetooth.requestDevice({
           filters: [
@@ -297,10 +270,10 @@
 
         bleDevice.addEventListener('gattserverdisconnected', () => {
           log('Notice: HT37 disconnected.');
-          stopKeepAlive();
           setButtons(false);
           charVendorTx = null;
           charVendorRx = null;
+          isFlashing = false;
         });
 
         log('Connecting GATT Server...');
@@ -313,73 +286,120 @@
         charVendorTx = await vService.getCharacteristic(CHAR_VENDOR_TX);
         charVendorRx = await vService.getCharacteristic(CHAR_VENDOR_RX);
 
-        // RX Notification Router (Passive monitoring only - NO recursive looping)
         await charVendorRx.startNotifications();
         charVendorRx.addEventListener('characteristicvaluechanged', (e) => {
           const b = new Uint8Array(e.target.value.buffer);
           log(`RX [${b.length}B]: ${Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ')}`);
 
-          if (b[0] === 0x81 && b[8] === 0x01) {
-            log('--> Watch is waiting for Pairing Authorization. Click "2. Request Watch Pairing" below and tap "Agree" on your watch screen.');
-          } else if (b[0] === 0x82 && b[8] !== 0x40) {
-            log(`--> Command accepted! Return status: 0x${b[8].toString(16)}`);
-          } else if (b[0] === 0x82 && b[8] === 0x40) {
-            log('--> Watch replied 0x40 (Unauthorized). You must tap "Agree" on the watch screen to authorize.');
+          if (b.length === 32) {
+            log('--> Watch accepted OTA Mode! Screen is ready at 0%.');
           }
         });
 
-        startKeepAlive();
-        log('SUCCESS: Connection open! Click "2. Request Watch Pairing".');
+        log('SUCCESS: HT37 connected! Click "2. Prepare Watch" to light up screen.');
         setButtons(true);
 
       } catch (err) {
         log('Connection failed: ' + err.message);
-        stopKeepAlive();
         setButtons(false);
       }
     };
 
     document.getElementById('btnDisconnect').onclick = () => {
-      stopKeepAlive();
       if (bleDevice && bleDevice.gatt.connected) {
         bleDevice.gatt.disconnect();
       }
       setButtons(false);
     };
 
-    // --- 2. REQUEST PAIRING / HANDSHAKE ---
-    document.getElementById('btnPair').onclick = async () => {
+    // --- 2. PREPARE WATCH (Wakes screen into 0% mode) ---
+    document.getElementById('btnPrepare').onclick = async () => {
       if (!charVendorTx) return;
-      log('Transmitting single Bind Request to watch...');
-      
-      // Send single Bind Frame: [0x01, 7 zeros, 0x01, 0xC3, 0x01, 0x00, 0x04]
-      const bindPkt = new Uint8Array([0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xC3, 0x01, 0x00, 0x04]);
-      await sendVendorPacket(bindPkt);
-      
-      log('>>> LOOK AT YOUR WATCH SCREEN NOW! <<<');
-      log('If a pop-up appears with a Green Checkmark or "Agree / Pair", tap it immediately.');
+      log('Transmitting Dial OTA Initiation packet...');
+      // Dial Transfer Header: [0x01, 7 zeros, 0x01, 0xC3, 0x01, 0x00, 0x04]
+      const initPkt = new Uint8Array([0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xC3, 0x01, 0x00, 0x04]);
+      await sendVendorPacket(initPkt);
+      log('--> Watch screen should illuminate with the arrow progress circle (0%).');
     };
 
-    // --- 3. WAKE / VIBRATE ---
-    document.getElementById('btnWake').onclick = async () => {
-      if (!charVendorTx) return;
-      log('Transmitting Find Watch / Vibrate (0x08)...');
-      await sendVendorPacket(make13BytePkt(0x02, 0x08, 0x01, 0x01));
-      await sleep(350);
-      log('Transmitting Screen Light Up (0x0E)...');
-      await sendVendorPacket(make13BytePkt(0x02, 0x0E, 0x01, 0x01));
+    // --- 3. BINARY BUILDER (RGB565 360x360) ---
+    function generateWatchFaceBinary() {
+      const imgData = ctx.getImageData(0, 0, 360, 360).data;
+      const rawBmpSize = 360 * 360 * 2;
+      const headerSize = 32;
+      const bin = new Uint8Array(headerSize + rawBmpSize);
+
+      // FitCloud / Realtek Dial Header
+      bin[0] = 0x01; // Dial Version
+      bin[1] = 0x00;
+      bin[2] = 360 & 0xFF;        // Width Lo
+      bin[3] = (360 >> 8) & 0xFF; // Width Hi
+      bin[4] = 360 & 0xFF;        // Height Lo
+      bin[5] = (360 >> 8) & 0xFF; // Height Hi
+      bin[6] = 0x10;              // 16-bit color depth
+      bin[7] = 0x00;
+
+      // Color convert: 32-bit RGBA -> 16-bit RGB565 Little Endian
+      let ptr = headerSize;
+      for (let i = 0; i < imgData.length; i += 4) {
+        const r = imgData[i];
+        const g = imgData[i + 1];
+        const b = imgData[i + 2];
+        const rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+
+        bin[ptr++] = rgb565 & 0xFF;
+        bin[ptr++] = (rgb565 >> 8) & 0xFF;
+      }
+
+      return bin;
+    }
+
+    // --- 4. FLASH TO WATCH (OTA Stream) ---
+    document.getElementById('btnFlash').onclick = async () => {
+      if (!charVendorTx || isFlashing) return;
+      isFlashing = true;
+      try {
+        log('Compiling 360x360 Watch Face binary...');
+        const bin = generateWatchFaceBinary();
+        log(`Binary generated: ${bin.byteLength} bytes.`);
+
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        progressContainer.style.display = 'block';
+        progressBar.style.width = '0%';
+
+        log('Starting OTA data streaming to watch...');
+
+        // Transmit in BLE MTU chunks (20 bytes per chunk)
+        const CHUNK_SIZE = 20;
+        let offset = 0;
+
+        while (offset < bin.byteLength) {
+          const chunk = bin.subarray(offset, Math.min(offset + CHUNK_SIZE, bin.byteLength));
+          if (charVendorTx.properties.writeWithoutResponse) {
+            await charVendorTx.writeValueWithoutResponse(chunk);
+          } else {
+            await charVendorTx.writeValue(chunk);
+          }
+          offset += chunk.length;
+
+          if (offset % 2500 === 0 || offset === bin.byteLength) {
+            const percent = ((offset / bin.byteLength) * 100).toFixed(1);
+            progressBar.style.width = percent + '%';
+            log(`Progress: ${percent}% (${offset}/${bin.byteLength} bytes)`);
+            await sleep(15); // Pace packets to prevent watch buffer overflow
+          }
+        }
+
+        log('Flash transfer complete! Watch should advance to 100% and apply your face.');
+      } catch (err) {
+        log('Flashing error: ' + err.message);
+      } finally {
+        isFlashing = false;
+      }
     };
 
-    // --- RAW HEX SENDER ---
-    document.getElementById('btnSendHex').onclick = async () => {
-      const hex = document.getElementById('hexInput').value.trim();
-      if (!hex) return;
-      const bytes = hex.split(/[\s,]+/).map(b => parseInt(b, 16)).filter(b => !isNaN(b));
-      if (bytes.length === 0) return;
-      await sendVendorPacket(bytes);
-    };
-
-    // Canvas Preview
+    // Canvas Preview Engine
     const canvas = document.getElementById('watchCanvas');
     const ctx = canvas.getContext('2d');
     let userBgImage = null;
