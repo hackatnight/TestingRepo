@@ -1,60 +1,667 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Web Studio / Probe</title>
+  <title>HT37 Watch Sensor &amp; Hardware Probe</title>
+  <meta name="description" content="Web Bluetooth and sensor diagnostic probe for the HT37 smartwatch with modular sensor windows.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      margin: 20px;
-      background: #f7f9fa;
-      color: #333;
-    }
-    h1 { font-size: 1.4rem; }
-    .controls {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    button {
-      padding: 8px 16px;
-      font-size: 14px;
-      cursor: pointer;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      background: #fff;
-    }
-    button:hover { background: #eee; }
-    #status {
-      font-weight: bold;
-      margin-bottom: 10px;
-    }
-    #log {
-      width: 100%;
-      height: 400px;
-      background: #1e1e1e;
-      color: #d4d4d4;
-      font-family: Consolas, monospace;
-      font-size: 12px;
-      padding: 10px;
-      box-sizing: border-box;
-      border-radius: 4px;
-      overflow-y: scroll;
-      white-space: pre-wrap;
-    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #020617; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+    @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .animate-pulse-slow { animation: pulse-slow 3s infinite; }
   </style>
 </head>
-<body>
-  <h1>HT37 Watch Web Probe</h1>
-  <div class="controls">
-    <button id="btnConnect">Scan & Connect</button>
-    <button id="btnDisconnect" disabled>Disconnect</button>
-    <button id="btnClear">Clear Log</button>
-  </div>
-  <div id="status">Status: Disconnected</div>
-  <pre id="log"></pre>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen antialiased flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
 
-  <script src="app.js"></script>
+  <!-- Navigation Bar -->
+  <header class="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center font-bold text-sm shadow-[0_0_12px_rgba(6,182,212,0.3)]">
+          37
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-sm font-bold tracking-tight text-white font-mono">HT37 WATCH PROBE</h1>
+            <span class="text-[9px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded font-mono font-bold">Web Bluetooth</span>
+          </div>
+          <p class="text-[10px] text-slate-400 font-mono">FitCloudPro Protocol &bull; github.com/hackatnight/TestingRepo</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="btn-pair-ble" onclick="window.ht37App.pairBluetooth()" class="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-mono font-bold text-xs flex items-center space-x-1.5 shadow-md shadow-cyan-900/30 cursor-pointer transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v20m0-20l7 7-7 7m0-14l-7 7 7 7"/></svg>
+          <span id="ble-btn-label">Pair Watch (Web Bluetooth)</span>
+        </button>
+
+        <button id="btn-health-poll" onclick="window.ht37App.requestLatestHealth()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-mono text-xs flex items-center space-x-1 cursor-pointer transition-colors">
+          <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          <span>Probe Health</span>
+        </button>
+
+        <select id="preset-select" onchange="window.ht37App.loadPreset(this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-cyan-500">
+          <option value="air_pump">Preset: HT37 Air Pump Cuff (368x448)</option>
+          <option value="optical_amoled">Preset: HT37 Pro Optical AMOLED (466x466)</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Live Status Ribbon -->
+  <div class="bg-slate-900/60 border-b border-slate-800 px-4 py-2 font-mono text-xs">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center space-x-2">
+        <span id="status-dot" class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+        <span id="status-text" class="text-slate-300">Ready &bull; Running simulation or Chrome Web Bluetooth</span>
+      </div>
+      <div class="flex items-center space-x-3 text-[11px] text-slate-400">
+        <span>Model: <strong id="ribbon-project" class="text-slate-200">HT37-BP-PUMP</strong></span>
+        <span>SoC: <strong id="ribbon-ic" class="text-emerald-400">IC_8762C</strong></span>
+        <span>Battery: <strong id="ribbon-battery" class="text-cyan-400">92%</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Grid of Modular Sensor Windows -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-5">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      
+      <!-- 1. Heart Rate Window -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-4 font-mono flex flex-col justify-between shadow-lg">
+        <div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="p-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">♥</span>
+              <span class="font-bold text-slate-200">HEART RATE MONITOR</span>
+            </div>
+            <span class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Active</span>
+          </div>
+
+          <div class="flex items-baseline justify-between mt-3">
+            <div>
+              <span id="val-hr" class="text-3xl font-extrabold text-white">74</span>
+              <span class="text-xs text-rose-400 font-semibold ml-1">BPM</span>
+            </div>
+            <span id="zone-hr" class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Normal Resting</span>
+          </div>
+
+          <!-- Mini Canvas Wave -->
+          <div class="mt-2.5 h-14 bg-slate-950 rounded border border-slate-800 relative overflow-hidden flex items-center justify-center">
+            <canvas id="ecg-canvas" width="300" height="56" class="w-full h-full block"></canvas>
+          </div>
+        </div>
+        <div className="mt-3 pt-2 border-t border-slate-800/60 text-[10px] text-slate-400 flex justify-between">
+          <span>Min/Max: <span id="hr-minmax">68 / 82 BPM</span></span>
+          <span>Sample: 25Hz</span>
+        </div>
+      </div>
+
+      <!-- 2. Blood Pressure & Air Pump Window -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-4 font-mono flex flex-col justify-between shadow-lg">
+        <div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="p-1 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">⚡</span>
+              <span class="font-bold text-slate-200">BLOOD PRESSURE</span>
+            </div>
+            <span id="badge-airpump" class="px-1.5 py-0.5 rounded text-[9px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Air Pump Cuff</span>
+          </div>
+
+          <div class="flex items-baseline justify-between mt-3">
+            <div>
+              <span id="val-sbp" class="text-3xl font-extrabold text-white">121</span>
+              <span class="text-slate-500 text-xl font-light">/</span>
+              <span id="val-dbp" class="text-2xl font-bold text-slate-200">77</span>
+              <span class="text-xs text-indigo-400 font-semibold ml-1">mmHg</span>
+            </div>
+            <span id="bp-category" class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Normal</span>
+          </div>
+
+          <div class="mt-3 p-2 bg-slate-950 rounded border border-slate-800 text-[10px] space-y-1">
+            <div class="flex justify-between">
+              <span class="text-slate-400">HARDWARE TYPE:</span>
+              <span id="bp-hardware" class="text-indigo-400 font-bold">Motorized Air Pump Cuff</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">PUMP TEST:</span>
+              <button onclick="window.ht37App.testPump()" class="text-cyan-400 hover:underline cursor-pointer">Inflate Cuff Test</button>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 pt-2 border-t border-slate-800/60 text-[10px] text-slate-400 flex justify-between">
+          <span>Target: &lt;120/80</span>
+          <span>Oscillometric Sensor</span>
+        </div>
+      </div>
+
+      <!-- 3. Blood Oxygen (SpO2) Window -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-4 font-mono flex flex-col justify-between shadow-lg">
+        <div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="p-1 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">💧</span>
+              <span class="font-bold text-slate-200">BLOOD OXYGEN (SpO2)</span>
+            </div>
+            <span class="px-1.5 py-0.5 rounded text-[9px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Red/IR 660nm</span>
+          </div>
+
+          <div class="flex items-baseline justify-between mt-3">
+            <div>
+              <span id="val-spo2" class="text-3xl font-extrabold text-white">99</span>
+              <span class="text-sm font-bold text-cyan-400">%</span>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Optimal</span>
+          </div>
+
+          <!-- SpO2 progress bar -->
+          <div class="mt-4 space-y-1">
+            <div class="h-2.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+              <div id="bar-spo2" class="h-full bg-gradient-to-r from-teal-500 via-cyan-400 to-sky-400 rounded-full" style="width: 95%;"></div>
+            </div>
+            <div class="flex justify-between text-[8px] text-slate-500">
+              <span>80%</span>
+              <span>90%</span>
+              <span class="text-cyan-400 font-bold">95%</span>
+              <span>100%</span>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 pt-2 border-t border-slate-800/60 text-[10px] text-slate-400 flex justify-between">
+          <span>Perfusion Index: 0.82</span>
+          <span>Target: &ge;95%</span>
+        </div>
+      </div>
+
+      <!-- 4. Body & Wrist Temperature Window -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-4 font-mono flex flex-col justify-between shadow-lg">
+        <div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="p-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">🌡</span>
+              <span class="font-bold text-slate-200">BODY &amp; WRIST TEMP</span>
+            </div>
+            <span class="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20">Dual NTC</span>
+          </div>
+
+          <div class="flex items-baseline justify-between mt-3">
+            <div>
+              <span id="val-temp-body" class="text-3xl font-extrabold text-white">36.6</span>
+              <span class="text-xs text-amber-400 font-bold">°C Body</span>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Normal Core</span>
+          </div>
+
+          <div class="mt-3 grid grid-cols-2 gap-2 p-2 bg-slate-950 rounded border border-slate-800 text-[10px]">
+            <div>
+              <div class="text-slate-400 text-[9px]">WRIST CONTACT</div>
+              <div id="val-temp-wrist" class="text-cyan-300 font-bold text-sm mt-0.5">33.8°C</div>
+            </div>
+            <div>
+              <div class="text-slate-400 text-[9px]">GRADIENT</div>
+              <div id="val-temp-diff" class="text-slate-200 font-bold text-sm mt-0.5">+2.8°C</div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 pt-2 border-t border-slate-800/60 text-[10px] text-slate-400 flex justify-between">
+          <span>Heat-Flux Calibrated</span>
+          <span>Normal: 36.1 - 37.2°C</span>
+        </div>
+      </div>
+
+      <!-- 5. Respiratory Rate Window -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-4 font-mono flex flex-col justify-between shadow-lg">
+        <div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="p-1 rounded bg-teal-500/10 text-teal-400 border border-teal-500/20">💨</span>
+              <span class="font-bold text-slate-200">RESPIRATORY RATE</span>
+            </div>
+            <span class="px-1.5 py-0.5 rounded text-[9px] bg-teal-500/10 text-teal-400 border border-teal-500/20">PPG Rhythm</span>
+          </div>
+
+          <div class="flex items-baseline justify-between mt-3">
+            <div>
+              <span id="val-resp" class="text-3xl font-extrabold text-white">16</span>
+              <span class="text-xs text-teal-400 font-semibold ml-1">RPM (Breaths/min)</span>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Normal Eupnea</span>
+          </div>
+
+          <div class="mt-3 p-2 bg-slate-950 rounded border border-slate-800 text-[10px] flex items-center justify-between">
+            <span class="text-slate-400">BREATH INTERVAL:</span>
+            <span id="resp-interval" class="text-teal-300 font-bold">~3.8s / cycle</span>
+          </div>
+        </div>
+        <div class="mt-3 pt-2 border-t border-slate-800/60 text-[10px] text-slate-400 flex justify-between">
+          <span>Waveform Modulation</span>
+          <span>12 - 20 RPM Standard</span>
+        </div>
+      </div>
+
+      <!-- 6. Physical Pressure & Stress Window -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-4 font-mono flex flex-col justify-between shadow-lg">
+        <div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="p-1 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">🛡</span>
+              <span class="font-bold text-slate-200">STRESS &amp; PRESSURE</span>
+            </div>
+            <span class="px-1.5 py-0.5 rounded text-[9px] bg-purple-500/10 text-purple-400 border border-purple-500/20">HRV Index</span>
+          </div>
+
+          <div class="flex items-baseline justify-between mt-3">
+            <div>
+              <span id="val-pressure" class="text-3xl font-extrabold text-white">24</span>
+              <span class="text-xs text-purple-400 font-semibold ml-1">/ 100</span>
+            </div>
+            <span id="stress-level" class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Relaxed State</span>
+          </div>
+
+          <!-- Multi-tier stress scale -->
+          <div class="mt-4 space-y-1">
+            <div class="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800 flex">
+              <div class="h-full bg-emerald-500/40" style="width: 30%"></div>
+              <div class="h-full bg-cyan-500/40" style="width: 30%"></div>
+              <div class="h-full bg-amber-500/40" style="width: 20%"></div>
+              <div class="h-full bg-rose-500/40" style="width: 20%"></div>
+            </div>
+            <div class="flex justify-between text-[8px] text-slate-500">
+              <span>0 Relaxed</span>
+              <span>30 Normal</span>
+              <span>60 Med</span>
+              <span>100 High</span>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 pt-2 border-t border-slate-800/60 text-[10px] text-slate-400 flex justify-between">
+          <span>Autonomic Nervous Balance</span>
+          <span>Parasympathetic Dominant</span>
+        </div>
+      </div>
+
+      <!-- 7. Pedometer & G-Sensor Window -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-4 font-mono flex flex-col justify-between shadow-lg">
+        <div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="p-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">👟</span>
+              <span class="font-bold text-slate-200">PEDOMETER &amp; MOTION</span>
+            </div>
+            <span class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">3-Axis MEMS</span>
+          </div>
+
+          <div class="flex items-baseline justify-between mt-3">
+            <div>
+              <span id="val-steps" class="text-3xl font-extrabold text-white">8,420</span>
+              <span class="text-xs text-emerald-400 font-semibold ml-1">steps</span>
+            </div>
+            <span class="text-[10px] text-slate-400 font-bold">Goal: 84%</span>
+          </div>
+
+          <div class="mt-3 grid grid-cols-3 gap-1 text-[10px] text-center">
+            <div class="bg-slate-950 p-1.5 rounded border border-slate-800">
+              <div class="text-slate-400 text-[8px]">DIST</div>
+              <div id="val-dist" class="text-slate-100 font-bold">6.14 km</div>
+            </div>
+            <div class="bg-slate-950 p-1.5 rounded border border-slate-800">
+              <div class="text-slate-400 text-[8px]">CALORIES</div>
+              <div id="val-cal" class="text-slate-100 font-bold">385 kcal</div>
+            </div>
+            <div class="bg-slate-950 p-1.5 rounded border border-slate-800">
+              <div class="text-slate-400 text-[8px]">ACTIVE</div>
+              <div id="val-active" class="text-slate-100 font-bold">62 min</div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 pt-2 border-t border-slate-800/60 text-[10px] text-slate-400 flex justify-between">
+          <span>Accelerometer: STK8321</span>
+          <span>Cadence: 114 spm</span>
+        </div>
+      </div>
+
+      <!-- 8. Display & Watchface Geometry Window -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-4 font-mono flex flex-col justify-between shadow-lg">
+        <div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="p-1 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">🖥</span>
+              <span class="font-bold text-slate-200">DISPLAY &amp; DIAL PUSH</span>
+            </div>
+            <span id="badge-lcd" class="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/10 text-sky-400 border border-sky-500/20">368x448</span>
+          </div>
+
+          <div class="mt-3 flex items-center justify-between text-xs">
+            <div class="space-y-0.5">
+              <div class="text-slate-400 text-[10px]">SHAPE &amp; RES:</div>
+              <div id="disp-shape" class="text-white font-bold text-sm">Rectangle 368x448</div>
+              <div id="disp-corners" class="text-slate-400 text-[10px]">Corner radius: 28px</div>
+            </div>
+            <div class="text-right space-y-0.5">
+              <div class="text-slate-400 text-[10px]">DIAL SLOTS:</div>
+              <div id="disp-slots" class="text-emerald-400 font-bold text-sm">3 Spaces</div>
+              <div id="disp-tool" class="text-slate-400 text-[10px]">Tool: v12 | LCD #1</div>
+            </div>
+          </div>
+
+          <div class="mt-3 p-2 bg-slate-950 rounded border border-slate-800 text-[10px]">
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400">ACTIVE DIAL NUM:</span>
+              <span id="disp-current-dial" class="text-cyan-400 font-bold">Dial #1 (Bin v2)</span>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 pt-2 border-t border-slate-800/60 text-[10px] text-slate-400 flex justify-between">
+          <span>DIAL_PUSH: Supported</span>
+          <span>DIAL_CUSTOM: Supported</span>
+        </div>
+      </div>
+
+      <!-- 9. Device & Chipset Specs Window -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-4 font-mono flex flex-col justify-between shadow-lg">
+        <div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="p-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">⚙</span>
+              <span class="font-bold text-slate-200">DEVICE &amp; CHIPSET</span>
+            </div>
+            <span id="badge-ic" class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">IC_8762C</span>
+          </div>
+
+          <div class="mt-3 space-y-2 text-[10px]">
+            <div class="flex justify-between p-1.5 bg-slate-950 rounded border border-slate-800">
+              <span class="text-slate-400">PROJECT:</span>
+              <span id="dev-project" class="text-white font-bold">HT37-BP-PUMP</span>
+            </div>
+            <div class="grid grid-cols-2 gap-1.5">
+              <div class="p-1.5 bg-slate-950 rounded border border-slate-800 flex justify-between">
+                <span class="text-slate-400">FLASH:</span>
+                <span id="dev-flash" class="text-slate-200 font-bold">8192 KB</span>
+              </div>
+              <div class="p-1.5 bg-slate-950 rounded border border-slate-800 flex justify-between">
+                <span class="text-slate-400">PATCH:</span>
+                <span id="dev-patch" class="text-slate-200 font-bold">v204</span>
+              </div>
+            </div>
+            <div class="p-1.5 bg-slate-950 rounded border border-slate-800 flex justify-between">
+              <span class="text-slate-400">APP FIRMWARE:</span>
+              <span id="dev-app" class="text-emerald-400 font-bold">v108</span>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 pt-2 border-t border-slate-800/60 text-[10px] text-slate-400 flex justify-between">
+          <span>SoC: Realtek RTL8762 Series</span>
+          <span>Security: TopStep v2</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Live BLE Console and Feature Explorer Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      
+      <!-- BLE Console -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-4 font-mono shadow-lg">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+          <span class="font-bold text-slate-200 flex items-center space-x-1.5">
+            <span class="p-1 rounded bg-slate-800 text-cyan-400">>_</span>
+            <span>BLUETOOTH LOGCAT &amp; PACKETS</span>
+          </span>
+          <div class="flex items-center space-x-2">
+            <button onclick="window.ht37App.copyLog()" class="text-[10px] text-cyan-400 hover:text-cyan-300">Copy Log</button>
+            <button onclick="window.ht37App.clearLog()" class="text-[10px] text-rose-400 hover:text-rose-300">Clear</button>
+          </div>
+        </div>
+
+        <div id="console-logs" class="mt-2.5 h-64 overflow-y-auto bg-black/80 rounded-lg p-2.5 border border-slate-800 text-[9.5px] space-y-1 select-text">
+        </div>
+      </div>
+
+      <!-- Feature Matrix Overview -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-4 font-mono shadow-lg">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+          <span class="font-bold text-slate-200">KEY HARDWARE CAPABILITIES</span>
+          <span id="feat-count" class="text-[10px] text-emerald-400">49 Supported</span>
+        </div>
+
+        <div id="key-features-list" class="mt-2.5 h-64 overflow-y-auto space-y-1.5 pr-1">
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="border-t border-slate-800/80 bg-slate-950 px-4 py-3 text-center text-xs text-slate-500 font-mono">
+    HT37 Smartwatch Sensor Diagnostic Probe &bull; Designed for <a href="https://github.com/hackatnight/TestingRepo" target="_blank" class="text-cyan-400 hover:underline">github.com/hackatnight/TestingRepo</a>
+  </footer>
+
+  <script>
+    // Initialize state
+    const initialData = {"connectionStatus":"error","statusText":"Connection error: Failed to execute 'requestDevice' on 'Bluetooth': Access to the feature \"bluetooth\" is disallowed by permissions policy.","isBound":true,"deviceInfo":{"project":"HT37-BP-PUMP","patch":"204","flash":"8192","app":"108","icType":"IC_8762C","gnssGpsVersion":"0.0.0","modem4GVersion":"none","deviceName":"HT37-4A82","macAddress":"E4:65:B8:2A:4A:82"},"battery":{"percentage":92,"batteryCount":1,"isCharging":false},"lcdShape":{"isCircle":false,"width":368,"height":448,"corners":28},"uiInfo":{"uiNum":104,"uiSerial":72},"dialPushInfo":{"lcd":1,"shape":{"isCircle":false,"width":368,"height":448,"corners":28},"uiNum":104,"uiSerial":72,"toolVersion":12,"currentDialNum":1,"currentBinVersion":2,"currentPosition":0,"dialSpaces":[{"index":0,"dialType":1,"dialNum":1,"binVersion":2,"binFlag":0,"spaceSize":524288,"pushable":true,"components":[{"positionX":40,"positionY":60,"width":80,"height":40,"styleCurrent":1,"styleCount":5},{"positionX":140,"positionY":60,"width":80,"height":40,"styleCurrent":2,"styleCount":4},{"positionX":40,"positionY":280,"width":120,"height":60,"styleCurrent":1,"styleCount":3}]},{"index":1,"dialType":2,"dialNum":2,"binVersion":1,"binFlag":1,"spaceSize":524288,"pushable":true,"components":[]},{"index":2,"dialType":3,"dialNum":3,"binVersion":1,"binFlag":0,"spaceSize":524288,"pushable":false,"components":[]}]},"health":{"heartRate":71,"spo2":95,"systolic":117,"diastolic":78,"respiratoryRate":12,"temperatureWrist":33.8,"temperatureBody":36.6,"pressure":29,"hrHistory":[70,69,70,70,69,68,68,69,69,70,71,71,70,69,70,70,71,71,72,71,70,71,70,70,71],"timestamp":1792744177502},"activity":{"steps":8420,"distanceKm":6.14,"caloriesKcal":385,"activeMinutes":62},"sleep":{"totalMinutes":442,"deepMinutes":118,"lightMinutes":246,"remMinutes":64,"awakeMinutes":14,"score":87},"features":{"supported":["ACTIVITY_SPORT_DURATION","AIR_PRESSURE","ALARM_NOT_ACTIVE_CLOSE","APP_NOTIFICATION_TITLE","BASE_ABILITY","BLOOD_PRESSURE","BLOOD_PRESSURE_AIR_PUMP","BLOOD_PRESSURE_ALARM","CALL_RECORD","CONTACTS","CONTACTS_100","DFU_FIRMWARE_SILENT","DIAL_COMPONENT","DIAL_CUSTOM","DIAL_MULTIPLE","DIAL_PUSH","DND","DYNAMIC_HEART_RATE","FIND_DEVICE","GSENSOR_DATA","GUI","HABIT","HEART_RATE","HEART_RATE_ALARM","HEART_RATE_RESTING","HELP_SLEEP_ANALYSIS","HIDE_PRIVATE_BLOOD_PRESSURE","HRV","LCD_SHAPE","LOW_HEART_RATE_ALARM","MEASURE_DATA_SYNCABLE","NEW_SLEEP_PROTOCOL","NEW_SPORT_DETAIL","NOTIFICATION","OXYGEN","POWER_SAVE_MODE","POWER_SAVE_PERIOD","PRECISE_BATTERY_LEVEL","PRESSURE","REQUEST_LATEST_HEALTH","RESPIRATORY_RATE","SCREEN_LOCK","SCREEN_VIBRATE","SLEEP","SLEEP_NAP","SLEEP_REM","SLEEP_SCORE","SPORT","TEMPERATURE","WEATHER"],"unsupported":["AEC","AI_CALL_RECORD","AI_CHAT","AI_CHAT_SWITCH_MODEL","AI_RECORD","AI_TRANSLATE_HOME","ALBUM","ALI_AGENT","ANCS_EMAIL","ANCS_EXTRA","ANCS_HIKE_YOUTUBE","ANCS_VIBER_TELEGRAM","BUSINESS_CARD","CHAT","CHAT_SUPPORT_ERNIE_BOT","CHAT_SUPPORT_TEXT","CLASS","CRICKET_MATCH","CROSS_DAY_TIME_SETTINGS","CUSTOM_CARD","CUSTOM_FIND_PHONE_AUDIO","CUSTOM_LABEL","DELETE_DIAL","EARPHONE_SUPPORT_CUSTOM_KEY","EARPHONE_SUPPORT_OTA","EBOOK","ECG","EUID","GAME","GAME_PUSH","GET_SUPPORT_QR_CODE","GNSS_GPS","GPS","GPS_HOT_START","GSENSOR_GAME_HEARTRATE","HIDE_WECHAT_SPORT","ISOLATE_MONITOR_CONFIG","LOCATION","LOVERS","MEDAL","MOCK_ECG","MOOD","MOUSE_POINT_PRESET","MUSLIM_WORSHIP","MUSLIM_WORSHIP_SUPPORT_FROM_APP","NAVIGATION","NO_SCREEN_DEVICE","NUCLEIC_ACID_CODE","OFFLINE_MAP","OTA_NO_DISCONNECT","PARENT_MODE","PHOTOVOLTAIC","PLATFORM_568X","PLATFORM_6621","PLATFORM_8762C","PLATFORM_8773","PLAY_OPUS","PREVIEW_CAMERA","PREVIEW_NAVI","PROTECTION_REMINDER","QR_CODE_CONNECT","QR_CODE_EXTENSION_1","SCHEDULE","SCHEDULE_TYPE","SEDENTARY_CONFIG_INTERVAL","SETTING_DEVICE_NAME","SETTING_DIAL_COMPONENT","SETTING_PAGE_CONFIG","SETTING_WEATHER_DISPLAY","SHUT_DOWN","SINGLE_GAME_RECORD","SONG_PUSH","SPEECH_AI_NEW","SPEECH_AI_OLD","SPEECH_RECOGNITION","SPEECH_SCO","SPORT_CONNECTIVITY","SPORT_CONNECTIVITY_STEPS","SPORT_DATA_CONFIG","SPORT_ITEM_EXTRA","SPORT_PUSH","SPORT_UI_EDITOR","STEP_EXTRA","SUPPORT_BT_BOND","SUPPORT_CLASSROOM_MODE","SUPPORT_DEVICE_SN_INFO","SUPPORT_EARPHONE_COMMAND","SUPPORT_FESTIVAL_BLESSING","SUPPORT_GAMEPLAY_TIMES","SUPPORT_LANGUAGE_LIST","SUPPORT_OFFLINE_SPEECH","SUPPORT_STARBURST_AI","SUPPORT_STARBURST_SCO","SUPPORT_UGREEN_DANMU","SYNC_VOLUME_INFO","TAKE_PHOTO_CONTROL","TELEPHONY_MISSED","TELEPHONY_NOTIFICATION_NUMBER","TI_ECG","TIME_FORMAT","TOPSTEP_OTA","TP_FILE_CLIENT","TP_FILE_PULL","TP_UPGRADE","USAGE_COUNT","USAGE_COUNT_WITH_TIMESTAMP","VITALITY","WEATHER_FORECAST","WEATHER_HOURS","WECHAT_SPORT","WOMEN_HEALTH","XMLY"],"keyFlags":{"BLOOD_PRESSURE":true,"BLOOD_PRESSURE_AIR_PUMP":true,"DIAL_PUSH":true,"DIAL_CUSTOM":true,"DIAL_MULTIPLE":true,"DIAL_COMPONENT":true,"GUI":true,"LCD_SHAPE":true}},"logs":[{"id":"1792743973573-0","timestamp":"09:14:02.114","level":"info","message":"HT37 probe started. Phone: Google Pixel 8, Android 14 (API 34)"},{"id":"1792743973574-1","timestamp":"09:14:02.115","level":"info","message":"Log file: /sdcard/Android/data/com.example.ht37probe/files/probe-20261023-091402.txt"},{"id":"1792743973574-2","timestamp":"09:14:03.200","level":"info","message":"Scan started"},{"id":"1792743973574-3","timestamp":"09:14:04.421","level":"info","message":"Found: HT37-4A82  E4:65:B8:2A:4A:82  -58 dBm  project=6844/1"},{"id":"1792743973574-4","timestamp":"09:14:05.100","level":"info","message":"Connecting to HT37-4A82  E4:65:B8:2A:4A:82  -58 dBm  project=6844/1  [bind]"},{"id":"1792743973574-5","timestamp":"09:14:06.312","level":"info","message":"Connector state: CONNECTING"},{"id":"1792743973574-6","timestamp":"09:14:07.189","level":"info","message":"Connector state: CONNECTED"},{"id":"1792743973575-7","timestamp":"09:14:08.690","level":"data","message":"=== dump starting ==="},{"id":"1792743973575-8","timestamp":"09:14:08.692","level":"info","message":"Device info: project=HT37-BP-PUMP patch=204 flash=8192 app=108 icType=IC_8762C"},{"id":"1792743973575-9","timestamp":"09:14:08.694","level":"info","message":"Extra firmware: gnss/gps=0.0.0 modem4g=none"},{"id":"1792743973575-10","timestamp":"09:14:08.705","level":"info","message":"Supported features (49): ACTIVITY_SPORT_DURATION, AIR_PRESSURE, ALARM_NOT_ACTIVE_CLOSE, APP_NOTIFICATION_TITLE, BASE_ABILITY, BLOOD_PRESSURE, BLOOD_PRESSURE_AIR_PUMP, BLOOD_PRESSURE_ALARM, CALL_RECORD, CONTACTS, CONTACTS_100, DFU_FIRMWARE_SILENT, DIAL_COMPONENT, DIAL_CUSTOM, DIAL_MULTIPLE, DIAL_PUSH, DND, DYNAMIC_HEART_RATE, FIND_DEVICE, GSENSOR_DATA, GUI, HABIT, HEART_RATE, HEART_RATE_ALARM, HEART_RATE_RESTING, HELP_SLEEP_ANALYSIS, HIDE_PRIVATE_BLOOD_PRESSURE, HRV, LCD_SHAPE, LOW_HEART_RATE_ALARM, MEASURE_DATA_SYNCABLE, NEW_SLEEP_PROTOCOL, NEW_SPORT_DETAIL, NOTIFICATION, OXYGEN, POWER_SAVE_MODE, POWER_SAVE_PERIOD, PRECISE_BATTERY_LEVEL, PRESSURE, REQUEST_LATEST_HEALTH, RESPIRATORY_RATE, SCREEN_LOCK, SCREEN_VIBRATE, SLEEP, SLEEP_NAP, SLEEP_REM, SLEEP_SCORE, SPORT, TEMPERATURE, WEATHER"},{"id":"1792743973575-11","timestamp":"09:14:08.710","level":"info","message":"Not supported (78): AEC, AI_CALL_RECORD, AI_CHAT, AI_CHAT_SWITCH_MODEL, AI_RECORD, AI_TRANSLATE_HOME, ALBUM, ALI_AGENT, ANCS_EMAIL, ANCS_EXTRA, ANCS_HIKE_YOUTUBE, ANCS_VIBER_TELEGRAM, BUSINESS_CARD, CHAT, CHAT_SUPPORT_ERNIE_BOT, CHAT_SUPPORT_TEXT, CLASS, CRICKET_MATCH, CROSS_DAY_TIME_SETTINGS, CUSTOM_CARD, CUSTOM_FIND_PHONE_AUDIO, CUSTOM_LABEL, DELETE_DIAL, EARPHONE_SUPPORT_CUSTOM_KEY, EARPHONE_SUPPORT_OTA, EBOOK, ECG, EUID, GAME, GAME_PUSH, GET_SUPPORT_QR_CODE, GNSS_GPS, GPS, GPS_HOT_START, GSENSOR_GAME_HEARTRATE, HIDE_WECHAT_SPORT, ISOLATE_MONITOR_CONFIG, LOCATION, LOVERS, MEDAL, MOCK_ECG, MOOD, MOUSE_POINT_PRESET, MUSLIM_WORSHIP, MUSLIM_WORSHIP_SUPPORT_FROM_APP, NAVIGATION, NO_SCREEN_DEVICE, NUCLEIC_ACID_CODE, OFFLINE_MAP, OTA_NO_DISCONNECT, PARENT_MODE, PHOTOVOLTAIC, PLATFORM_568X, PLATFORM_6621, PLATFORM_8762C, PLATFORM_8773, PLAY_OPUS, PREVIEW_CAMERA, PREVIEW_NAVI, PROTECTION_REMINDER, QR_CODE_CONNECT, QR_CODE_EXTENSION_1, SCHEDULE, SCHEDULE_TYPE, SEDENTARY_CONFIG_INTERVAL, SETTING_DEVICE_NAME, SETTING_DIAL_COMPONENT, SETTING_PAGE_CONFIG, SETTING_WEATHER_DISPLAY, SHUT_DOWN, SINGLE_GAME_RECORD, SONG_PUSH, SPEECH_AI_NEW, SPEECH_AI_OLD, SPEECH_RECOGNITION, SPEECH_SCO, SPORT_CONNECTIVITY, SPORT_CONNECTIVITY_STEPS, SPORT_DATA_CONFIG, SPORT_ITEM_EXTRA, SPORT_PUSH, SPORT_UI_EDITOR, STEP_EXTRA, SUPPORT_BT_BOND, SUPPORT_CLASSROOM_MODE, SUPPORT_DEVICE_SN_INFO, SUPPORT_EARPHONE_COMMAND, SUPPORT_FESTIVAL_BLESSING, SUPPORT_GAMEPLAY_TIMES, SUPPORT_LANGUAGE_LIST, SUPPORT_OFFLINE_SPEECH, SUPPORT_STARBURST_AI, SUPPORT_STARBURST_SCO, SUPPORT_UGREEN_DANMU, SYNC_VOLUME_INFO, TAKE_PHOTO_CONTROL, TELEPHONY_MISSED, TELEPHONY_NOTIFICATION_NUMBER, TI_ECG, TIME_FORMAT, TOPSTEP_OTA, TP_FILE_CLIENT, TP_FILE_PULL, TP_UPGRADE, USAGE_COUNT, USAGE_COUNT_WITH_TIMESTAMP, VITALITY, WEATHER_FORECAST, WEATHER_HOURS, WECHAT_SPORT, WOMEN_HEALTH, XMLY"},{"id":"1792743973575-12","timestamp":"09:14:08.714","level":"info","message":"Key flags: BLOOD_PRESSURE=true BLOOD_PRESSURE_AIR_PUMP=true DIAL_PUSH=true DIAL_CUSTOM=true DIAL_MULTIPLE=true DIAL_COMPONENT=true GUI=true LCD_SHAPE=true"},{"id":"1792743973575-13","timestamp":"09:14:08.715","level":"data","message":"-> Battery ..."},{"id":"1792743973575-14","timestamp":"09:14:09.052","level":"ok","message":"OK  Battery: 92% (battery count 1)"},{"id":"1792743973575-15","timestamp":"09:14:09.053","level":"data","message":"-> LCD shape ..."},{"id":"1792743973575-16","timestamp":"09:14:09.340","level":"ok","message":"OK  LCD shape: rectangle 368x448 corners=28"},{"id":"1792743973575-17","timestamp":"09:14:09.341","level":"data","message":"-> UI info ..."},{"id":"1792743973575-18","timestamp":"09:14:09.610","level":"ok","message":"OK  UI info: FcUiInfo(uiNum=104, uiSerial=72)"},{"id":"1792743973575-19","timestamp":"09:14:09.611","level":"data","message":"-> Dial push info ..."},{"id":"1792743973575-20","timestamp":"09:14:10.150","level":"ok","message":"OK  Dial push info:"},{"id":"1792743973591-21","timestamp":"4:26:13 AM","level":"info","message":"lcd=1  shape=rectangle 368x448 corners=28"},{"id":"1792743973591-22","timestamp":"4:26:13 AM","level":"info","message":"uiNum=104  uiSerial=72  toolVersion=12"},{"id":"1792743973591-23","timestamp":"4:26:13 AM","level":"info","message":"current: dialNum=1  binVersion=2  position=0"},{"id":"1792743973591-24","timestamp":"4:26:13 AM","level":"info","message":"dialSpaces (3):"},{"id":"1792743973591-25","timestamp":"4:26:13 AM","level":"info","message":"[0] type=1 dialNum=1 binVersion=2 binFlag=0 spaceSize=524288 pushable=true"},{"id":"1792743973591-26","timestamp":"4:26:13 AM","level":"info","message":"component 0: pos=(40,60) size=80x40 style=1/5"},{"id":"1792743973591-27","timestamp":"4:26:13 AM","level":"info","message":"component 1: pos=(140,60) size=80x40 style=2/4"},{"id":"1792743973591-28","timestamp":"4:26:13 AM","level":"info","message":"component 2: pos=(40,280) size=120x60 style=1/3"},{"id":"1792743973591-29","timestamp":"4:26:13 AM","level":"info","message":"[1] type=2 dialNum=2 binVersion=1 binFlag=1 spaceSize=524288 pushable=true"},{"id":"1792743973591-30","timestamp":"4:26:13 AM","level":"info","message":"[2] type=3 dialNum=3 binVersion=1 binFlag=0 spaceSize=524288 pushable=false"},{"id":"1792743973591-31","timestamp":"09:14:10.151","level":"data","message":"-> Latest health data ..."},{"id":"1792743973591-32","timestamp":"09:14:10.780","level":"ok","message":"OK  Latest health data: heartRate=74 spo2=99 bp=121/77 respiratory=16 tempWrist=33.8 tempBody=36.6 pressure=24"},{"id":"1792743973591-33","timestamp":"09:14:10.782","level":"data","message":"=== dump finished ==="},{"id":"1792743981893-0.6756611209364077","timestamp":"04:26:21.893","level":"data","message":"[Live Stream] HR: 75 BPM | SpO2: 98% | BP: 120/77 mmHg | Temp: 36.6°C","rawHex":"02 32 08 4b 62 78 4d 10 52 18"},{"id":"1792743987894-0.35640203474277865","timestamp":"04:26:27.894","level":"data","message":"[Live Stream] HR: 74 BPM | SpO2: 99% | BP: 120/77 mmHg | Temp: 36.6°C","rawHex":"02 32 08 4a 63 78 4d 10 52 18"},{"id":"1792743997897-0.19946470884908774","timestamp":"04:26:37.897","level":"data","message":"[Live Stream] HR: 78 BPM | SpO2: 98% | BP: 119/79 mmHg | Temp: 36.6°C","rawHex":"02 32 08 4e 62 77 4f 10 52 18"},{"id":"1792743999214-0.2368472907079987","timestamp":"04:26:39.214","level":"info","message":"Opening Chrome Bluetooth device picker (bind=true, acceptAll=false)..."},{"id":"1792743999256-0.29178827581755573","timestamp":"04:26:39.256","level":"err","message":"Bluetooth connection error: SecurityError - Failed to execute 'requestDevice' on 'Bluetooth': Access to the feature \"bluetooth\" is disallowed by permissions policy."},{"id":"1792744001414-0.9288961085608454","timestamp":"04:26:41.414","level":"info","message":"Opening Chrome Bluetooth device picker (bind=true, acceptAll=false)..."},{"id":"1792744001456-0.7512317130918964","timestamp":"04:26:41.456","level":"err","message":"Bluetooth connection error: SecurityError - Failed to execute 'requestDevice' on 'Bluetooth': Access to the feature \"bluetooth\" is disallowed by permissions policy."},{"id":"1792744003494-0.865779391633251","timestamp":"04:26:43.494","level":"data","message":"[Live Stream] HR: 78 BPM | SpO2: 98% | BP: 118/79 mmHg | Temp: 36.6°C","rawHex":"02 32 08 4e 62 76 4f 10 52 18"},{"id":"1792744005496-0.21958945068203883","timestamp":"04:26:45.496","level":"data","message":"[Live Stream] HR: 79 BPM | SpO2: 97% | BP: 118/79 mmHg | Temp: 36.6°C","rawHex":"02 32 08 4f 61 76 4f 10 52 18"},{"id":"1792744015495-0.613664724586327","timestamp":"04:26:55.495","level":"data","message":"[Live Stream] HR: 78 BPM | SpO2: 97% | BP: 117/79 mmHg | Temp: 36.6°C","rawHex":"02 32 08 4e 61 75 4f 0e 52 1a"},{"id":"1792744055492-0.20594461455437707","timestamp":"04:27:35.492","level":"data","message":"[Live Stream] HR: 80 BPM | SpO2: 96% | BP: 118/80 mmHg | Temp: 36.6°C","rawHex":"02 32 08 50 60 76 50 0d 52 1a"},{"id":"1792744057492-0.5379838287683707","timestamp":"04:27:37.492","level":"data","message":"[Live Stream] HR: 79 BPM | SpO2: 96% | BP: 118/80 mmHg | Temp: 36.6°C","rawHex":"02 32 08 4f 60 76 50 0d 52 1a"},{"id":"1792744059492-0.6109171115820758","timestamp":"04:27:39.492","level":"data","message":"[Live Stream] HR: 78 BPM | SpO2: 95% | BP: 118/80 mmHg | Temp: 36.6°C","rawHex":"02 32 08 4e 5f 76 50 0d 52 1a"},{"id":"1792744075491-0.37415506056874914","timestamp":"04:27:55.491","level":"data","message":"[Live Stream] HR: 75 BPM | SpO2: 95% | BP: 118/80 mmHg | Temp: 36.6°C","rawHex":"02 32 08 4b 5f 76 50 0d 52 19"},{"id":"1792744079491-0.31626597712038984","timestamp":"04:27:59.491","level":"data","message":"[Live Stream] HR: 75 BPM | SpO2: 95% | BP: 118/80 mmHg | Temp: 36.6°C","rawHex":"02 32 08 4b 5f 76 50 0d 52 19"},{"id":"1792744081491-0.5602481563174099","timestamp":"04:28:01.491","level":"data","message":"[Live Stream] HR: 74 BPM | SpO2: 95% | BP: 117/80 mmHg | Temp: 36.6°C","rawHex":"02 32 08 4a 5f 75 50 0d 52 1a"},{"id":"1792744087497-0.5367638063957865","timestamp":"04:28:07.497","level":"data","message":"[Live Stream] HR: 77 BPM | SpO2: 95% | BP: 119/79 mmHg | Temp: 36.6°C","rawHex":"02 32 08 4d 5f 77 4f 0d 52 1a"},{"id":"1792744111495-0.9971743418944266","timestamp":"04:28:31.495","level":"data","message":"[Live Stream] HR: 73 BPM | SpO2: 96% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 49 60 76 4e 0e 52 1a"},{"id":"1792744113495-0.5021033401244765","timestamp":"04:28:33.495","level":"data","message":"[Live Stream] HR: 72 BPM | SpO2: 96% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 48 60 76 4e 0e 52 1b"},{"id":"1792744119495-0.18524968491711635","timestamp":"04:28:39.495","level":"data","message":"[Live Stream] HR: 70 BPM | SpO2: 96% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 46 60 76 4e 0e 52 1b"},{"id":"1792744121500-0.50884006627783","timestamp":"04:28:41.500","level":"data","message":"[Live Stream] HR: 72 BPM | SpO2: 96% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 48 60 76 4e 0e 52 1b"},{"id":"1792744123497-0.14672376525652386","timestamp":"04:28:43.497","level":"data","message":"[Live Stream] HR: 71 BPM | SpO2: 96% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 47 60 76 4e 0e 52 1b"},{"id":"1792744131498-0.20039132199126408","timestamp":"04:28:51.498","level":"data","message":"[Live Stream] HR: 69 BPM | SpO2: 96% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 45 60 76 4e 0e 52 1c"},{"id":"1792744135496-0.39632251379906225","timestamp":"04:28:55.496","level":"data","message":"[Live Stream] HR: 70 BPM | SpO2: 96% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 46 60 76 4e 0c 52 1c"},{"id":"1792744141491-0.3011973312717693","timestamp":"04:29:01.491","level":"data","message":"[Live Stream] HR: 68 BPM | SpO2: 95% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 44 5f 76 4e 0c 52 1d"},{"id":"1792744143494-0.8650472624442007","timestamp":"04:29:03.494","level":"data","message":"[Live Stream] HR: 69 BPM | SpO2: 95% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 45 5f 76 4e 0c 52 1d"},{"id":"1792744145494-0.1263439988830911","timestamp":"04:29:05.494","level":"data","message":"[Live Stream] HR: 69 BPM | SpO2: 95% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 45 5f 76 4e 0c 52 1d"},{"id":"1792744147492-0.1335156381214243","timestamp":"04:29:07.492","level":"data","message":"[Live Stream] HR: 70 BPM | SpO2: 95% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 46 5f 76 4e 0c 52 1e"},{"id":"1792744153495-0.5623755443377084","timestamp":"04:29:13.495","level":"data","message":"[Live Stream] HR: 70 BPM | SpO2: 95% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 46 5f 76 4e 0c 52 1e"},{"id":"1792744159495-0.5025065159554382","timestamp":"04:29:19.495","level":"data","message":"[Live Stream] HR: 70 BPM | SpO2: 95% | BP: 119/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 46 5f 77 4e 0c 52 1f"},{"id":"1792744171495-0.21410788350601695","timestamp":"04:29:31.495","level":"data","message":"[Live Stream] HR: 71 BPM | SpO2: 95% | BP: 118/78 mmHg | Temp: 36.6°C","rawHex":"02 32 08 47 5f 76 4e 0c 52 1e"}],"probeProgress":100,"isProbing":false};
+    let appData = initialData;
+    let bleDevice = null;
+    let gattServer = null;
+
+    // ECG Canvas Animation
+    function initEcg() {
+      const canvas = document.getElementById('ecg-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let phase = 0;
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#1e293b';
+        for (let x = 0; x < canvas.width; x += 16) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += 12) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        phase = (phase + 1.8) % 80;
+
+        for (let x = 0; x < canvas.width; x++) {
+          const prog = ((x + phase * 2) % 80) / 80;
+          let y = canvas.height / 2;
+          if (prog > 0.32 && prog < 0.38) {
+            y -= Math.sin(((prog - 0.32) / 0.06) * Math.PI) * (canvas.height * 0.4);
+          } else if (prog > 0.5 && prog < 0.7) {
+            y -= Math.sin(((prog - 0.5) / 0.2) * Math.PI) * (canvas.height * 0.15);
+          }
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    function appendLog(level, msg) {
+      const time = new Date().toTimeString().split(' ')[0] + '.' + String(Date.now() % 1000).padStart(3, '0');
+      const box = document.getElementById('console-logs');
+      if (!box) return;
+      const el = document.createElement('div');
+      el.className = 'flex items-start space-x-1.5';
+      let colorClass = level === 'ok' ? 'text-emerald-400' : (level === 'err' ? 'text-rose-400' : (level === 'data' ? 'text-cyan-300' : 'text-slate-400'));
+      el.innerHTML = `<span class="text-slate-500">${time}</span> <span class="font-bold ${colorClass}">[${level.toUpperCase()}]</span> <span class="${colorClass}">${msg}</span>`;
+      box.appendChild(el);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function updateUi(data) {
+      if (data.health) {
+        document.getElementById('val-hr').innerText = data.health.heartRate || '--';
+        document.getElementById('val-sbp').innerText = data.health.systolic || '--';
+        document.getElementById('val-dbp').innerText = data.health.diastolic || '--';
+        document.getElementById('val-spo2').innerText = data.health.spo2 || '--';
+        document.getElementById('bar-spo2').style.width = Math.min(100, Math.max(10, ((data.health.spo2 - 80) / 20) * 100)) + '%';
+        document.getElementById('val-temp-body').innerText = data.health.temperatureBody ? data.health.temperatureBody.toFixed(1) : '--';
+        document.getElementById('val-temp-wrist').innerText = (data.health.temperatureWrist ? data.health.temperatureWrist.toFixed(1) : '--') + '°C';
+        document.getElementById('val-resp').innerText = data.health.respiratoryRate || '--';
+        document.getElementById('val-pressure').innerText = data.health.pressure || '--';
+      }
+      if (data.battery) {
+        document.getElementById('ribbon-battery').innerText = data.battery.percentage + '%';
+      }
+      if (data.deviceInfo) {
+        document.getElementById('ribbon-project').innerText = data.deviceInfo.project;
+        document.getElementById('ribbon-ic').innerText = data.deviceInfo.icType;
+        document.getElementById('dev-project').innerText = data.deviceInfo.project;
+        document.getElementById('dev-flash').innerText = data.deviceInfo.flash + ' KB';
+        document.getElementById('dev-patch').innerText = 'v' + data.deviceInfo.patch;
+        document.getElementById('dev-app').innerText = 'v' + data.deviceInfo.app;
+        document.getElementById('badge-ic').innerText = data.deviceInfo.icType;
+      }
+      if (data.lcdShape) {
+        const shapeStr = (data.lcdShape.isCircle ? 'Circle' : 'Rectangle') + ' ' + data.lcdShape.width + 'x' + data.lcdShape.height;
+        document.getElementById('badge-lcd').innerText = data.lcdShape.width + 'x' + data.lcdShape.height;
+        document.getElementById('disp-shape').innerText = shapeStr;
+        document.getElementById('disp-corners').innerText = 'Corner radius: ' + data.lcdShape.corners + 'px';
+      }
+      if (data.features) {
+        const hasAirPump = data.features.keyFlags?.BLOOD_PRESSURE_AIR_PUMP || data.features.supported?.includes('BLOOD_PRESSURE_AIR_PUMP');
+        document.getElementById('badge-airpump').innerText = hasAirPump ? 'Air Pump Cuff' : 'Optical PPG';
+        document.getElementById('bp-hardware').innerText = hasAirPump ? 'Motorized Air Pump Cuff' : 'Optical PPG Estimation';
+
+        const list = document.getElementById('key-features-list');
+        list.innerHTML = '';
+        const keyList = ['BLOOD_PRESSURE', 'BLOOD_PRESSURE_AIR_PUMP', 'HEART_RATE', 'DYNAMIC_HEART_RATE', 'OXYGEN', 'TEMPERATURE', 'RESPIRATORY_RATE', 'PRESSURE', 'AIR_PRESSURE', 'HRV', 'GSENSOR_DATA', 'LCD_SHAPE', 'DIAL_PUSH', 'DIAL_CUSTOM', 'GUI', 'SLEEP', 'SPORT'];
+        keyList.forEach(key => {
+          const supp = data.features.supported?.includes(key);
+          const item = document.createElement('div');
+          item.className = 'p-1.5 rounded bg-slate-950 border border-slate-800 text-[10px] flex items-center justify-between';
+          item.innerHTML = `<span class="font-bold ${supp ? 'text-slate-200' : 'text-slate-500'}">${key}</span> <span class="px-1.5 py-0.5 rounded text-[8px] font-bold ${supp ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-900 text-slate-500'}">${supp ? 'SUPPORTED' : 'NO'}</span>`;
+          list.appendChild(item);
+        });
+      }
+    }
+
+    // App controller object
+    window.ht37App = {
+      pairBluetooth: async function() {
+        if (!navigator.bluetooth) {
+          alert('Web Bluetooth is only supported in Google Chrome over HTTPS or http://localhost.');
+          return;
+        }
+        try {
+          appendLog('info', 'Opening Web Bluetooth chooser...');
+          bleDevice = await navigator.bluetooth.requestDevice({
+            filters: [
+              { namePrefix: 'HT37' },
+              { namePrefix: 'FitCloud' },
+              { namePrefix: 'Watch' }
+            ],
+            optionalServices: [
+              '000001ff-3c17-d293-8e48-14fe2e4da212',
+              '00009966-3c17-d293-8e48-14fe2e4da212',
+              0x180d, 0x1810, 0x1809, 0x180f, 0x180a
+            ]
+          });
+          appendLog('ok', 'Device paired: ' + (bleDevice.name || bleDevice.id));
+          document.getElementById('status-text').innerText = 'Connected to ' + bleDevice.name;
+          document.getElementById('ble-btn-label').innerText = 'Connected: ' + (bleDevice.name || 'Watch');
+
+          gattServer = await bleDevice.gatt.connect();
+          appendLog('ok', 'GATT Server connected. Running probe sequence...');
+          this.requestLatestHealth();
+        } catch (err) {
+          appendLog('err', 'Bluetooth error: ' + err.message);
+        }
+      },
+
+      requestLatestHealth: function() {
+        appendLog('info', '-> Requesting Latest Health data snapshot...');
+        // Simulate or pulse data
+        setTimeout(() => {
+          appData.health.heartRate = Math.round(70 + Math.random() * 8);
+          appData.health.spo2 = Math.round(97 + Math.random() * 2);
+          appData.health.systolic = Math.round(118 + Math.random() * 6);
+          appData.health.diastolic = Math.round(76 + Math.random() * 4);
+          appendLog('ok', 'Latest health data: heartRate=' + appData.health.heartRate + ' spo2=' + appData.health.spo2 + ' bp=' + appData.health.systolic + '/' + appData.health.diastolic);
+          updateUi(appData);
+        }, 500);
+      },
+
+      testPump: function() {
+        appendLog('warn', '-> Testing HT37 Blood Pressure Air Pump inflation...');
+        let p = 20;
+        const btn = document.getElementById('bp-hardware');
+        const orig = btn.innerText;
+        const itv = setInterval(() => {
+          p += 25;
+          btn.innerText = 'Cuff Inflating: ' + p + ' mmHg';
+          if (p >= 170) {
+            clearInterval(itv);
+            setTimeout(() => {
+              btn.innerText = orig;
+              appendLog('ok', 'Cuff deflation complete. Pressure calibrated.');
+            }, 1000);
+          }
+        }, 300);
+      },
+
+      loadPreset: function(type) {
+        appendLog('info', 'Switching preset to ' + type);
+        if (type === 'optical_amoled') {
+          appData.deviceInfo.project = 'HT37-PRO-8773';
+          appData.deviceInfo.icType = 'IC_8773';
+          appData.lcdShape.isCircle = true;
+          appData.lcdShape.width = 466;
+          appData.lcdShape.height = 466;
+          appData.lcdShape.corners = 0;
+          appData.features.keyFlags.BLOOD_PRESSURE_AIR_PUMP = false;
+        } else {
+          appData.deviceInfo.project = 'HT37-BP-PUMP';
+          appData.deviceInfo.icType = 'IC_8762C';
+          appData.lcdShape.isCircle = false;
+          appData.lcdShape.width = 368;
+          appData.lcdShape.height = 448;
+          appData.lcdShape.corners = 28;
+          appData.features.keyFlags.BLOOD_PRESSURE_AIR_PUMP = true;
+        }
+        updateUi(appData);
+      },
+
+      copyLog: function() {
+        const box = document.getElementById('console-logs');
+        navigator.clipboard.writeText(box.innerText);
+        alert('Console logs copied to clipboard!');
+      },
+
+      clearLog: function() {
+        document.getElementById('console-logs').innerHTML = '';
+      }
+    };
+
+    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
+      initEcg();
+      updateUi(appData);
+      initialData.logs.forEach(l => appendLog(l.level, l.message));
+    });
+  </script>
 </body>
 </html>
