@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Studio & Protocol Engine [Build 17.0]</title>
+  <title>HT37 Studio & Inspector [Build 18.0]</title>
   <style>
     :root {
       --bg: #090d16;
@@ -61,7 +61,7 @@
       padding: 10px;
     }
     .probe-card span { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; display: block; }
-    .probe-card strong { font-size: 1.1rem; color: #f8fafc; margin-top: 2px; display: inline-block; }
+    .probe-card strong { font-size: 1.05rem; color: #f8fafc; margin-top: 2px; display: inline-block; }
     
     .workspace {
       display: flex;
@@ -152,25 +152,24 @@
 <body>
 
   <header>
-    <h1>HT37 Studio & Protocol Engine</h1>
-    <div class="badge">BUILD 17.0 - SYNCED CHECKPOINTS & VENDOR TELEMETRY</div>
+    <h1>HT37 Studio & Protocol Inspector</h1>
+    <div class="badge">BUILD 18.0 - MULTI-PIPE DFU & BINARY VALIDATOR</div>
   </header>
 
-  <!-- LIVE SENSOR & DATA PROBE MONITOR -->
   <div class="probe-container">
-    <span class="section-title">Live Sensor & Telemetry Probe Window</span>
+    <span class="section-title">Device & File Telemetry Probe</span>
     <div class="probe-grid">
       <div class="probe-card">
         <span>Device Connection</span>
         <strong id="valStatus" style="color:var(--danger)">Disconnected</strong>
       </div>
       <div class="probe-card">
-        <span>Hardware Battery</span>
-        <strong id="valBattery">--</strong>
+        <span>File Format Detected</span>
+        <strong id="valFormat">None</strong>
       </div>
       <div class="probe-card">
-        <span>Last Watch Event</span>
-        <strong id="valEvent" style="font-size:0.85rem; color:var(--accent)">Idle</strong>
+        <span>Data Pipe In Use</span>
+        <strong id="valPipe">--</strong>
       </div>
       <div class="probe-card">
         <span>Packets Streamed</span>
@@ -193,11 +192,11 @@
         </div>
 
         <div class="form-group">
-          <label>Watch Face .BIN File:</label>
+          <label>Dial .BIN File:</label>
           <input type="file" id="binTemplateInput" accept=".bin">
         </div>
 
-        <button id="btnFlash" class="btn-success" disabled>2. Flash .BIN to Watch</button>
+        <button id="btnFlash" class="btn-success" disabled>2. Flash to Watch</button>
         
         <div class="progress-bar-container" id="progressContainer">
           <div class="progress-bar" id="progressBar"></div>
@@ -226,25 +225,30 @@
     </div>
   </div>
 
-  <div id="logBox">Build 17.0 Ready. Turn phone Bluetooth OFF, then click 'Connect HT37'.</div>
+  <div id="logBox">Build 18.0 Ready. Turn phone Bluetooth OFF, then click 'Connect HT37'.</div>
 
   <script>
     const SERVICE_VENDOR_9966 = '00009966-3c17-d293-8e48-14fe2e4da212';
-    const CHAR_VENDOR_TX     = '0000ffb1-0000-1000-8000-00805f9b34fb';
-    const CHAR_VENDOR_RX     = '0000ffb2-0000-1000-8000-00805f9b34fb';
+    const SERVICE_RTK_DFU     = '00006287-3c17-d293-8e48-14fe2e4da212';
+    const SERVICE_RTK_OTA     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
+
+    const CHAR_VENDOR_TX      = '0000ffb1-0000-1000-8000-00805f9b34fb';
+    const CHAR_VENDOR_RX      = '0000ffb2-0000-1000-8000-00805f9b34fb';
+    const CHAR_DFU_DATA       = '00006387-3c17-d293-8e48-14fe2e4da212';
+    const CHAR_DFU_CONTROL    = '00006487-3c17-d293-8e48-14fe2e4da212';
 
     let bleDevice = null;
     let gattServer = null;
     let charVendorTx = null;
     let charVendorRx = null;
+    let charDfuData = null;
+    let charDfuControl = null;
+
     let loadedBinData = null;
     let isFlashing = false;
     let rxCount = 0;
     let txCount = 0;
-
-    // Checkpoint coordination
-    let checkpointRequested = false;
-    let checkpointPacket = null;
+    let nackReceived = false;
 
     const logBox = document.getElementById('logBox');
     function log(msg) {
@@ -256,37 +260,60 @@
 
     const sleep = ms => new Promise(res => setTimeout(res, ms));
 
-    function updateProbe(eventText) {
+    function updateProbe(info) {
       document.getElementById('valPackets').textContent = `${rxCount} RX / ${txCount} TX`;
-      if (eventText) document.getElementById('valEvent').textContent = eventText;
     }
 
-    async function sendTx(bytes) {
-      if (!charVendorTx) return;
-      const data = new Uint8Array(bytes);
-      if (charVendorTx.properties.write) {
-        await charVendorTx.writeValue(data);
-      } else {
-        await charVendorTx.writeValueWithoutResponse(data);
+    // --- FILE INSPECTOR ---
+    document.getElementById('binTemplateInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          loadedBinData = new Uint8Array(evt.target.result);
+          log(`File loaded: ${file.name} (${loadedBinData.byteLength} bytes).`);
+
+          // Inspect first 16 bytes
+          const headerAscii = String.fromCharCode(...loadedBinData.subarray(0, 4));
+          const hexHeader = Array.from(loadedBinData.subarray(0, 16)).map(x => x.toString(16).padStart(2, '0')).join(' ');
+          log(`  * Header Dump [0..15]: ${hexHeader}`);
+
+          let detected = 'Unknown Binary';
+          if (headerAscii.includes('TBUI')) {
+            detected = 'Valid TBUI Dial';
+          } else if (loadedBinData[0] === 0x01 && loadedBinData[1] === 0x00) {
+            detected = 'Realtek OTA Image';
+          } else if (loadedBinData.byteLength === 259232 || loadedBinData.byteLength === 259200) {
+            detected = 'Raw RGB565 Bitmap';
+          }
+          document.getElementById('valFormat').textContent = detected;
+          log(`  * Analysis: ${detected}`);
+
+          if (gattServer && gattServer.connected) {
+            document.getElementById('btnFlash').disabled = false;
+          }
+        };
+        reader.readAsArrayBuffer(file);
       }
-      txCount++;
-      updateProbe();
-    }
+    });
 
-    // --- 1. CONNECT & SETUP TELEMETRY ---
+    // --- 1. CONNECT & MULTI-SERVICE DISCOVERY ---
     document.getElementById('btnConnect').onclick = async () => {
       try {
-        log('Scanning for HT37...');
+        log('Scanning for HT37 with full service catalog...');
         bleDevice = await navigator.bluetooth.requestDevice({
           filters: [{ name: 'HT37' }, { namePrefix: 'HT37' }],
           optionalServices: [
             SERVICE_VENDOR_9966,
-            '00001800-0000-1000-8000-00805f9b34fb'
+            SERVICE_RTK_DFU,
+            SERVICE_RTK_OTA,
+            '00001800-0000-1000-8000-00805f9b34fb',
+            '0000180a-0000-1000-8000-00805f9b34fb'
           ]
         });
 
         bleDevice.addEventListener('gattserverdisconnected', () => {
-          log('Notice: HT37 disconnected.');
+          log('Notice: Watch disconnected.');
           document.getElementById('valStatus').textContent = 'Disconnected';
           document.getElementById('valStatus').style.color = 'var(--danger)';
           document.getElementById('btnDisconnect').disabled = true;
@@ -298,51 +325,48 @@
         document.getElementById('valStatus').style.color = 'var(--success)';
         document.getElementById('btnDisconnect').disabled = false;
 
-        const vService = await gattServer.getPrimaryService(SERVICE_VENDOR_9966);
-        charVendorTx = await vService.getCharacteristic(CHAR_VENDOR_TX);
-        charVendorRx = await vService.getCharacteristic(CHAR_VENDOR_RX);
-
-        await charVendorRx.startNotifications();
-        charVendorRx.addEventListener('characteristicvaluechanged', (e) => {
-          rxCount++;
-          const b = new Uint8Array(e.target.value.buffer);
-          const hex = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
-
-          // FitCloud Protocol Decoder
-          let desc = `Packet 0x${b[0].toString(16).toUpperCase()}`;
-
-          // Battery Response
-          if (b[0] === 0x82 && b.length >= 2) {
-            const bat = b[1];
-            document.getElementById('valBattery').textContent = `${bat}%`;
-            desc = `Battery: ${bat}%`;
+        log('Discovering all available services...');
+        const services = await gattServer.getPrimaryServices();
+        for (const s of services) {
+          log(`Service found: ${s.uuid}`);
+          const chars = await s.getCharacteristics();
+          for (const c of chars) {
+            log(`  -> Char: ${c.uuid}`);
+            if (c.uuid.toLowerCase().includes('ffb1')) charVendorTx = c;
+            if (c.uuid.toLowerCase().includes('ffb2')) charVendorRx = c;
+            if (c.uuid.toLowerCase().includes('6387')) charDfuData = c;
+            if (c.uuid.toLowerCase().includes('6487')) charDfuControl = c;
           }
-          // OTA Ready Screen
-          else if (b[0] === 0x81 && b.length === 32) {
-            desc = 'OTA Screen Ready (0%)';
-          }
-          // Block Checkpoint Request
-          else if (b[0] === 0xb0) {
-            desc = 'Block Checkpoint Received';
-            checkpointRequested = true;
-            checkpointPacket = b;
-          }
-          // Flow Control / Synced
-          else if (b[0] === 0xd4 || b[0] === 0xe4) {
-            desc = 'Stream Synced';
-          }
+        }
 
-          updateProbe(desc);
-          log(`<< RX [${b.length}B]: ${hex} (${desc})`);
-        });
+        const activePipe = charDfuData ? '6387 (Dedicated DFU)' : 'FFB1 (Vendor Stream)';
+        document.getElementById('valPipe').textContent = activePipe;
+        log(`Primary Data Target set to: ${activePipe}`);
 
-        log('SUCCESS: Subscribed to HT37 stream.');
-        
-        // Request battery status via FitCloud protocol command
-        await sleep(300);
-        log('Querying watch battery status via vendor channel...');
-        await sendTx([0x02, 0x03]);
+        // Subscribe to Vendor RX notifications
+        if (charVendorRx) {
+          await charVendorRx.startNotifications();
+          charVendorRx.addEventListener('characteristicvaluechanged', (e) => {
+            rxCount++;
+            const b = new Uint8Array(e.target.value.buffer);
+            const hex = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
+            if (b[0] === 0x80) nackReceived = true;
+            if (b[0] !== 0x80) log(`<< RX [${b.length}B]: ${hex}`);
+            updateProbe();
+          });
+        }
 
+        // Subscribe to DFU Control Point notifications if present
+        if (charDfuControl) {
+          await charDfuControl.startNotifications();
+          charDfuControl.addEventListener('characteristicvaluechanged', (e) => {
+            rxCount++;
+            const b = new Uint8Array(e.target.value.buffer);
+            log(`<< DFU Control RX: ${Array.from(b).map(x => x.toString(16).padStart(2,'0')).join(' ')}`);
+          });
+        }
+
+        log('SUCCESS: Ready to Flash.');
         if (loadedBinData) document.getElementById('btnFlash').disabled = false;
 
       } catch (err) {
@@ -354,44 +378,33 @@
       if (bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect();
     };
 
-    // --- TEMPLATE PICKER ---
-    document.getElementById('binTemplateInput').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          loadedBinData = new Uint8Array(evt.target.result);
-          log(`Loaded file: ${file.name} (${loadedBinData.byteLength} bytes).`);
-          if (gattServer && gattServer.connected) {
-            document.getElementById('btnFlash').disabled = false;
-          }
-        };
-        reader.readAsArrayBuffer(file);
-      }
-    });
-
-    // --- 2. PACED FLASH ENGINE WITH CHECKPOINT ACKNOWLEDGEMENT ---
+    // --- 2. TRANSMISSION ENGINE ---
     document.getElementById('btnFlash').onclick = async () => {
-      if (!charVendorTx || !loadedBinData) return;
+      if (!loadedBinData) return;
       if (isFlashing) return;
       isFlashing = true;
-      checkpointRequested = false;
+      nackReceived = false;
       document.getElementById('btnFlash').disabled = true;
 
       try {
         const totalBytes = loadedBinData.byteLength;
-        log(`--- STARTING OTA FLASH: ${totalBytes} BYTES ---`);
+        log(`--- INITIATING FLASH: ${totalBytes} BYTES ---`);
 
-        // Step 1: Send verified wake initiation packet (Dial 49921, version 1, slot 4)
-        log('Step 1: Sending Wake Trigger packet...');
+        // Send verified wake sequence to FFB1
+        log('Step 1: Sending Wake Trigger...');
         const initPkt = new Uint8Array([0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xC3, 0x01, 0x00, 0x04]);
-        await sendTx(initPkt);
-        updateProbe('Wake Trigger Sent');
-
-        // Allow watch screen to light up and enter flash state
+        if (charVendorTx.properties.write) {
+          await charVendorTx.writeValue(initPkt);
+        } else {
+          await charVendorTx.writeValueWithoutResponse(initPkt);
+        }
+        txCount++;
         await sleep(1000);
 
-        log('Step 2: Streaming data packets to FFB1...');
+        // Select write channel (prefer dedicated DFU pipe if discovered)
+        const targetPipe = charDfuData || charVendorTx;
+        log(`Step 2: Streaming data blocks to ${targetPipe.uuid.substring(0, 8)}...`);
+
         const progressContainer = document.getElementById('progressContainer');
         const progressBar = document.getElementById('progressBar');
         const progressText = document.getElementById('progressText');
@@ -403,52 +416,43 @@
         while (offset < totalBytes) {
           if (!bleDevice.gatt.connected) throw new Error('Watch disconnected during stream.');
 
-          // Handle 0xB0 Checkpoint: send ACK so the watch does not time out
-          if (checkpointRequested && checkpointPacket) {
-            log('--> Responding to Checkpoint request with confirmation ACK...');
-            const ackResponse = new Uint8Array(checkpointPacket);
-            ackResponse[0] = 0x30; // Checkpoint ACK Opcode
-            await sendTx(ackResponse);
-            checkpointRequested = false;
-            checkpointPacket = null;
-            await sleep(50); // Give watch flash controller time to commit
+          if (nackReceived) {
+            log('Watch requested backoff (0x80)... pausing 60ms.');
+            await sleep(60);
+            nackReceived = false;
           }
 
           const chunk = loadedBinData.subarray(offset, Math.min(offset + CHUNK_SIZE, totalBytes));
-          
-          if (charVendorTx.properties.writeWithoutResponse) {
-            await charVendorTx.writeValueWithoutResponse(chunk);
+          if (targetPipe.properties.writeWithoutResponse) {
+            await targetPipe.writeValueWithoutResponse(chunk);
           } else {
-            await charVendorTx.writeValue(chunk);
+            await targetPipe.writeValue(chunk);
           }
           offset += chunk.length;
           txCount++;
 
-          // Pacing delay allows flash memory page writes to complete
-          await sleep(20);
+          await sleep(25);
 
           if (offset % 4000 === 0 || offset === totalBytes) {
             const pct = Math.round((offset / totalBytes) * 100);
             progressBar.style.width = pct + '%';
             progressText.textContent = pct + '%';
-            updateProbe(`Streaming: ${pct}%`);
-            log(`Stream: ${pct}% (${offset}/${totalBytes} bytes)`);
+            log(`Stream: ${pct}% (${offset}/${totalBytes}B)`);
+            updateProbe();
           }
         }
 
-        log('All bytes transmitted! Watch is validating and applying watch face.');
-        updateProbe('Upload Complete - Verifying');
+        log('All bytes transmitted. Awaiting watch validation.');
 
       } catch (e) {
         log('Flash error: ' + e.message);
-        updateProbe('Transfer Error');
       } finally {
         isFlashing = false;
         document.getElementById('btnFlash').disabled = false;
       }
     };
 
-    // Canvas Preview Engine
+    // Canvas Preview
     const canvas = document.getElementById('watchCanvas');
     const ctx = canvas.getContext('2d');
     function renderPreview() {
