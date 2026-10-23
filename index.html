@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Studio [Build 4.0]</title>
+  <title>HT37 Studio [Build 5.0]</title>
   <style>
     :root {
       --bg: #090d16;
@@ -106,7 +106,7 @@
       font-size: 0.72rem;
       padding: 12px;
       border-radius: 8px;
-      height: 160px;
+      height: 170px;
       overflow-y: auto;
       margin-top: 15px;
       width: 100%;
@@ -120,7 +120,7 @@
 
   <header>
     <h1>HT37 Watch Face Studio</h1>
-    <div class="badge">BUILD 4.0 - FITCLOUD AUTO-DISCOVER</div>
+    <div class="badge">BUILD 5.0 - DEEP SCANNER</div>
   </header>
 
   <div class="workspace">
@@ -130,7 +130,11 @@
       </div>
 
       <div class="editor-panel" style="margin-top: 15px;">
-        <span class="section-title">FitCloudPro Link</span>
+        <span class="section-title">Bluetooth Connection</span>
+        <div class="form-group">
+          <label>Override Service UUID (Optional from chrome://bluetooth-internals)</label>
+          <input type="text" id="manualUuid" placeholder="e.g. 0000ae00-0000-1000-8000-00805f9b34fb">
+        </div>
         <div class="inline-fields">
           <button id="btnConnect" class="btn-primary">1. Pair HT37</button>
           <button id="btnDisconnect" class="btn-danger" disabled>Disconnect</button>
@@ -196,19 +200,25 @@
     </div>
   </div>
 
-  <div id="logBox">Status: Build 4.0 Ready. Ensure watch is paired with phone once, turn off phone Bluetooth, then click "1. Pair HT37".</div>
+  <div id="logBox">Status: Build 5.0 Ready. Click "1. Pair HT37" to start scan.</div>
 
   <script>
-    // Complete candidate list for FitCloudPro / TopStep / Realtek / JieLi architecture
-    const CANDIDATES = [
-      '6e400001-b5a3-f393-e0a9-e50e24dcca9f', // JieLi / FitCloud UART (Variant 1)
-      '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic / FitCloud UART (Variant 2)
+    // Comprehensive service list for FitCloudPro / Realtek / JieLi smartwatches
+    const ALL_CANDIDATES = [
+      '0000ae00-0000-1000-8000-00805f9b34fb', // JieLi / Jerry Command Profile
+      '0000ae30-0000-1000-8000-00805f9b34fb', // JieLi OTA Profile
+      '0000fee7-0000-1000-8000-00805f9b34fb', // Tencent / Topstep Primary
+      '6e400001-b5a3-f393-e0a9-e50e24dcca9f', // FitCloud UART Variant 1
+      '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART Variant 2
       '000056ff-0000-1000-8000-00805f9b34fb', // FitCloud proprietary 56FF
       '0000fff0-0000-1000-8000-00805f9b34fb', // Realtek SPP
-      '0000ffe0-0000-1000-8000-00805f9b34fb', // Standard transparent serial
+      '0000ffe0-0000-1000-8000-00805f9b34fb', // HM-10 UART
       '0000d0ff-3c17-d293-8e48-14fe2e4da212', // Realtek OTA
-      '0000180f-0000-1000-8000-00805f9b34fb', // Battery Service
-      '0000180a-0000-1000-8000-00805f9b34fb'  // Device Info
+      '00001802-0000-1000-8000-00805f9b34fb', // Immediate Alert
+      '00001803-0000-1000-8000-00805f9b34fb', // Link Loss
+      '0000180f-0000-1000-8000-00805f9b34fb', // Battery
+      '0000180a-0000-1000-8000-00805f9b34fb', // Device Info
+      '00001800-0000-1000-8000-00805f9b34fb'  // Generic Access
     ];
 
     let bleDevice = null;
@@ -241,13 +251,20 @@
       try {
         cleanupConnection();
 
+        const customUuid = document.getElementById('manualUuid').value.trim().toLowerCase();
+        let serviceList = [...ALL_CANDIDATES];
+        if (customUuid && !serviceList.includes(customUuid)) {
+          serviceList.unshift(customUuid);
+          log(`Added manual UUID to scan list: ${customUuid}`);
+        }
+
         log('Requesting Bluetooth Device (HT37)...');
         bleDevice = await navigator.bluetooth.requestDevice({
           filters: [
             { name: 'HT37' },
             { namePrefix: 'HT37' }
           ],
-          optionalServices: CANDIDATES
+          optionalServices: serviceList
         });
 
         bleDevice.addEventListener('gattserverdisconnected', () => {
@@ -258,25 +275,25 @@
         log(`Target: ${bleDevice.name}. Connecting GATT server...`);
         const server = await bleDevice.gatt.connect();
 
-        log('Connected! Waiting 1s for Windows GATT database enumeration...');
+        log('Connected! Waiting 1s for Windows GATT enumeration...');
         await sleep(1000);
 
         let activeService = null;
-        for (const uuid of CANDIDATES) {
+        for (const uuid of serviceList) {
           try {
-            log(`Probing service: ${uuid.substring(0, 8)}...`);
+            log(`Probing: ${uuid.substring(0, 8)}...`);
             activeService = await server.getPrimaryService(uuid);
             if (activeService) {
-              log(`>>> MATCH FOUND: ${uuid} <<<`);
+              log(`>>> MATCH CONFIRMED: ${uuid} <<<`);
               break;
             }
           } catch (e) {
-            // Not this one, check next
+            // Check next
           }
         }
 
         if (!activeService) {
-          throw new Error('None of the known FitCloudPro services matched. Is Call Audio active on watch?');
+          throw new Error('No registered service matched. Please inspect the watch at chrome://bluetooth-internals/#devices to see its active service UUID.');
         }
 
         const characteristics = await activeService.getCharacteristics();
@@ -286,11 +303,11 @@
 
           if (!charWrite && (props.write || props.writeWithoutResponse)) {
             charWrite = c;
-            log(`  -> Selected TX (Write): ${c.uuid}`);
+            log(`  -> Configured TX (Write): ${c.uuid}`);
           }
           if (!charNotify && props.notify) {
             charNotify = c;
-            log(`  -> Selected RX (Notify): ${c.uuid}`);
+            log(`  -> Configured RX (Notify): ${c.uuid}`);
           }
         }
 
@@ -313,25 +330,25 @@
       }
     };
 
-    // --- WAKE / FIND WATCH (Sends FitCloud & UART find frames) ---
+    // --- WAKE / FIND WATCH ---
     document.getElementById('btnPing').onclick = async () => {
       if (!charWrite) return;
       try {
-        log('Transmitting Find Watch packet...');
-        // FitCloud / JieLi Find frame: 0x02, 0x03, 0x01, 0x00
+        log('Sending Find Watch command...');
+        // Sends standard alert frame (0x02, 0x03, 0x01, 0x00)
         const pkt = new Uint8Array([0x02, 0x03, 0x01, 0x00]);
         if (charWrite.properties.write) {
           await charWrite.writeValue(pkt);
         } else {
           await charWrite.writeValueWithoutResponse(pkt);
         }
-        log('Delivered! Watch should vibrate and light up.');
+        log('Delivered! Watch screen should activate.');
       } catch (err) {
         log('Wake failed: ' + err.message);
       }
     };
 
-    // Canvas preview setup
+    // Canvas Preview
     const canvas = document.getElementById('watchCanvas');
     const ctx = canvas.getContext('2d');
     let userBgImage = null;
@@ -339,7 +356,6 @@
     function renderPreview() {
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 360, 360);
-
       if (userBgImage) ctx.drawImage(userBgImage, 0, 0, 360, 360);
 
       const timeStr = "10:08";
@@ -360,19 +376,16 @@
       }
 
       const bottomY = posY + (size * 0.7);
-
       if (document.getElementById('showSteps').checked) {
         ctx.fillStyle = document.getElementById('stepsColor').value;
         ctx.font = '500 16px sans-serif';
         ctx.fillText("👟 8,432", 110, bottomY);
       }
-
       if (document.getElementById('showHeart').checked) {
         ctx.fillStyle = document.getElementById('heartColor').value;
         ctx.font = '500 16px sans-serif';
         ctx.fillText("❤️ 72", 250, bottomY);
       }
-
       if (document.getElementById('showBattery').checked) {
         ctx.fillStyle = document.getElementById('batteryColor').value;
         ctx.font = '500 16px sans-serif';
