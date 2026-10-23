@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Studio [Build 7.0]</title>
+  <title>HT37 Studio [Build 8.0]</title>
   <style>
     :root {
       --bg: #090d16;
@@ -107,7 +107,7 @@
       font-size: 0.72rem;
       padding: 12px;
       border-radius: 8px;
-      height: 190px;
+      height: 200px;
       overflow-y: auto;
       margin-top: 15px;
       width: 100%;
@@ -121,7 +121,7 @@
 
   <header>
     <h1>HT37 Watch Face Studio</h1>
-    <div class="badge">BUILD 7.0 - KEEP-ALIVE & FRAMED ENVELOPE</div>
+    <div class="badge">BUILD 8.0 - AUTO-HANDSHAKE & AUTHENTICATION</div>
   </header>
 
   <div class="workspace">
@@ -131,19 +131,19 @@
       </div>
 
       <div class="editor-panel" style="margin-top: 15px;">
-        <span class="section-title">Hardware Link</span>
+        <span class="section-title">Hardware Link (00009966)</span>
         <div class="inline-fields">
           <button id="btnConnect" class="btn-primary">1. Connect HT37</button>
           <button id="btnDisconnect" class="btn-danger" disabled>Disconnect</button>
         </div>
         <div class="inline-fields">
-          <button id="btnImmediateAlert" class="btn-success" disabled>⚡ Immediate Alert (0x1802)</button>
-          <button id="btnFramedWake" class="btn-primary" disabled>🔔 Framed Wake (0x9966)</button>
+          <button id="btnAuth" class="btn-success" disabled>2. Handshake Auth</button>
+          <button id="btnWake" class="btn-primary" disabled>3. Wake / Vibrate</button>
         </div>
         
         <span class="section-title" style="margin-top: 5px;">Raw Packet Console</span>
         <div style="display: flex; gap: 6px;">
-          <input type="text" id="hexInput" placeholder="e.g. 02 00 00 00 00 00 00 00 08 01 01 00 0a" style="flex: 1;">
+          <input type="text" id="hexInput" placeholder="e.g. 02 00 00 00 00 00 00 00 08 01 01 00 0c" style="flex: 1;">
           <button id="btnSendHex" class="btn-secondary" disabled>Send</button>
         </div>
       </div>
@@ -206,22 +206,18 @@
     </div>
   </div>
 
-  <div id="logBox">Status: Build 7.0 Ready. Click "1. Connect HT37" to pair.</div>
+  <div id="logBox">Status: Build 8.0 Ready. Auto-Handshake active. Click "1. Connect HT37".</div>
 
   <script>
-    // Realtek HT37 Profile & Bluetooth SIG Alert
     const SERVICE_VENDOR_9966 = '00009966-3c17-d293-8e48-14fe2e4da212';
     const CHAR_VENDOR_TX     = '0000ffb1-0000-1000-8000-00805f9b34fb';
     const CHAR_VENDOR_RX     = '0000ffb2-0000-1000-8000-00805f9b34fb';
 
-    const SERVICE_ALERT_1802  = '00001802-0000-1000-8000-00805f9b34fb';
-    const CHAR_ALERT_LEVEL    = '00002a06-0000-1000-8000-00805f9b34fb';
-
     let bleDevice = null;
     let charVendorTx = null;
     let charVendorRx = null;
-    let charAlertLevel = null;
     let keepAliveTimer = null;
+    let isAuthenticated = false;
 
     const logBox = document.getElementById('logBox');
     function log(msg) {
@@ -233,10 +229,34 @@
     const sleep = ms => new Promise(res => setTimeout(res, ms));
 
     function setButtons(connected) {
-      document.getElementById('btnDisconnect').disabled     = !connected;
-      document.getElementById('btnImmediateAlert').disabled = !(connected && charAlertLevel);
-      document.getElementById('btnFramedWake').disabled      = !(connected && charVendorTx);
-      document.getElementById('btnSendHex').disabled         = !connected;
+      document.getElementById('btnDisconnect').disabled = !connected;
+      document.getElementById('btnAuth').disabled       = !connected;
+      document.getElementById('btnWake').disabled       = !connected;
+      document.getElementById('btnSendHex').disabled    = !connected;
+    }
+
+    function make13BytePkt(header, cmd, sub = 0x01, val = 0x01) {
+      const p = new Uint8Array(13);
+      p[0] = header;
+      p[8] = cmd;
+      p[9] = sub;
+      p[10] = val;
+      p[11] = 0x00;
+      let sum = 0;
+      for (let i = 0; i < 12; i++) sum = (sum + p[i]) & 0xFF;
+      p[12] = sum;
+      return p;
+    }
+
+    async function sendVendorPacket(bytes) {
+      if (!charVendorTx) return;
+      const data = new Uint8Array(bytes);
+      log(`TX [${data.length}B]: ${Array.from(data).map(x => x.toString(16).padStart(2, '0')).join(' ')}`);
+      if (charVendorTx.properties.write) {
+        await charVendorTx.writeValue(data);
+      } else {
+        await charVendorTx.writeValueWithoutResponse(data);
+      }
     }
 
     function stopKeepAlive() {
@@ -248,24 +268,22 @@
 
     function startKeepAlive() {
       stopKeepAlive();
-      // Keep-alive heartbeat every 4 seconds to prevent 15-second supervision timeout
       keepAliveTimer = setInterval(async () => {
         if (charVendorTx && bleDevice && bleDevice.gatt.connected) {
           try {
-            // Standard Realtek Ping / Heartbeat frame
-            const pingPkt = new Uint8Array([0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0, 0, 0, 0x02]);
-            await charVendorTx.writeValueWithoutResponse(pingPkt);
-          } catch (e) {
-            // Silent error on heartbeat
-          }
+            // Authenticated keep-alive frame
+            const ping = make13BytePkt(0x01, 0x01, 0x00, 0x00);
+            await charVendorTx.writeValueWithoutResponse(ping);
+          } catch (e) {}
         }
-      }, 4000);
+      }, 3000);
     }
 
     // --- CONNECTION HANDLER ---
     document.getElementById('btnConnect').onclick = async () => {
       try {
         stopKeepAlive();
+        isAuthenticated = false;
         log('Connecting to HT37...');
         bleDevice = await navigator.bluetooth.requestDevice({
           filters: [
@@ -274,7 +292,6 @@
           ],
           optionalServices: [
             SERVICE_VENDOR_9966,
-            SERVICE_ALERT_1802,
             '00001800-0000-1000-8000-00805f9b34fb',
             '0000180a-0000-1000-8000-00805f9b34fb'
           ]
@@ -286,42 +303,39 @@
           setButtons(false);
           charVendorTx = null;
           charVendorRx = null;
-          charAlertLevel = null;
+          isAuthenticated = false;
         });
 
-        log(`Target chosen: ${bleDevice.name}. Connecting GATT...`);
+        log(`Connecting GATT server...`);
         const server = await bleDevice.gatt.connect();
 
         log('Waiting 800ms for Windows GATT initialization...');
         await sleep(800);
 
-        // 1. Bind Vendor Channel 00009966
-        try {
-          const vService = await server.getPrimaryService(SERVICE_VENDOR_9966);
-          charVendorTx = await vService.getCharacteristic(CHAR_VENDOR_TX);
-          charVendorRx = await vService.getCharacteristic(CHAR_VENDOR_RX);
+        const vService = await server.getPrimaryService(SERVICE_VENDOR_9966);
+        charVendorTx = await vService.getCharacteristic(CHAR_VENDOR_TX);
+        charVendorRx = await vService.getCharacteristic(CHAR_VENDOR_RX);
 
-          await charVendorRx.startNotifications();
-          charVendorRx.addEventListener('characteristicvaluechanged', (e) => {
-            const b = new Uint8Array(e.target.value.buffer);
-            log(`RX [${b.length}B]: ${Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ')}`);
-          });
-          log('Pipe 00009966 verified and active!');
-        } catch (e) {
-          log('Vendor pipe note: ' + e.message);
-        }
+        // RX Notification Router with AUTO-HANDSHAKE responder
+        await charVendorRx.startNotifications();
+        charVendorRx.addEventListener('characteristicvaluechanged', async (e) => {
+          const b = new Uint8Array(e.target.value.buffer);
+          log(`RX [${b.length}B]: ${Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ')}`);
 
-        // 2. Bind Bluetooth SIG Immediate Alert 0x1802 (if exposed)
-        try {
-          const alertService = await server.getPrimaryService(SERVICE_ALERT_1802);
-          charAlertLevel = await alertService.getCharacteristic(CHAR_ALERT_LEVEL);
-          log('Bluetooth SIG Alert Service (0x1802) verified!');
-        } catch (e) {
-          log('Immediate Alert (0x1802) not exposed directly (using framed vendor pipe).');
-        }
+          // If watch sends challenge 0x81, immediately answer with 0x01 handshake response
+          if (b[0] === 0x81) {
+            log('--> Watch sent Auth Challenge (0x81). Answering handshake automatically...');
+            const authResponse = make13BytePkt(0x01, b[8], b[9], 0x00);
+            await sendVendorPacket(authResponse);
+            isAuthenticated = true;
+            log('--> Handshake ACK transmitted. Session unlocking...');
+          } else if (b[0] === 0x82 && b[8] !== 0x40) {
+            log(`--> Command executed successfully by watch! Status: ${b[8].toString(16)}`);
+          }
+        });
 
         startKeepAlive();
-        log('SUCCESS: Connection secured with active Keep-Alive heartbeat!');
+        log('SUCCESS: Connected! Listening for handshake challenge...');
         setButtons(true);
 
       } catch (err) {
@@ -339,61 +353,26 @@
       setButtons(false);
     };
 
-    async function sendVendorPacket(bytes) {
+    // --- MANUAL HANDSHAKE TRIGGER ---
+    document.getElementById('btnAuth').onclick = async () => {
       if (!charVendorTx) return;
-      const data = new Uint8Array(bytes);
-      log(`TX [${data.length}B]: ${Array.from(data).map(x => x.toString(16).padStart(2, '0')).join(' ')}`);
-      if (charVendorTx.properties.write) {
-        await charVendorTx.writeValue(data);
-      } else {
-        await charVendorTx.writeValueWithoutResponse(data);
-      }
-    }
-
-    // --- BUTTON: IMMEDIATE ALERT (0x1802 / 0x2A06) ---
-    document.getElementById('btnImmediateAlert').onclick = async () => {
-      if (!charAlertLevel) return;
-      try {
-        log('Sending High Alert (0x02) to standard 0x2A06...');
-        await charAlertLevel.writeValueWithoutResponse(new Uint8Array([0x02]));
-        log('High Alert delivered!');
-      } catch (e) {
-        log('Alert failed: ' + e.message);
-      }
+      log('Sending manual Authentication Unlock sequences...');
+      // 1. Send Login Key Response
+      await sendVendorPacket(make13BytePkt(0x01, 0x01, 0xC3, 0x00));
+      await sleep(300);
+      // 2. Send Bind Confirm
+      await sendVendorPacket(make13BytePkt(0x01, 0x02, 0x01, 0x00));
+      log('Auth frames sent. Check log for confirmation.');
     };
 
-    // --- BUTTON: FRAMED WAKE ENVELOPE (Realtek 13-Byte Envelope) ---
-    document.getElementById('btnFramedWake').onclick = async () => {
+    // --- WAKE / VIBRATE BUTTON ---
+    document.getElementById('btnWake').onclick = async () => {
       if (!charVendorTx) return;
-      log('Transmitting Realtek framed envelopes for Find Watch / Vibrate...');
-
-      // Build 13-byte framed packet: [0x02, 7 zeros, CMD, SUB, VAL, 0, CHK]
-      function make13BytePkt(cmd, sub = 0x01, val = 0x01) {
-        const p = new Uint8Array(13);
-        p[0] = 0x02; // Request header
-        p[8] = cmd;
-        p[9] = sub;
-        p[10] = val;
-        p[11] = 0x00;
-        let sum = 0;
-        for (let i = 0; i < 12; i++) sum = (sum + p[i]) & 0xFF;
-        p[12] = sum; // Checksum
-        return p;
-      }
-
-      const tests = [
-        { name: 'Envelope Find Device (Cmd 0x08)', pkt: make13BytePkt(0x08, 0x01, 0x01) },
-        { name: 'Envelope Screen On (Cmd 0x0E)',   pkt: make13BytePkt(0x0E, 0x01, 0x01) },
-        { name: 'Envelope Alert (Cmd 0x04)',       pkt: make13BytePkt(0x04, 0x01, 0x01) },
-        { name: 'Envelope Vibrate (Cmd 0x07)',     pkt: make13BytePkt(0x07, 0x01, 0x01) }
-      ];
-
-      for (const t of tests) {
-        log(`Sending: ${t.name}...`);
-        await sendVendorPacket(t.pkt);
-        await sleep(400);
-      }
-      log('Envelope transmission complete. Observe the watch screen.');
+      log('Transmitting Find Watch / Vibrate frame (0x08)...');
+      await sendVendorPacket(make13BytePkt(0x02, 0x08, 0x01, 0x01));
+      await sleep(300);
+      log('Transmitting Screen Light Up frame (0x0E)...');
+      await sendVendorPacket(make13BytePkt(0x02, 0x0E, 0x01, 0x01));
     };
 
     // --- RAW HEX CONSOLE ---
@@ -405,7 +384,7 @@
       await sendVendorPacket(bytes);
     };
 
-    // Canvas preview setup
+    // Canvas Preview
     const canvas = document.getElementById('watchCanvas');
     const ctx = canvas.getContext('2d');
     let userBgImage = null;
