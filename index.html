@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Studio [V3.0]</title>
+  <title>HT37 Studio (FitCloudPro Edition)</title>
   <style>
     :root {
-      --bg: #0b0f19;
-      --panel: #1e293b;
-      --accent: #38bdf8;
+      --bg: #090d16;
+      --panel: #131c2e;
+      --accent: #0ea5e9;
       --text: #f8fafc;
-      --border: #334155;
+      --border: #1e293b;
       --danger: #ef4444;
-      --success: #22c55e;
+      --success: #10b981;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: var(--bg);
+      background: var(--bg);
       color: var(--text);
       display: flex;
       flex-direction: column;
@@ -25,22 +25,22 @@
       padding: 20px;
       min-height: 100vh;
     }
-    header { text-align: center; margin-bottom: 15px; }
-    header h1 { font-size: 1.6rem; color: var(--accent); }
+    header { text-align: center; margin-bottom: 20px; }
+    header h1 { font-size: 1.5rem; color: var(--accent); }
     .badge {
       display: inline-block;
       background: #0284c7;
       color: #fff;
-      font-size: 0.75rem;
-      font-weight: bold;
-      padding: 2px 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 8px;
       border-radius: 4px;
-      margin-top: 5px;
+      margin-top: 4px;
     }
     .workspace {
       display: flex;
       flex-wrap: wrap;
-      gap: 20px;
+      gap: 25px;
       justify-content: center;
       width: 100%;
       max-width: 1000px;
@@ -54,7 +54,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.7);
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.8);
     }
     #watchCanvas {
       width: 360px;
@@ -70,7 +70,7 @@
       width: 380px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 15px;
     }
     .section-title {
       font-size: 0.85rem;
@@ -82,45 +82,35 @@
       padding-bottom: 5px;
     }
     .form-group { display: flex; flex-direction: column; gap: 4px; }
-    label { font-size: 0.8rem; color: #cbd5e1; }
+    label { font-size: 0.8rem; color: #94a3b8; }
     input, select, button {
-      background: #0f172a;
+      background: #090d16;
       border: 1px solid var(--border);
       color: var(--text);
       padding: 8px 12px;
       border-radius: 6px;
       font-size: 0.85rem;
     }
-    input[type="color"] { height: 36px; padding: 2px; cursor: pointer; }
+    input[type="color"] { height: 38px; padding: 2px; cursor: pointer; }
     .inline-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     button.btn-primary { background: #0284c7; border-color: #38bdf8; font-weight: 600; cursor: pointer; }
     button.btn-primary:hover { background: #0369a1; }
-    button.btn-secondary { background: #334155; cursor: pointer; }
+    button.btn-secondary { background: #1e293b; cursor: pointer; }
     button.btn-danger { background: #991b1b; border-color: var(--danger); cursor: pointer; }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
     
-    .progress-bar-container {
-      width: 100%;
-      background: #0f172a;
-      border-radius: 6px;
-      overflow: hidden;
-      height: 12px;
-      display: none;
-    }
-    .progress-bar { width: 0%; height: 100%; background: var(--accent); transition: width 0.1s linear; }
-    
     #logBox {
-      background: #000;
+      background: #020617;
       color: #38bdf8;
       font-family: Consolas, monospace;
       font-size: 0.72rem;
       padding: 12px;
       border-radius: 8px;
-      height: 150px;
+      height: 160px;
       overflow-y: auto;
       margin-top: 15px;
       width: 100%;
-      max-width: 780px;
+      max-width: 785px;
       border: 1px solid var(--border);
       white-space: pre-wrap;
     }
@@ -130,57 +120,50 @@
 
   <header>
     <h1>HT37 Watch Face Studio</h1>
-    <div class="badge">ENGINE V3.0 - RAW GATT EXPLORER</div>
+    <div class="badge">FITCLOUDPRO / REALTEK EDITION</div>
   </header>
 
   <div class="workspace">
-    <!-- Watch Preview -->
     <div class="preview-section">
       <div class="watch-bezel">
         <canvas id="watchCanvas" width="360" height="360"></canvas>
       </div>
+
       <div class="editor-panel" style="margin-top: 15px;">
-        <span class="section-title">Bluetooth Manager</span>
+        <span class="section-title">FitCloudPro Link</span>
         <div class="inline-fields">
           <button id="btnConnect" class="btn-primary">1. Pair HT37</button>
           <button id="btnDisconnect" class="btn-danger" disabled>Disconnect</button>
         </div>
-        <div class="inline-fields">
-          <button id="btnPing" class="btn-secondary" disabled>2. Wake / Vibrate</button>
-          <button id="btnFlash" class="btn-primary" disabled>3. Flash Watch</button>
-        </div>
-        <div class="progress-bar-container" id="progressContainer">
-          <div class="progress-bar" id="progressBar"></div>
-        </div>
+        <button id="btnPing" class="btn-secondary" disabled>2. Wake / Find Watch</button>
       </div>
     </div>
 
-    <!-- Watchface Customizer -->
     <div class="editor-panel">
       <span class="section-title">Wallpaper</span>
       <div class="form-group">
-        <label>Custom Image (Auto 360x360)</label>
+        <label>Upload Image (360x360)</label>
         <input type="file" id="bgInput" accept="image/*">
       </div>
 
-      <span class="section-title">Time Display</span>
+      <span class="section-title">Clock Customizer</span>
       <div class="inline-fields">
         <div class="form-group">
           <label>Color</label>
           <input type="color" id="timeColor" value="#ffffff">
         </div>
         <div class="form-group">
-          <label>Font Size</label>
+          <label>Size (px)</label>
           <input type="number" id="timeSize" value="64" min="20" max="120">
         </div>
       </div>
       <div class="inline-fields">
         <div class="form-group">
-          <label>Vertical Position</label>
+          <label>Position (Y)</label>
           <input type="range" id="timePosY" min="60" max="300" value="160">
         </div>
         <div class="form-group">
-          <label>Font Style</label>
+          <label>Font</label>
           <select id="timeFont">
             <option value="sans-serif">Modern Sans</option>
             <option value="monospace">Digital Monospace</option>
@@ -189,7 +172,7 @@
         </div>
       </div>
 
-      <span class="section-title">Fitness Widgets</span>
+      <span class="section-title">Widgets</span>
       <div class="inline-fields">
         <div class="form-group">
           <label><input type="checkbox" id="showDate" checked> Date</label>
@@ -213,16 +196,22 @@
     </div>
   </div>
 
-  <div id="logBox">[ENGINE V3.0 READY] Factory reset your watch, ensure Phone Bluetooth is OFF, and click "1. Pair HT37".</div>
+  <div id="logBox">Status: Pair watch with FitCloudPro on phone first, turn off phone Bluetooth, then click "1. Pair HT37".</div>
 
   <script>
-    // Standard MoYoung / DaFit GATT service specifications
-    const PRIMARY_FEEA = '0000feea-0000-1000-8000-00805f9b34fb';
-    const PRIMARY_FEE7 = '0000fee7-0000-1000-8000-00805f9b34fb';
+    // FitCloudPro / Realtek Standard GATT UUIDs
+    const FITCLOUD_SERVICES = [
+      '000056ff-0000-1000-8000-00805f9b34fb', // FitCloud proprietary service
+      '0000fee7-0000-1000-8000-00805f9b34fb', // Tencent / Topstep service
+      '0000fff0-0000-1000-8000-00805f9b34fb', // Realtek UART profile
+      '0000d0ff-3c17-d293-8e48-14fe2e4da212', // Realtek OTA DFU
+      '00001800-0000-1000-8000-00805f9b34fb',
+      '0000180a-0000-1000-8000-00805f9b34fb'
+    ];
 
     let bleDevice = null;
-    let charOut = null;
-    let charIn = null;
+    let charWrite = null;
+    let charNotify = null;
 
     const logBox = document.getElementById('logBox');
     function log(msg) {
@@ -233,50 +222,31 @@
 
     const sleep = ms => new Promise(res => setTimeout(res, ms));
 
-    function buildPacket(command, payload = []) {
-      const totalLen = 5 + payload.length;
-      const pkt = new Uint8Array(totalLen);
-      pkt[0] = 0xFE;
-      pkt[1] = 0xEA;
-      pkt[2] = ((totalLen >> 8) & 0x0F) | 0x20;
-      pkt[3] = totalLen & 0xFF;
-      pkt[4] = command;
-      for (let i = 0; i < payload.length; i++) {
-        pkt[5 + i] = payload[i];
-      }
-      return pkt;
-    }
-
     function cleanupConnection() {
       if (bleDevice && bleDevice.gatt.connected) {
-        log('Closing GATT link...');
+        log('Closing connection...');
         bleDevice.gatt.disconnect();
       }
-      charOut = null;
-      charIn = null;
+      charWrite = null;
+      charNotify = null;
       document.getElementById('btnPing').disabled = true;
-      document.getElementById('btnFlash').disabled = true;
       document.getElementById('btnDisconnect').disabled = true;
     }
 
-    document.getElementById('btnDisconnect').onclick = () => {
-      cleanupConnection();
-      log('Disconnected.');
-    };
+    document.getElementById('btnDisconnect').onclick = cleanupConnection;
 
-    // --- PAIRING & CONNECTION ROUTINE ---
+    // --- FITCLOUDPRO AUTO-CONNECT ---
     document.getElementById('btnConnect').onclick = async () => {
       try {
         cleanupConnection();
 
-        log('[1/4] Scanning for HT37 via MoYoung filters...');
+        log('Scanning for HT37 (FitCloudPro profile)...');
         bleDevice = await navigator.bluetooth.requestDevice({
           filters: [
-            { services: [PRIMARY_FEEA] },
-            { services: [PRIMARY_FEE7] },
+            { name: 'HT37' },
             { namePrefix: 'HT37' }
           ],
-          optionalServices: [PRIMARY_FEEA, PRIMARY_FEE7, 0xfee0, 0x1800, 0x180a]
+          optionalServices: FITCLOUD_SERVICES
         });
 
         bleDevice.addEventListener('gattserverdisconnected', () => {
@@ -284,83 +254,79 @@
           cleanupConnection();
         });
 
-        log(`[2/4] Selected: ${bleDevice.name || 'HT37'}. Connecting GATT server...`);
+        log(`Connecting to ${bleDevice.name}...`);
         const server = await bleDevice.gatt.connect();
 
-        // 1000ms delay to let Windows Bluetooth stack enumerate services
-        log('[3/4] Connected! Waiting 1s for Windows GATT database enumeration...');
+        log('Connected! Waiting 1s for Windows GATT database enumeration...');
         await sleep(1000);
 
         let activeService = null;
-        try {
-          activeService = await server.getPrimaryService(PRIMARY_FEEA);
-          log(' -> Bound to Primary Service: FEEA');
-        } catch (e1) {
+        for (const uuid of FITCLOUD_SERVICES) {
           try {
-            activeService = await server.getPrimaryService(PRIMARY_FEE7);
-            log(' -> Bound to Alternate Service: FEE7');
-          } catch (e2) {
-            throw new Error('Neither FEEA nor FEE7 found. Please verify the watch was factory reset.');
-          }
+            activeService = await server.getPrimaryService(uuid);
+            if (activeService) {
+              log(`Discovered Service: ${uuid}`);
+              break;
+            }
+          } catch (e) {}
         }
 
-        log('[4/4] Locating TX / RX characteristics...');
+        if (!activeService) {
+          throw new Error('No FitCloudPro service found. Make sure the watch is activated past the QR screen.');
+        }
+
         const characteristics = await activeService.getCharacteristics();
-
         for (const c of characteristics) {
-          const u = c.uuid.toLowerCase();
-          const p = c.properties;
-          log(`Found Char: ${u.substring(4, 8)} [write:${p.write || p.writeWithoutResponse}, notify:${p.notify}]`);
+          const props = c.properties;
+          log(`Characteristic: ${c.uuid} [write:${props.write || props.writeWithoutResponse}, notify:${props.notify}]`);
 
-          if (!charOut && (p.write || p.writeWithoutResponse)) {
-            charOut = c;
-            log(` -> Selected as TX (Out): ${u}`);
+          if (!charWrite && (props.write || props.writeWithoutResponse)) {
+            charWrite = c;
+            log(` -> Configured TX: ${c.uuid}`);
           }
-          if (!charIn && p.notify) {
-            charIn = c;
-            log(` -> Selected as RX (In): ${u}`);
+          if (!charNotify && props.notify) {
+            charNotify = c;
+            log(` -> Configured RX: ${c.uuid}`);
           }
         }
 
-        if (!charOut) throw new Error('No writable characteristic discovered.');
-
-        if (charIn) {
-          await charIn.startNotifications();
-          charIn.addEventListener('characteristicvaluechanged', (e) => {
+        if (charNotify) {
+          await charNotify.startNotifications();
+          charNotify.addEventListener('characteristicvaluechanged', (e) => {
             const b = new Uint8Array(e.target.value.buffer);
             log(`RX: [${Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ')}]`);
           });
         }
 
-        log('SUCCESS: HT37 ready! Click "Wake / Vibrate" to test.');
+        log('SUCCESS: FitCloudPro connection active!');
         document.getElementById('btnPing').disabled = false;
-        document.getElementById('btnFlash').disabled = false;
         document.getElementById('btnDisconnect').disabled = false;
 
       } catch (err) {
-        log('Connection aborted: ' + err.message);
+        log('Connection failed: ' + err.message);
         cleanupConnection();
       }
     };
 
-    // --- TEST WATCH WAKE (Cmd 0x19) ---
+    // --- WAKE / FIND WATCH (FitCloudPro Command Packet) ---
     document.getElementById('btnPing').onclick = async () => {
-      if (!charOut) return;
+      if (!charWrite) return;
       try {
-        log('Transmitting Wake frame (0x19)...');
-        const pkt = buildPacket(0x19, [0x01]);
-        if (charOut.properties.write) {
-          await charOut.writeValue(pkt);
+        log('Sending FitCloudPro Find Watch packet...');
+        // FitCloudPro standard packet envelope: [0x02, 0x03, 0x01, ...]
+        const pkt = new Uint8Array([0x02, 0x03, 0x01, 0x00]);
+        if (charWrite.properties.write) {
+          await charWrite.writeValue(pkt);
         } else {
-          await charOut.writeValueWithoutResponse(pkt);
+          await charWrite.writeValueWithoutResponse(pkt);
         }
-        log('Frame delivered! Screen should light up and vibrate.');
-      } catch (e) {
-        log('Wake failed: ' + e.message);
+        log('Delivered! Watch screen should activate and vibrate.');
+      } catch (err) {
+        log('Wake failed: ' + err.message);
       }
     };
 
-    // --- CANVAS RENDERING (360x360) ---
+    // --- CANVAS ENGINE (360x360) ---
     const canvas = document.getElementById('watchCanvas');
     const ctx = canvas.getContext('2d');
     let userBgImage = null;
@@ -432,92 +398,6 @@
     });
 
     renderPreview();
-
-    // --- BINARY BUILDER (RGB565 360x360 TYPE C) ---
-    function generateWatchFaceBinary() {
-      const imgData = ctx.getImageData(0, 0, 360, 360).data;
-      const rawBmpSize = 360 * 360 * 2;
-      const headerSize = 32;
-      const bin = new Uint8Array(headerSize + rawBmpSize);
-
-      bin[0] = 0x43; // 'C'
-      bin[1] = 0x81;
-      bin[2] = 0xC3; // Face 50001
-      bin[3] = 0x50;
-      bin[4] = 360 & 0xFF; // Width
-      bin[5] = (360 >> 8) & 0xFF;
-      bin[6] = 360 & 0xFF; // Height
-      bin[7] = (360 >> 8) & 0xFF;
-
-      let ptr = headerSize;
-      for (let i = 0; i < imgData.length; i += 4) {
-        const r = imgData[i];
-        const g = imgData[i + 1];
-        const b = imgData[i + 2];
-        const rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
-
-        bin[ptr++] = rgb565 & 0xFF;
-        bin[ptr++] = (rgb565 >> 8) & 0xFF;
-      }
-
-      return bin;
-    }
-
-    // --- WATCH FACE OTA TRANSFER ---
-    document.getElementById('btnFlash').onclick = async () => {
-      try {
-        log('Generating 360x360 Type C binary...');
-        const bin = generateWatchFaceBinary();
-        log(`Binary size: ${bin.byteLength} bytes.`);
-
-        const progressContainer = document.getElementById('progressContainer');
-        const progressBar = document.getElementById('progressBar');
-        progressContainer.style.display = 'block';
-        progressBar.style.width = '0%';
-
-        log('Initiating OTA handshake (Cmd 0xB9)...');
-        const initPayload = [
-          0x01,
-          bin.byteLength & 0xFF,
-          (bin.byteLength >> 8) & 0xFF,
-          (bin.byteLength >> 16) & 0xFF,
-          (bin.byteLength >> 24) & 0xFF
-        ];
-        
-        const initPkt = buildPacket(0xB9, initPayload);
-        if (charOut.properties.write) {
-          await charOut.writeValue(initPkt);
-        } else {
-          await charOut.writeValueWithoutResponse(initPkt);
-        }
-
-        await sleep(500);
-
-        const CHUNK_SIZE = 20;
-        let offset = 0;
-
-        while (offset < bin.byteLength) {
-          const chunk = bin.subarray(offset, Math.min(offset + CHUNK_SIZE, bin.byteLength));
-          if (charOut.properties.writeWithoutResponse) {
-            await charOut.writeValueWithoutResponse(chunk);
-          } else {
-            await charOut.writeValue(chunk);
-          }
-          offset += chunk.length;
-
-          if (offset % 2000 === 0 || offset === bin.byteLength) {
-            const percent = ((offset / bin.byteLength) * 100).toFixed(1);
-            progressBar.style.width = percent + '%';
-            log(`Streaming: ${percent}% (${offset}/${bin.byteLength})`);
-            await sleep(12);
-          }
-        }
-
-        log('Flash complete! Watch should refresh to your new dial.');
-      } catch (err) {
-        log('Flash error: ' + err.message);
-      }
-    };
   </script>
 </body>
 </html>
