@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Studio & Sensor Probe [Build 16.0]</title>
+  <title>HT37 Studio & Protocol Engine [Build 17.0]</title>
   <style>
     :root {
       --bg: #090d16;
@@ -13,7 +13,6 @@
       --border: #1e293b;
       --danger: #ef4444;
       --success: #10b981;
-      --warning: #facc15;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -38,7 +37,6 @@
       border-radius: 4px;
     }
 
-    /* Probe & Monitor Panel */
     .probe-container {
       width: 100%;
       max-width: 1050px;
@@ -141,7 +139,7 @@
       font-size: 0.72rem;
       padding: 10px;
       border-radius: 8px;
-      height: 180px;
+      height: 190px;
       overflow-y: auto;
       margin-top: 15px;
       width: 100%;
@@ -154,8 +152,8 @@
 <body>
 
   <header>
-    <h1>HT37 Studio & Sensor Probe</h1>
-    <div class="badge">BUILD 16.0 - DYNAMIC PAYLOAD & LIVE TELEMETRY</div>
+    <h1>HT37 Studio & Protocol Engine</h1>
+    <div class="badge">BUILD 17.0 - SYNCED CHECKPOINTS & VENDOR TELEMETRY</div>
   </header>
 
   <!-- LIVE SENSOR & DATA PROBE MONITOR -->
@@ -228,7 +226,7 @@
     </div>
   </div>
 
-  <div id="logBox">Build 16.0 Ready. Connect HT37.</div>
+  <div id="logBox">Build 17.0 Ready. Turn phone Bluetooth OFF, then click 'Connect HT37'.</div>
 
   <script>
     const SERVICE_VENDOR_9966 = '00009966-3c17-d293-8e48-14fe2e4da212';
@@ -243,7 +241,10 @@
     let isFlashing = false;
     let rxCount = 0;
     let txCount = 0;
-    let watchNackReceived = false;
+
+    // Checkpoint coordination
+    let checkpointRequested = false;
+    let checkpointPacket = null;
 
     const logBox = document.getElementById('logBox');
     function log(msg) {
@@ -260,16 +261,27 @@
       if (eventText) document.getElementById('valEvent').textContent = eventText;
     }
 
-    // --- 1. CONNECT & SENSOR INSPECTION ---
+    async function sendTx(bytes) {
+      if (!charVendorTx) return;
+      const data = new Uint8Array(bytes);
+      if (charVendorTx.properties.write) {
+        await charVendorTx.writeValue(data);
+      } else {
+        await charVendorTx.writeValueWithoutResponse(data);
+      }
+      txCount++;
+      updateProbe();
+    }
+
+    // --- 1. CONNECT & SETUP TELEMETRY ---
     document.getElementById('btnConnect').onclick = async () => {
       try {
-        log('Connecting to HT37...');
+        log('Scanning for HT37...');
         bleDevice = await navigator.bluetooth.requestDevice({
           filters: [{ name: 'HT37' }, { namePrefix: 'HT37' }],
           optionalServices: [
             SERVICE_VENDOR_9966,
-            '0000180f-0000-1000-8000-00805f9b34fb', // Battery
-            '0000180a-0000-1000-8000-00805f9b34fb'
+            '00001800-0000-1000-8000-00805f9b34fb'
           ]
         });
 
@@ -286,17 +298,6 @@
         document.getElementById('valStatus').style.color = 'var(--success)';
         document.getElementById('btnDisconnect').disabled = false;
 
-        // Query Battery
-        try {
-          const batService = await gattServer.getPrimaryService('0000180f-0000-1000-8000-00805f9b34fb');
-          const batChar = await batService.getCharacteristic('00002a19-0000-1000-8000-00805f9b34fb');
-          const batVal = await batChar.readValue();
-          document.getElementById('valBattery').textContent = `${batVal.getUint8(0)}%`;
-        } catch (e) {
-          document.getElementById('valBattery').textContent = 'Stream Active';
-        }
-
-        // Map Vendor Services
         const vService = await gattServer.getPrimaryService(SERVICE_VENDOR_9966);
         charVendorTx = await vService.getCharacteristic(CHAR_VENDOR_TX);
         charVendorRx = await vService.getCharacteristic(CHAR_VENDOR_RX);
@@ -307,21 +308,41 @@
           const b = new Uint8Array(e.target.value.buffer);
           const hex = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
 
-          // Live interpretation in Probe Window
+          // FitCloud Protocol Decoder
           let desc = `Packet 0x${b[0].toString(16).toUpperCase()}`;
-          if (b[0] === 0x81 && b.length === 32) desc = 'OTA Mode Confirmed (Ready)';
-          if (b[0] === 0xd4 || b[0] === 0xe4) desc = 'Handshake Synced';
-          if (b[0] === 0xb0) desc = 'Checkpoint ACK';
-          if (b[0] === 0x80) {
-            desc = 'Watch NACK / Wait';
-            watchNackReceived = true;
+
+          // Battery Response
+          if (b[0] === 0x82 && b.length >= 2) {
+            const bat = b[1];
+            document.getElementById('valBattery').textContent = `${bat}%`;
+            desc = `Battery: ${bat}%`;
+          }
+          // OTA Ready Screen
+          else if (b[0] === 0x81 && b.length === 32) {
+            desc = 'OTA Screen Ready (0%)';
+          }
+          // Block Checkpoint Request
+          else if (b[0] === 0xb0) {
+            desc = 'Block Checkpoint Received';
+            checkpointRequested = true;
+            checkpointPacket = b;
+          }
+          // Flow Control / Synced
+          else if (b[0] === 0xd4 || b[0] === 0xe4) {
+            desc = 'Stream Synced';
           }
 
           updateProbe(desc);
-          if (b[0] !== 0x80) log(`<< RX [${b.length}B]: ${hex} (${desc})`);
+          log(`<< RX [${b.length}B]: ${hex} (${desc})`);
         });
 
-        log('SUCCESS: HT37 connected and probe monitor online!');
+        log('SUCCESS: Subscribed to HT37 stream.');
+        
+        // Request battery status via FitCloud protocol command
+        await sleep(300);
+        log('Querying watch battery status via vendor channel...');
+        await sendTx([0x02, 0x03]);
+
         if (loadedBinData) document.getElementById('btnFlash').disabled = false;
 
       } catch (err) {
@@ -340,7 +361,7 @@
         const reader = new FileReader();
         reader.onload = (evt) => {
           loadedBinData = new Uint8Array(evt.target.result);
-          log(`Selected .bin: ${file.name} (${loadedBinData.byteLength} bytes).`);
+          log(`Loaded file: ${file.name} (${loadedBinData.byteLength} bytes).`);
           if (gattServer && gattServer.connected) {
             document.getElementById('btnFlash').disabled = false;
           }
@@ -349,41 +370,28 @@
       }
     });
 
-    // --- 2. DYNAMIC FLASH ENGINE WITH FLOW CONTROL ---
+    // --- 2. PACED FLASH ENGINE WITH CHECKPOINT ACKNOWLEDGEMENT ---
     document.getElementById('btnFlash').onclick = async () => {
       if (!charVendorTx || !loadedBinData) return;
       if (isFlashing) return;
       isFlashing = true;
-      watchNackReceived = false;
+      checkpointRequested = false;
       document.getElementById('btnFlash').disabled = true;
 
       try {
-        const fileSize = loadedBinData.byteLength;
-        log(`--- STARTING TRANSMISSION: ${fileSize} BYTES ---`);
+        const totalBytes = loadedBinData.byteLength;
+        log(`--- STARTING OTA FLASH: ${totalBytes} BYTES ---`);
 
-        // Encode EXACT file size dynamically into bytes 8..11 (Little-Endian)
-        const initPkt = new Uint8Array([
-          0x01, 0, 0, 0, 0, 0, 0, 0,
-          (fileSize & 0xFF),
-          ((fileSize >> 8) & 0xFF),
-          ((fileSize >> 16) & 0xFF),
-          ((fileSize >> 24) & 0xFF),
-          0x04
-        ]);
+        // Step 1: Send verified wake initiation packet (Dial 49921, version 1, slot 4)
+        log('Step 1: Sending Wake Trigger packet...');
+        const initPkt = new Uint8Array([0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xC3, 0x01, 0x00, 0x04]);
+        await sendTx(initPkt);
+        updateProbe('Wake Trigger Sent');
 
-        log(`Step 1: Sending Dynamic Wake for ${fileSize} bytes...`);
-        if (charVendorTx.properties.write) {
-          await charVendorTx.writeValue(initPkt);
-        } else {
-          await charVendorTx.writeValueWithoutResponse(initPkt);
-        }
-        txCount++;
-        updateProbe('OTA Trigger Sent');
-
-        // Allow watch bootloader to allocate exact flash memory
+        // Allow watch screen to light up and enter flash state
         await sleep(1000);
 
-        log(`Step 2: Paced binary streaming to FFB1...`);
+        log('Step 2: Streaming data packets to FFB1...');
         const progressContainer = document.getElementById('progressContainer');
         const progressBar = document.getElementById('progressBar');
         const progressText = document.getElementById('progressText');
@@ -392,16 +400,21 @@
         const CHUNK_SIZE = 20;
         let offset = 0;
 
-        while (offset < fileSize) {
+        while (offset < totalBytes) {
           if (!bleDevice.gatt.connected) throw new Error('Watch disconnected during stream.');
 
-          // Flow control: If watch requests pause, back off briefly
-          if (watchNackReceived) {
-            await sleep(50);
-            watchNackReceived = false;
+          // Handle 0xB0 Checkpoint: send ACK so the watch does not time out
+          if (checkpointRequested && checkpointPacket) {
+            log('--> Responding to Checkpoint request with confirmation ACK...');
+            const ackResponse = new Uint8Array(checkpointPacket);
+            ackResponse[0] = 0x30; // Checkpoint ACK Opcode
+            await sendTx(ackResponse);
+            checkpointRequested = false;
+            checkpointPacket = null;
+            await sleep(50); // Give watch flash controller time to commit
           }
 
-          const chunk = loadedBinData.subarray(offset, Math.min(offset + CHUNK_SIZE, fileSize));
+          const chunk = loadedBinData.subarray(offset, Math.min(offset + CHUNK_SIZE, totalBytes));
           
           if (charVendorTx.properties.writeWithoutResponse) {
             await charVendorTx.writeValueWithoutResponse(chunk);
@@ -411,19 +424,19 @@
           offset += chunk.length;
           txCount++;
 
-          // 25ms flash write cycle pacing
-          await sleep(25);
+          // Pacing delay allows flash memory page writes to complete
+          await sleep(20);
 
-          if (offset % 4000 === 0 || offset === fileSize) {
-            const pct = Math.round((offset / fileSize) * 100);
+          if (offset % 4000 === 0 || offset === totalBytes) {
+            const pct = Math.round((offset / totalBytes) * 100);
             progressBar.style.width = pct + '%';
             progressText.textContent = pct + '%';
             updateProbe(`Streaming: ${pct}%`);
-            log(`Stream: ${pct}% (${offset}/${fileSize} bytes)`);
+            log(`Stream: ${pct}% (${offset}/${totalBytes} bytes)`);
           }
         }
 
-        log('All bytes transmitted! Watch is finalizing watch face.');
+        log('All bytes transmitted! Watch is validating and applying watch face.');
         updateProbe('Upload Complete - Verifying');
 
       } catch (e) {
@@ -435,7 +448,7 @@
       }
     };
 
-    // Canvas Preview
+    // Canvas Preview Engine
     const canvas = document.getElementById('watchCanvas');
     const ctx = canvas.getContext('2d');
     function renderPreview() {
