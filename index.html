@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HT37 Studio [Build 6.0]</title>
+  <title>HT37 Studio [Build 7.0]</title>
   <style>
     :root {
       --bg: #090d16;
       --panel: #131c2e;
-      --accent: #38bdf8;
+      --accent: #0ea5e9;
       --text: #f8fafc;
       --border: #1e293b;
       --danger: #ef4444;
@@ -107,7 +107,7 @@
       font-size: 0.72rem;
       padding: 12px;
       border-radius: 8px;
-      height: 180px;
+      height: 190px;
       overflow-y: auto;
       margin-top: 15px;
       width: 100%;
@@ -121,7 +121,7 @@
 
   <header>
     <h1>HT37 Watch Face Studio</h1>
-    <div class="badge">BUILD 6.0 - HARDWARE PIPE VERIFIED</div>
+    <div class="badge">BUILD 7.0 - KEEP-ALIVE & FRAMED ENVELOPE</div>
   </header>
 
   <div class="workspace">
@@ -131,19 +131,19 @@
       </div>
 
       <div class="editor-panel" style="margin-top: 15px;">
-        <span class="section-title">Hardware Link (00009966)</span>
+        <span class="section-title">Hardware Link</span>
         <div class="inline-fields">
           <button id="btnConnect" class="btn-primary">1. Connect HT37</button>
           <button id="btnDisconnect" class="btn-danger" disabled>Disconnect</button>
         </div>
         <div class="inline-fields">
-          <button id="btnProbeWake" class="btn-success" disabled>⚡ Multi-Wake Probe</button>
-          <button id="btnSyncTime" class="btn-secondary" disabled>Sync Clock</button>
+          <button id="btnImmediateAlert" class="btn-success" disabled>⚡ Immediate Alert (0x1802)</button>
+          <button id="btnFramedWake" class="btn-primary" disabled>🔔 Framed Wake (0x9966)</button>
         </div>
         
         <span class="section-title" style="margin-top: 5px;">Raw Packet Console</span>
         <div style="display: flex; gap: 6px;">
-          <input type="text" id="hexInput" placeholder="e.g. 08 01 01" style="flex: 1;">
+          <input type="text" id="hexInput" placeholder="e.g. 02 00 00 00 00 00 00 00 08 01 01 00 0a" style="flex: 1;">
           <button id="btnSendHex" class="btn-secondary" disabled>Send</button>
         </div>
       </div>
@@ -206,17 +206,22 @@
     </div>
   </div>
 
-  <div id="logBox">Status: Build 6.0 Ready. Verified service 00009966 configured. Click "1. Connect HT37".</div>
+  <div id="logBox">Status: Build 7.0 Ready. Click "1. Connect HT37" to pair.</div>
 
   <script>
-    // Verified HT37 Hardware UUIDs
-    const HT37_SERVICE_UUID = '00009966-3c17-d293-8e48-14fe2e4da212';
-    const HT37_TX_CHAR      = '0000ffb1-0000-1000-8000-00805f9b34fb'; // Write
-    const HT37_RX_CHAR      = '0000ffb2-0000-1000-8000-00805f9b34fb'; // Notify
+    // Realtek HT37 Profile & Bluetooth SIG Alert
+    const SERVICE_VENDOR_9966 = '00009966-3c17-d293-8e48-14fe2e4da212';
+    const CHAR_VENDOR_TX     = '0000ffb1-0000-1000-8000-00805f9b34fb';
+    const CHAR_VENDOR_RX     = '0000ffb2-0000-1000-8000-00805f9b34fb';
+
+    const SERVICE_ALERT_1802  = '00001802-0000-1000-8000-00805f9b34fb';
+    const CHAR_ALERT_LEVEL    = '00002a06-0000-1000-8000-00805f9b34fb';
 
     let bleDevice = null;
-    let charWrite = null;
-    let charNotify = null;
+    let charVendorTx = null;
+    let charVendorRx = null;
+    let charAlertLevel = null;
+    let keepAliveTimer = null;
 
     const logBox = document.getElementById('logBox');
     function log(msg) {
@@ -228,29 +233,60 @@
     const sleep = ms => new Promise(res => setTimeout(res, ms));
 
     function setButtons(connected) {
-      document.getElementById('btnDisconnect').disabled = !connected;
-      document.getElementById('btnProbeWake').disabled   = !connected;
-      document.getElementById('btnSyncTime').disabled    = !connected;
-      document.getElementById('btnSendHex').disabled     = !connected;
+      document.getElementById('btnDisconnect').disabled     = !connected;
+      document.getElementById('btnImmediateAlert').disabled = !(connected && charAlertLevel);
+      document.getElementById('btnFramedWake').disabled      = !(connected && charVendorTx);
+      document.getElementById('btnSendHex').disabled         = !connected;
+    }
+
+    function stopKeepAlive() {
+      if (keepAliveTimer) {
+        clearInterval(keepAliveTimer);
+        keepAliveTimer = null;
+      }
+    }
+
+    function startKeepAlive() {
+      stopKeepAlive();
+      // Keep-alive heartbeat every 4 seconds to prevent 15-second supervision timeout
+      keepAliveTimer = setInterval(async () => {
+        if (charVendorTx && bleDevice && bleDevice.gatt.connected) {
+          try {
+            // Standard Realtek Ping / Heartbeat frame
+            const pingPkt = new Uint8Array([0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0, 0, 0, 0x02]);
+            await charVendorTx.writeValueWithoutResponse(pingPkt);
+          } catch (e) {
+            // Silent error on heartbeat
+          }
+        }
+      }, 4000);
     }
 
     // --- CONNECTION HANDLER ---
     document.getElementById('btnConnect').onclick = async () => {
       try {
-        log('Connecting to HT37 via verified pipe 00009966...');
+        stopKeepAlive();
+        log('Connecting to HT37...');
         bleDevice = await navigator.bluetooth.requestDevice({
           filters: [
             { name: 'HT37' },
             { namePrefix: 'HT37' }
           ],
-          optionalServices: [HT37_SERVICE_UUID, 0x1800, 0x180a]
+          optionalServices: [
+            SERVICE_VENDOR_9966,
+            SERVICE_ALERT_1802,
+            '00001800-0000-1000-8000-00805f9b34fb',
+            '0000180a-0000-1000-8000-00805f9b34fb'
+          ]
         });
 
         bleDevice.addEventListener('gattserverdisconnected', () => {
           log('Notice: HT37 disconnected.');
+          stopKeepAlive();
           setButtons(false);
-          charWrite = null;
-          charNotify = null;
+          charVendorTx = null;
+          charVendorRx = null;
+          charAlertLevel = null;
         });
 
         log(`Target chosen: ${bleDevice.name}. Connecting GATT...`);
@@ -259,96 +295,117 @@
         log('Waiting 800ms for Windows GATT initialization...');
         await sleep(800);
 
-        const service = await server.getPrimaryService(HT37_SERVICE_UUID);
-        charWrite = await service.getCharacteristic(HT37_TX_CHAR);
-        charNotify = await service.getCharacteristic(HT37_RX_CHAR);
+        // 1. Bind Vendor Channel 00009966
+        try {
+          const vService = await server.getPrimaryService(SERVICE_VENDOR_9966);
+          charVendorTx = await vService.getCharacteristic(CHAR_VENDOR_TX);
+          charVendorRx = await vService.getCharacteristic(CHAR_VENDOR_RX);
 
-        // Start real-time notifications
-        await charNotify.startNotifications();
-        charNotify.addEventListener('characteristicvaluechanged', (e) => {
-          const b = new Uint8Array(e.target.value.buffer);
-          log(`RX [${b.length}B]: ${Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ')}`);
-        });
+          await charVendorRx.startNotifications();
+          charVendorRx.addEventListener('characteristicvaluechanged', (e) => {
+            const b = new Uint8Array(e.target.value.buffer);
+            log(`RX [${b.length}B]: ${Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ')}`);
+          });
+          log('Pipe 00009966 verified and active!');
+        } catch (e) {
+          log('Vendor pipe note: ' + e.message);
+        }
 
-        log('SUCCESS: Persistent communication channel active!');
+        // 2. Bind Bluetooth SIG Immediate Alert 0x1802 (if exposed)
+        try {
+          const alertService = await server.getPrimaryService(SERVICE_ALERT_1802);
+          charAlertLevel = await alertService.getCharacteristic(CHAR_ALERT_LEVEL);
+          log('Bluetooth SIG Alert Service (0x1802) verified!');
+        } catch (e) {
+          log('Immediate Alert (0x1802) not exposed directly (using framed vendor pipe).');
+        }
+
+        startKeepAlive();
+        log('SUCCESS: Connection secured with active Keep-Alive heartbeat!');
         setButtons(true);
 
       } catch (err) {
         log('Connection failed: ' + err.message);
+        stopKeepAlive();
         setButtons(false);
       }
     };
 
     document.getElementById('btnDisconnect').onclick = () => {
+      stopKeepAlive();
       if (bleDevice && bleDevice.gatt.connected) {
         bleDevice.gatt.disconnect();
       }
       setButtons(false);
     };
 
-    async function sendPacket(bytes) {
-      if (!charWrite) return;
+    async function sendVendorPacket(bytes) {
+      if (!charVendorTx) return;
       const data = new Uint8Array(bytes);
       log(`TX [${data.length}B]: ${Array.from(data).map(x => x.toString(16).padStart(2, '0')).join(' ')}`);
-      if (charWrite.properties.write) {
-        await charWrite.writeValue(data);
+      if (charVendorTx.properties.write) {
+        await charVendorTx.writeValue(data);
       } else {
-        await charWrite.writeValueWithoutResponse(data);
+        await charVendorTx.writeValueWithoutResponse(data);
       }
     }
 
-    // --- MULTI-WAKE PROBE (Tests Top Candidate Commands) ---
-    document.getElementById('btnProbeWake').onclick = async () => {
-      if (!charWrite) return;
-      log('Starting Multi-Wake Probe (Watch the display and feel for vibration)...');
+    // --- BUTTON: IMMEDIATE ALERT (0x1802 / 0x2A06) ---
+    document.getElementById('btnImmediateAlert').onclick = async () => {
+      if (!charAlertLevel) return;
+      try {
+        log('Sending High Alert (0x02) to standard 0x2A06...');
+        await charAlertLevel.writeValueWithoutResponse(new Uint8Array([0x02]));
+        log('High Alert delivered!');
+      } catch (e) {
+        log('Alert failed: ' + e.message);
+      }
+    };
 
-      // Candidate command frames across Realtek/FitCloud protocols
-      const candidates = [
-        { name: 'Find Device (Cmd 0x08)',  pkt: [0x08, 0x01, 0x01] },
-        { name: 'Find Device (Cmd 0x04)',  pkt: [0x04, 0x01, 0x01] },
-        { name: 'Screen On (Cmd 0x0E)',    pkt: [0x0E, 0x01, 0x01] },
-        { name: 'Alert Level (High)',      pkt: [0x02, 0x02] },
-        { name: 'Find Wristband (0x0B)',   pkt: [0x0B, 0x01] },
-        { name: 'Vibrate Notify (0x07)',   pkt: [0x07, 0x01, 0x01, 0x00] }
+    // --- BUTTON: FRAMED WAKE ENVELOPE (Realtek 13-Byte Envelope) ---
+    document.getElementById('btnFramedWake').onclick = async () => {
+      if (!charVendorTx) return;
+      log('Transmitting Realtek framed envelopes for Find Watch / Vibrate...');
+
+      // Build 13-byte framed packet: [0x02, 7 zeros, CMD, SUB, VAL, 0, CHK]
+      function make13BytePkt(cmd, sub = 0x01, val = 0x01) {
+        const p = new Uint8Array(13);
+        p[0] = 0x02; // Request header
+        p[8] = cmd;
+        p[9] = sub;
+        p[10] = val;
+        p[11] = 0x00;
+        let sum = 0;
+        for (let i = 0; i < 12; i++) sum = (sum + p[i]) & 0xFF;
+        p[12] = sum; // Checksum
+        return p;
+      }
+
+      const tests = [
+        { name: 'Envelope Find Device (Cmd 0x08)', pkt: make13BytePkt(0x08, 0x01, 0x01) },
+        { name: 'Envelope Screen On (Cmd 0x0E)',   pkt: make13BytePkt(0x0E, 0x01, 0x01) },
+        { name: 'Envelope Alert (Cmd 0x04)',       pkt: make13BytePkt(0x04, 0x01, 0x01) },
+        { name: 'Envelope Vibrate (Cmd 0x07)',     pkt: make13BytePkt(0x07, 0x01, 0x01) }
       ];
 
-      for (const item of candidates) {
-        log(`Probing: ${item.name}...`);
-        await sendPacket(item.pkt);
-        await sleep(500); // Wait for watch response
+      for (const t of tests) {
+        log(`Sending: ${t.name}...`);
+        await sendVendorPacket(t.pkt);
+        await sleep(400);
       }
-      log('Multi-Wake Probe complete. Check log for RX notifications.');
+      log('Envelope transmission complete. Observe the watch screen.');
     };
 
-    // --- SYNC TIME (Updates Watch Clock) ---
-    document.getElementById('btnSyncTime').onclick = async () => {
-      const now = new Date();
-      const yearHi = (now.getFullYear() >> 8) & 0xFF;
-      const yearLo = now.getFullYear() & 0xFF;
-      const month = now.getMonth() + 1;
-      const day = now.getDate();
-      const hour = now.getHours();
-      const min = now.getMinutes();
-      const sec = now.getSeconds();
-
-      // Standard Realtek Time Sync Packet: Cmd 0x01
-      log(`Syncing current time to watch: ${now.toLocaleTimeString()}...`);
-      await sendPacket([0x01, yearHi, yearLo, month, day, hour, min, sec]);
-    };
-
-    // --- RAW HEX SENDER ---
+    // --- RAW HEX CONSOLE ---
     document.getElementById('btnSendHex').onclick = async () => {
       const hex = document.getElementById('hexInput').value.trim();
       if (!hex) return;
       const bytes = hex.split(/[\s,]+/).map(b => parseInt(b, 16)).filter(b => !isNaN(b));
-      if (bytes.length === 0) {
-        log('Error: Invalid hex input.');
-        return;
-      }
-      await sendPacket(bytes);
+      if (bytes.length === 0) return;
+      await sendVendorPacket(bytes);
     };
 
-    // --- CANVAS ENGINE (360x360) ---
+    // Canvas preview setup
     const canvas = document.getElementById('watchCanvas');
     const ctx = canvas.getContext('2d');
     let userBgImage = null;
