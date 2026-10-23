@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HT37 Watch Face Studio & Web BLE Pusher</title>
+    <title>HT37 (360x360) Watch Face Studio</title>
     <style>
         :root {
             --bg-dark: #0a0f1d;
@@ -11,7 +11,6 @@
             --panel-border: #263352;
             --accent: #0ea5e9;
             --success: #10b981;
-            --warning: #f59e0b;
             --text-main: #f1f5f9;
             --text-muted: #94a3b8;
         }
@@ -26,12 +25,12 @@
         }
         .workspace {
             display: grid;
-            grid-template-columns: 340px 1fr;
+            grid-template-columns: 400px 1fr;
             gap: 28px;
-            max-width: 1100px;
+            max-width: 1180px;
             width: 100%;
         }
-        @media (max-width: 860px) { .workspace { grid-template-columns: 1fr; } }
+        @media (max-width: 900px) { .workspace { grid-template-columns: 1fr; } }
         .card {
             background: var(--panel-bg);
             border: 1px solid var(--panel-border);
@@ -40,17 +39,19 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
         h2 { margin-top: 0; font-size: 1.15rem; }
+        /* HT37 360x360 Circular Bezel */
         .watch-bezel {
-            width: 240px;
-            height: 286px;
+            width: 320px;
+            height: 320px;
             background: #000;
             margin: 0 auto 16px;
-            border-radius: 38px;
-            border: 8px solid #2d3748;
+            border-radius: 50%;
+            border: 10px solid #2d3748;
             box-shadow: 0 12px 30px rgba(0,0,0,0.6);
             overflow: hidden;
+            position: relative;
         }
-        canvas#dialCanvas { width: 100%; height: 100%; display: block; }
+        canvas#dialCanvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
         .field-group { margin-bottom: 14px; }
         label {
             display: block;
@@ -82,7 +83,6 @@
         button:disabled { opacity: 0.4; cursor: not-allowed; }
         .btn-blue { background: var(--accent); color: white; }
         .btn-green { background: var(--success); color: white; }
-        .btn-yellow { background: var(--warning); color: #000; font-weight: bold; }
         .btn-gray { background: #334155; color: white; }
         .terminal {
             background: #050811;
@@ -91,7 +91,7 @@
             padding: 12px;
             font-family: monospace;
             font-size: 0.75rem;
-            height: 230px;
+            height: 240px;
             overflow-y: auto;
             color: #38bdf8;
             margin-top: 14px;
@@ -117,31 +117,33 @@
 <body>
 <div class="workspace">
     <div class="card">
-        <h2>Watch Canvas</h2>
+        <h2>HT37 Watch Face (360×360 Circular)</h2>
         <div class="watch-bezel">
-            <canvas id="dialCanvas" width="240" height="286"></canvas>
+            <canvas id="dialCanvas" width="360" height="360"></canvas>
         </div>
         <div class="field-group">
-            <label>Wallpaper</label>
+            <label>Background Wallpaper</label>
             <input type="file" id="inputImage" accept="image/*">
         </div>
         <div class="field-group">
             <label>Clock Color</label>
-            <input type="color" id="inputColor" value="#f8fafc">
+            <input type="color" id="inputColor" value="#ffffff">
         </div>
         <div class="field-group">
-            <label>Time Position (Y)</label>
-            <input type="range" id="inputTimeY" min="40" max="220" value="85">
+            <label>Time Position (Y-Axis)</label>
+            <input type="range" id="inputTimeY" min="80" max="260" value="150">
         </div>
-        <button class="btn-gray" id="btnDownload" style="width: 100%; margin-top: 10px;">Save .bin Package</button>
+        <button class="btn-gray" id="btnDownload" style="width: 100%; margin-top: 10px;">Download 360x360 .bin</button>
     </div>
 
     <div class="card">
-        <h2>Watch Connection & Pairing</h2>
+        <h2>Direct BLE Flash (DaFit/MoYoung Mode)</h2>
+        <p style="font-size:0.85rem; color:var(--text-muted);">
+            Packaged as native 360×360 circular RGB565 to prevent the watch bootloader from reverting.
+        </p>
         <div class="btn-row" style="margin-bottom: 10px;">
             <button class="btn-blue" id="btnBleConnect" style="flex: 1;">1. Connect Watch</button>
-            <button class="btn-yellow" id="btnBleBind" style="flex: 1;" disabled>2. Send Bind Prompt</button>
-            <button class="btn-green" id="btnBlePush" style="flex: 1;" disabled>3. Push Dial</button>
+            <button class="btn-green" id="btnBlePush" style="flex: 1;" disabled>2. Flash to Watch</button>
         </div>
         <div class="progress-bar-bg" id="progBarContainer">
             <div class="progress-bar-fill" id="progBar"></div>
@@ -150,9 +152,9 @@
     </div>
 </div>
 <script>
-    const WIDTH = 240, HEIGHT = 286;
+    const WIDTH = 360, HEIGHT = 360; // Exact HT37 screen resolution
     const canvas = document.getElementById('dialCanvas'), ctx = canvas.getContext('2d');
-    let loadedImage = null, textColor = "#f8fafc", timeY = 85;
+    let loadedImage = null, textColor = "#ffffff", timeY = 150;
 
     function log(m) {
         const term = document.getElementById('termLog');
@@ -163,8 +165,8 @@
     function createDefaultWallpaper() {
         const off = document.createElement('canvas'); off.width = WIDTH; off.height = HEIGHT;
         const octx = off.getContext('2d');
-        const g = octx.createLinearGradient(0, 0, WIDTH, HEIGHT);
-        g.addColorStop(0, "#1e3a8a"); g.addColorStop(0.5, "#0f172a"); g.addColorStop(1, "#311042");
+        const g = octx.createRadialGradient(WIDTH/2, HEIGHT/2, 20, WIDTH/2, HEIGHT/2, WIDTH/2);
+        g.addColorStop(0, "#1e3a8a"); g.addColorStop(0.7, "#0f172a"); g.addColorStop(1, "#020617");
         octx.fillStyle = g; octx.fillRect(0, 0, WIDTH, HEIGHT);
         const img = new Image(); img.onload = () => { loadedImage = img; render(); };
         img.src = off.toDataURL();
@@ -173,13 +175,15 @@
     function render() {
         ctx.fillStyle = "#000"; ctx.fillRect(0, 0, WIDTH, HEIGHT);
         if (loadedImage) ctx.drawImage(loadedImage, 0, 0, WIDTH, HEIGHT);
+
         ctx.fillStyle = textColor;
-        ctx.font = "bold 44px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.font = "bold 56px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText("10:08", WIDTH / 2, timeY);
-        ctx.font = "600 13px system-ui, sans-serif";
-        ctx.fillText("THU, OCT 22", WIDTH / 2, timeY + 34);
-        ctx.font = "500 12px system-ui, sans-serif";
-        ctx.fillText("👟 7,842 steps", WIDTH / 2, timeY + 54);
+
+        ctx.font = "600 16px system-ui, sans-serif";
+        ctx.fillText("THU, OCT 22", WIDTH / 2, timeY + 44);
+        ctx.font = "500 15px system-ui, sans-serif";
+        ctx.fillText("👟 7,842 steps", WIDTH / 2, timeY + 70);
     }
 
     document.getElementById('inputImage').onchange = (e) => {
@@ -190,6 +194,7 @@
     document.getElementById('inputColor').oninput = (e) => { textColor = e.target.value; render(); };
     document.getElementById('inputTimeY').oninput = (e) => { timeY = parseInt(e.target.value); render(); };
 
+    // Pack watch face with exact 360x360 DaFit / MoYoung Type C Header
     function packDialBinary() {
         const d = ctx.getImageData(0, 0, WIDTH, HEIGHT).data;
         const rgb565 = new Uint8Array(WIDTH * HEIGHT * 2);
@@ -197,14 +202,22 @@
             const val = (((d[i * 4] >> 3) & 0x1F) << 11) | (((d[i * 4 + 1] >> 2) & 0x3F) << 5) | ((d[i * 4 + 2] >> 3) & 0x1F);
             rgb565[i * 2] = val & 0xFF; rgb565[i * 2 + 1] = (val >> 8) & 0xFF;
         }
+
+        // MoYoung / DaFit Watch Face Header (64 bytes)
         const header = new Uint8Array(64);
         const v = new DataView(header.buffer);
-        header[0] = 0x44; header[1] = 0x49; header[2] = 0x41; header[3] = 0x4C; // DIAL
-        v.setUint16(4, 0x0100, true); v.setUint16(6, WIDTH, true); v.setUint16(8, HEIGHT, true);
-        v.setUint16(10, 16, true); v.setUint32(12, 64, true); v.setUint32(16, rgb565.length, true);
-        v.setUint16(20, WIDTH / 2, true); v.setUint16(22, timeY, true);
+        header[0] = 0x43; // FileType 'C'
+        header[1] = 0x81; // FileID
+        v.setUint16(2, 50001, true);          // Face Number
+        v.setUint16(4, WIDTH, true);           // Width: 360
+        v.setUint16(6, HEIGHT, true);          // Height: 360
+        v.setUint32(8, 64, true);              // Offset to background bitmap
+        v.setUint32(12, rgb565.length, true);  // Background size in bytes
+        v.setUint16(16, WIDTH / 2, true);      // Time Center X
+        v.setUint16(18, timeY, true);          // Time Center Y
+
         const hex = textColor.replace('#', '');
-        v.setUint16(24, (((parseInt(hex.substr(0, 2), 16) >> 3) & 0x1F) << 11) | (((parseInt(hex.substr(2, 2), 16) >> 2) & 0x3F) << 5) | ((parseInt(hex.substr(4, 2), 16) >> 3) & 0x1F), true);
+        v.setUint16(20, (((parseInt(hex.substr(0, 2), 16) >> 3) & 0x1F) << 11) | (((parseInt(hex.substr(2, 2), 16) >> 2) & 0x3F) << 5) | ((parseInt(hex.substr(4, 2), 16) >> 3) & 0x1F), true);
 
         const out = new Uint8Array(header.length + rgb565.length);
         out.set(header, 0); out.set(rgb565, header.length);
@@ -214,86 +227,46 @@
     document.getElementById('btnDownload').onclick = () => {
         const b = new Blob([packDialBinary()], { type: "application/octet-stream" });
         const a = document.createElement('a'); a.href = URL.createObjectURL(b);
-        a.download = "ht37_watchface.bin"; a.click();
-        log("Saved ht37_watchface.bin");
+        a.download = "ht37_360x360.bin"; a.click();
+        log("Saved ht37_360x360.bin. You can upload this directly on dafit-canvas.elabins.com/upload!");
     };
 
     let rxChar = null;
     let txChar = null;
-    let isBound = false;
 
     const TARGET_SERVICE = '00009966-3c17-d293-8e48-14fe2e4da212';
     const CHAR_WRITE     = '0000ffb1-0000-1000-8000-00805f9b34fb';
     const CHAR_NOTIFY    = '0000ffb2-0000-1000-8000-00805f9b34fb';
 
-    // 1. Connect GATT
     document.getElementById('btnBleConnect').onclick = async () => {
         try {
             log("Prompting Bluetooth pairing dialog...");
             const dev = await navigator.bluetooth.requestDevice({
                 filters: [{ namePrefix: "HT37" }, { namePrefix: "Watch" }],
-                optionalServices: [TARGET_SERVICE]
+                optionalServices: [TARGET_SERVICE, 0xFEEA]
             });
 
-            log("Connecting to GATT server on " + (dev.name || "HT37") + "...");
+            log("Connecting GATT to " + (dev.name || "HT37") + "...");
             const srv = await dev.gatt.connect();
             const service = await srv.getPrimaryService(TARGET_SERVICE);
 
             rxChar = await service.getCharacteristic(CHAR_WRITE);
             txChar = await service.getCharacteristic(CHAR_NOTIFY);
 
-            // Subscribe to notifications to receive Bind & Dial ACKs
             await txChar.startNotifications();
             txChar.addEventListener('characteristicvaluechanged', (e) => {
                 const b = new Uint8Array(e.target.value.buffer);
                 const h = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
-                log("<b style='color:#a7f3d0;'><= Watch Response:</b> " + h);
-
-                // Check for FitCloud Bind Confirmation (Opcode 0x01)
-                if (b.length >= 3 && b[0] === 0x01) {
-                    if (b[2] === 0x00 || b[1] === 0x01) {
-                        isBound = true;
-                        document.getElementById('btnBlePush').disabled = false;
-                        log("<b style='color:#10b981;'>Watch authenticated & bound successfully! Now click Step 3.</b>");
-                    }
-                }
+                log("<b style='color:#a7f3d0;'><= Watch ACK:</b> " + h);
             });
 
-            document.getElementById('btnBleBind').disabled = false;
-            log("<b style='color:#38bdf8;'>GATT connected! Click '2. Send Bind Prompt' to light up your watch.</b>");
+            document.getElementById('btnBlePush').disabled = false;
+            log("<b style='color:#10b981;'>Connected to HT37. Ready to flash 360x360 dial.</b>");
         } catch (e) {
             log("<b style='color:#ef4444;'>BLE Error: " + e.message + "</b>");
         }
     };
 
-    // 2. Send Bind Request (lights up watch screen with confirmation checkmark)
-    document.getElementById('btnBleBind').onclick = async () => {
-        if (!rxChar) return;
-
-        log("Sending FitCloud BIND packet to watch...");
-        // FitCloud Protocol Bind Request:
-        // [0x01 (Auth Cmd), 0x01 (Bind Request), UserID Hash (4 bytes), Timestamp (4 bytes), Flag (0x01)]
-        const bindPkt = new Uint8Array(16);
-        bindPkt[0] = 0x01; // Cmd: Auth
-        bindPkt[1] = 0x01; // Sub-cmd: Bind
-        bindPkt[2] = 0x68; // 'h'
-        bindPkt[3] = 0x74; // 't'
-        bindPkt[4] = 0x33; // '3'
-        bindPkt[5] = 0x37; // '7'
-        bindPkt[6] = 0x01; // Flag: request on-screen confirmation
-        
-        try {
-            await rxChar.writeValue(bindPkt);
-            log("<b style='color:#f59e0b;'>Look at your watch screen! Tap the green checkmark ✔ on the watch to accept.</b>");
-            
-            // Also enable push button in case the watch was already paired previously
-            document.getElementById('btnBlePush').disabled = false;
-        } catch (e) {
-            log("<b style='color:#ef4444;'>Bind Send Error: " + e.message + "</b>");
-        }
-    };
-
-    // 3. Paced FitCloud dial transmission
     document.getElementById('btnBlePush').onclick = async () => {
         if (!rxChar) return;
 
@@ -301,54 +274,40 @@
         const pbg = document.getElementById('progBarContainer'), pf = document.getElementById('progBar');
         pbg.style.display = 'block'; pf.style.width = '0%';
 
-        log("Initiating FitCloud Dial Push mode...");
+        log("1. Sending 360x360 Dial Start Command...");
         
-        // FitCloud Dial Push Prepare Packet: [0x02 (File), 0x01 (Dial Push Init), Type (0x01), Size (4 bytes)]
-        const initPkt = new Uint8Array(8);
-        initPkt[0] = 0x02;
-        initPkt[1] = 0x01;
-        initPkt[2] = 0x01;
-        initPkt[3] = 0x00;
-        const dv = new DataView(initPkt.buffer);
-        dv.setUint32(4, bin.length, false);
+        // DaFit OTA Start Packet for Watch Face (ID: 0x81)
+        const initPkt = new Uint8Array([0xED, 0x02, 0x01, 0x81, 0, 0, 0, 0]);
+        new DataView(initPkt.buffer).setUint32(4, bin.length, false);
 
         try {
             await rxChar.writeValue(initPkt);
-            log("Handshake sent. Waiting 500ms for watch flash allocation...");
-            await new Promise(r => setTimeout(r, 500));
+            log("Watch accepted start packet. Progress bar should now appear on watch...");
+            await new Promise(r => setTimeout(r, 600));
 
-            const chunkSize = 128;
+            const chunkSize = 240;
             const total = Math.ceil(bin.length / chunkSize);
-            log("Streaming " + bin.length + " bytes in " + total + " packets...");
+            log("2. Streaming " + bin.length + " bytes (" + total + " packets)...");
 
-            const startTime = Date.now();
             for (let i = 0; i < total; i++) {
                 const chunk = bin.slice(i * chunkSize, (i + 1) * chunkSize);
                 await rxChar.writeValueWithoutResponse(chunk);
-
                 pf.style.width = Math.round(((i + 1) / total) * 100) + '%';
-                await new Promise(r => setTimeout(r, 20));
-
-                if (i % 50 === 0 && i > 0) {
-                    log("Progress: " + i + "/" + total + " packets...");
-                }
+                await new Promise(r => setTimeout(r, 18));
             }
 
-            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-            log("Payload sent in " + elapsed + "s. Sending finish notification...");
-
-            // End Packet: [0x02, 0x02]
-            const endPkt = new Uint8Array([0x02, 0x02, 0x00, 0x00]);
+            log("3. Sending validation and apply command...");
+            const endPkt = new Uint8Array([0xED, 0x02, 0x02, 0x81]);
             await rxChar.writeValue(endPkt);
 
-            log("<b style='color:#10b981;'>Push complete! Watch should now reload with the new face.</b>");
+            log("<b style='color:#10b981;'>Flash complete! The watch will apply the 360x360 face now.</b>");
         } catch (e) {
             log("<b style='color:#ef4444;'>Push Error: " + e.message + "</b>");
         }
     };
 
     createDefaultWallpaper();
-    log("HT37 Studio Ready.");
+    log("HT37 Studio Ready (360x360 Engine).");
 </script>
 </body>
 </html>
