@@ -190,19 +190,19 @@
       <div class="field-row">
         <label>🌦️ Sky Condition</label>
         <select id="simWeatherCond" onchange="sensors.weatherCond = this.value; updateLiveSensorReadout();">
-          <option value="SUNNY" selected>☀️ 0x01 - Sunny (Verified)</option>
-          <option value="CLOUDY">⛅ 0x02 - Sky Code 0x02</option>
-          <option value="OVERCAST">☁️ 0x03 - Sky Code 0x03</option>
-          <option value="RAIN">🌦️ 0x04 - Sky Code 0x04</option>
-          <option value="STORM">⛈️ 0x05 - Sky Code 0x05</option>
-          <option value="LIGHTRAIN">🌧️ 0x06 - Light Rain (Verified)</option>
-          <option value="HEAVYRAIN">🌧️ 0x07 - Sky Code 0x07</option>
-          <option value="SNOW">❄️ 0x08 - Sky Code 0x08</option>
-          <option value="SLEET">🌨️ 0x00 - Sleet (Verified)</option>
-          <option value="CODE09">🌫️ 0x09 - Sky Code 0x09</option>
-          <option value="CODE0A">🌬️ 0x0A - Sky Code 0x0A</option>
-          <option value="CODE0B">🌪️ 0x0B - Sky Code 0x0B</option>
-          <option value="CODE0C">🌫️ 0x0C - Foggy (Verified)</option>
+          <option value="SUNNY" selected>☀️ 0x01 - Sunny</option>
+          <option value="CLOUDY">⛅ 0x02 - Cloudy</option>
+          <option value="OVERCAST">☁️ 0x03 - Overcast</option>
+          <option value="SHOWER">🌦️ 0x04 - Shower</option>
+          <option value="THUNDER">⛈️ 0x05 - Thundershower</option>
+          <option value="LIGHTRAIN">🌧️ 0x06 - Light Rain</option>
+          <option value="MODRAIN">🌧️ 0x07 - Moderate Rain</option>
+          <option value="SLEET">🌨️ 0x08 - Sleet</option>
+          <option value="LIGHTSNOW">🌨️ 0x09 - Light Snow</option>
+          <option value="MODSNOW">❄️ 0x0A - Moderate Snow</option>
+          <option value="SANDSTORM">🌪️ 0x0B - Sandstorm</option>
+          <option value="FOGGY">🌫️ 0x0C - Foggy</option>
+          <option value="UNKNOWN">❓ 0x00 - Unknown</option>
         </select>
       </div>
       <div class="field-row"><label>🔋 Battery (<span id="valBat">50</span>%)</label><input type="range" id="simBat" min="1" max="100" value="50" /></div>
@@ -240,40 +240,18 @@
           <button class="warn" onclick="cycleAllSkyCodes()" title="Cycles SkyCode 0x01..0x0C on 0x02/0x36 with Temp = Code (1°C..12°C)" style="padding:4px 5px;font-size:9px;">🎞️ Sky</button>
         </div>
         <div class="alert-grid" style="grid-template-columns:repeat(4,1fr);gap:2px;margin-top:2px;">
-          <button onclick="sendSingleSkyCode(0x00, '0x00 Sleet')" style="font-size:9px;padding:3px 2px;" class="success">00 Sleet✓</button>
-          <button onclick="sendSingleSkyCode(0x01, '0x01 Sunny')" style="font-size:9px;padding:3px 2px;" class="success">01 Sunny✓</button>
-          <button onclick="sendSingleSkyCode(0x02, '0x02 ?')" style="font-size:9px;padding:3px 2px;">02 Test</button>
-          <button onclick="sendSingleSkyCode(0x03, '0x03 ?')" style="font-size:9px;padding:3px 2px;">03 Test</button>
-          <button onclick="sendSingleSkyCode(0x04, '0x04 ?')" style="font-size:9px;padding:3px 2px;">04 Test</button>
-          <button onclick="sendSingleSkyCode(0x05, '0x05 ?')" style="font-size:9px;padding:3px 2px;">05 Test</button>
-          <button onclick="sendSingleSkyCode(0x06, '0x06 LtRain')" style="font-size:9px;padding:3px 2px;" class="success">06 LtRain✓</button>
-          <button onclick="sendSingleSkyCode(0x07, '0x07 ?')" style="font-size:9px;padding:3px 2px;">07 Test</button>
-          <button onclick="sendSingleSkyCode(0x08, '0x08 ?')" style="font-size:9px;padding:3px 2px;">08 Test</button>
-          <button onclick="sendSingleSkyCode(0x09, '0x09 ?')" style="font-size:9px;padding:3px 2px;">09 Test</button>
-          <button onclick="sendSingleSkyCode(0x0a, '0x0A ?')" style="font-size:9px;padding:3px 2px;">0A Test</button>
-          <button onclick="sendSingleSkyCode(0x0b, '0x0B ?')" style="font-size:9px;padding:3px 2px;">0B Test</button>
-          <button onclick="sendSingleSkyCode(0x0c, '0x0C Foggy')" style="font-size:9px;padding:3px 2px;" class="success">0C Foggy✓</button>
-          <button onclick="sendSingleSkyCode(0x0d, '0x0D ?')" style="font-size:9px;padding:3px 2px;">0D Test</button>
-          <button onclick="sendSingleSkyCode(0x0e, '0x0E ?')" style="font-size:9px;padding:3px 2px;">0E Test</button>
-          <button onclick="sendSingleSkyCode(0x0f, '0x0F ?')" style="font-size:9px;padding:3px 2px;">0F Test</button>
-        </div>
-        <div class="alert-grid" style="grid-template-columns:repeat(4,1fr);gap:2px;margin-top:2px;">
-          <button onclick="sendSingleSkyCode(0x00, '0x00 Sleet')" style="font-size:9px;padding:3px 2px;" class="success">00 Sleet✓</button>
-          <button onclick="sendSingleSkyCode(0x01, '0x01 Sunny')" style="font-size:9px;padding:3px 2px;" class="success">01 Sunny✓</button>
-          <button onclick="sendSingleSkyCode(0x02, '0x02 ?')" style="font-size:9px;padding:3px 2px;">02 Test</button>
-          <button onclick="sendSingleSkyCode(0x03, '0x03 ?')" style="font-size:9px;padding:3px 2px;">03 Test</button>
-          <button onclick="sendSingleSkyCode(0x04, '0x04 ?')" style="font-size:9px;padding:3px 2px;">04 Test</button>
-          <button onclick="sendSingleSkyCode(0x05, '0x05 ?')" style="font-size:9px;padding:3px 2px;">05 Test</button>
-          <button onclick="sendSingleSkyCode(0x06, '0x06 LtRain')" style="font-size:9px;padding:3px 2px;" class="success">06 LtRain✓</button>
-          <button onclick="sendSingleSkyCode(0x07, '0x07 ?')" style="font-size:9px;padding:3px 2px;">07 Test</button>
-          <button onclick="sendSingleSkyCode(0x08, '0x08 ?')" style="font-size:9px;padding:3px 2px;">08 Test</button>
-          <button onclick="sendSingleSkyCode(0x09, '0x09 ?')" style="font-size:9px;padding:3px 2px;">09 Test</button>
-          <button onclick="sendSingleSkyCode(0x0a, '0x0A ?')" style="font-size:9px;padding:3px 2px;">0A Test</button>
-          <button onclick="sendSingleSkyCode(0x0b, '0x0B ?')" style="font-size:9px;padding:3px 2px;">0B Test</button>
-          <button onclick="sendSingleSkyCode(0x0c, '0x0C Foggy')" style="font-size:9px;padding:3px 2px;" class="success">0C Foggy✓</button>
-          <button onclick="sendSingleSkyCode(0x0d, '0x0D ?')" style="font-size:9px;padding:3px 2px;">0D Test</button>
-          <button onclick="sendSingleSkyCode(0x0e, '0x0E ?')" style="font-size:9px;padding:3px 2px;">0E Test</button>
-          <button onclick="sendSingleSkyCode(0x0f, '0x0F ?')" style="font-size:9px;padding:3px 2px;">0F Test</button>
+          <button onclick="setAndPushSky('SUNNY', 0x01, 'Sunny')" style="font-size:9px;padding:3px 2px;">☀️ 01 Sunny</button>
+          <button onclick="setAndPushSky('CLOUDY', 0x02, 'Cloudy')" style="font-size:9px;padding:3px 2px;">⛅ 02 Cloudy</button>
+          <button onclick="setAndPushSky('OVERCAST', 0x03, 'Overcast')" style="font-size:9px;padding:3px 2px;">☁️ 03 Overcast</button>
+          <button onclick="setAndPushSky('SHOWER', 0x04, 'Shower')" style="font-size:9px;padding:3px 2px;">🌦️ 04 Shower</button>
+          <button onclick="setAndPushSky('THUNDER', 0x05, 'Thundershower')" style="font-size:9px;padding:3px 2px;">⛈️ 05 Thunder</button>
+          <button onclick="setAndPushSky('LIGHTRAIN', 0x06, 'Light Rain')" style="font-size:9px;padding:3px 2px;">🌧️ 06 LtRain</button>
+          <button onclick="setAndPushSky('MODRAIN', 0x07, 'Moderate Rain')" style="font-size:9px;padding:3px 2px;">🌧️ 07 ModRain</button>
+          <button onclick="setAndPushSky('SLEET', 0x08, 'Sleet')" style="font-size:9px;padding:3px 2px;">🌨️ 08 Sleet</button>
+          <button onclick="setAndPushSky('LIGHTSNOW', 0x09, 'Light Snow')" style="font-size:9px;padding:3px 2px;">🌨️ 09 LtSnow</button>
+          <button onclick="setAndPushSky('MODSNOW', 0x0a, 'Moderate Snow')" style="font-size:9px;padding:3px 2px;">❄️ 0A ModSnow</button>
+          <button onclick="setAndPushSky('SANDSTORM', 0x0b, 'Sandstorm')" style="font-size:9px;padding:3px 2px;">🌪️ 0B Sand</button>
+          <button onclick="setAndPushSky('FOGGY', 0x0c, 'Foggy')" style="font-size:9px;padding:3px 2px;">🌫️ 0C Foggy</button>
         </div>
       </div>
     </div>
@@ -682,7 +660,7 @@ function drawWidget(c, w) {
       break;
     }
     case 'weather': {
-      const icons = { SUNNY: '☀️', CLOUDY: '⛅', RAIN: '🌧️', STORM: '⛈️', SNOW: '❄️' };
+      const icons = { SUNNY: '☀️', CLOUDY: '⛅', OVERCAST: '☁️', SHOWER: '🌦️', THUNDER: '⛈️', LIGHTRAIN: '🌧️', MODRAIN: '🌧️', SLEET: '🌨️', LIGHTSNOW: '🌨️', MODSNOW: '❄️', SANDSTORM: '🌪️', FOGGY: '🌫️', UNKNOWN: '❓' };
       c.fillStyle = 'rgba(14, 22, 34, 0.85)'; c.strokeStyle = w.color; c.lineWidth = 1.5;
       c.beginPath(); c.roundRect(-50, -18, 100, 36, 8); c.fill(); c.stroke();
       c.font = '18px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(icons[sensors.weatherCond] || '⛅', -30, 1);
@@ -1426,7 +1404,17 @@ function encodeFitCloudTemp(t) {
   return v < 0 ? (0x80 | Math.min(127, Math.abs(v))) : (v & 0x7f);
 }
 
-const HT37_SKY_MAP = { SLEET: 0x00, SUNNY: 0x01, CLOUDY: 0x02, OVERCAST: 0x03, RAIN: 0x04, STORM: 0x05, LIGHTRAIN: 0x06, HEAVYRAIN: 0x07, SNOW: 0x08, CODE09: 0x09, CODE0A: 0x0a, CODE0B: 0x0b, CODE0C: 0x0c };
+const HT37_SKY_MAP = {
+  UNKNOWN: 0x00, SUNNY: 0x01, CLOUDY: 0x02, OVERCAST: 0x03, SHOWER: 0x04,
+  THUNDER: 0x05, LIGHTRAIN: 0x06, MODRAIN: 0x07, SLEET: 0x08, LIGHTSNOW: 0x09,
+  MODSNOW: 0x0a, SANDSTORM: 0x0b, FOGGY: 0x0c
+};
+function setAndPushSky(condKey, hexCode, label) {
+  sensors.weatherCond = condKey;
+  const sel = document.getElementById('simWeatherCond');
+  if (sel) sel.value = condKey;
+  sendSingleSkyCode(hexCode, `${hexCode.toString(16).padStart(2,'0').toUpperCase()} ${label}`);
+}
 function updateLiveSensorReadout() {
   const condMap = HT37_SKY_MAP;
   const code = condMap[sensors.weatherCond] || 0x02;
@@ -1903,6 +1891,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
