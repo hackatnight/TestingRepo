@@ -455,8 +455,17 @@
       <div style="font-size:10px;color:var(--accent);font-family:var(--font-mono);margin-bottom:2px;">🚀 Service 9966 (FFB1/FFB2) IC_568X Upload Mode Control:</div>
       <div class="alert-grid" style="grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
         <button class="success" onclick="triggerWhiteArrowFfb1()" title="Sends [01 00 00 00 00 00 00 00 01 C3 01 00 04] to 0000ffb1 on Service 00009966!" style="grid-column:span 2;padding:6px;font-size:11px;">🚀 1. Trigger White Arrow Upload Mode (FFB1)</button>
+        <button class="primary" onclick="probeFfb1SecondStep()" title="Triggers White Arrow (0x01) then tests OpCode 0x20 / 0x02 / 0x03 / 0x04 to see which one advances past 0%!">🔬 2. Probe FFB1 Step 2 (0x20/0x02)</button>
         <button onclick="testSingleUploadCandidate('clean_tlvs')" title="Restores clean factory values to TLV 0x24..0x59">🛠️ Clean Config TLVs</button>
-        <button onclick="testSingleUploadCandidate('ffb1_variants')" title="Tests FFB1 Wake & Slot header variations">🔬 Test FFB1 Variants</button>
+      </div>
+      <div class="field-row">
+        <label>FFB1 Data OpCode</label>
+        <select id="ffb1DataOpcode" style="width:205px">
+          <option value="0x20" selected>Op 0x20 (Matches 0xA0 = 0x80|0x20!)</option>
+          <option value="0x02">Op 0x02 (Cmd 0x02 Data Block)</option>
+          <option value="0x03">Op 0x03 (Cmd 0x03 Data Block)</option>
+          <option value="0x01">Op 0x01 (Cmd 0x01 with Offset)</option>
+        </select>
       </div>
       <div class="field-row" style="display:none;">
         <label>Probe / Flash Scope</label>
@@ -1066,6 +1075,22 @@ function canvasToRGB565(sourceCanvas, littleEndian = false) {
   return out;
 }
 
+function buildFfb1Envelope(opCode, offset, payloadBytes, flags24 = 0) {
+  const payload = payloadBytes instanceof Uint8Array ? payloadBytes : new Uint8Array(payloadBytes);
+  const crc = computeCRC16(payload, 0x0000);
+  const frame = new Uint8Array(12 + payload.length);
+  const view = new DataView(frame.buffer);
+  frame[0] = opCode & 0xff;
+  frame[1] = flags24 & 0xff;
+  frame[2] = (flags24 >> 8) & 0xff;
+  frame[3] = (flags24 >> 16) & 0xff;
+  view.setUint32(4, offset >>> 0, true);       // Offset (uint32 LE)
+  view.setUint16(8, crc & 0xffff, true);       // CRC16-ARC of payload (uint16 LE)
+  view.setUint16(10, payload.length, true);    // Payload length (uint16 LE)
+  frame.set(payload, 12);
+  return frame;
+}
+
 function compileWatchfaceBin() {
   const { width: W, height: H, previewWidth: PW, previewHeight: PH } = screenConfig;
   const isLE = document.getElementById('rgbEndian').value === 'le';
@@ -1075,35 +1100,62 @@ function compileWatchfaceBin() {
   const offPrev = document.createElement('canvas'); offPrev.width = PW; offPrev.height = PH;
   drawWatchface(offPrev.getContext('2d'), PW, PH, { showUI: false, onlyStatic: false });
   const bgRgb565 = canvasToRGB565(offBg, isLE), prevRgb565 = canvasToRGB565(offPrev, isLE);
-  const widgetTable = new Uint8Array(visibleWidgets.length * 12);
-  const wView = new DataView(widgetTable.buffer);
-  visibleWidgets.forEach((w, idx) => {
-    const base = idx * 12;
-    wView.setUint8(base, 0xFC); wView.setUint8(base + 1, parseInt(w.fwId, 16) || 0x20);
-    wView.setUint16(base + 2, w.x, true); wView.setUint16(base + 4, w.y, true);
-    wView.setUint16(base + 6, Math.round(w.scale * 100), true);
-    const col = parseInt(w.color.replace('#', ''), 16);
-    wView.setUint16(base + 8, ((((col >> 16) & 0xff) >> 3) << 11) | ((((col >> 8) & 0xff) >> 2) << 5) | ((col & 0xff) >> 3), isLE);
-    wView.setUint16(base + 10, idx, true);
-  });
-  let finalBin, bgOffset = 64, prevOffset = 64 + bgRgb565.byteLength, widgetOffset = prevOffset + prevRgb565.byteLength;
-  if (loadedTemplateBin && loadedTemplateBin.byteLength > bgRgb565.byteLength) {
-    finalBin = new Uint8Array(loadedTemplateBin);
-    bgOffset = finalBin.byteLength - bgRgb565.byteLength;
-    prevOffset = Math.max(64, bgOffset - prevRgb565.byteLength);
-    finalBin.set(prevRgb565, prevOffset); finalBin.set(bgRgb565, bgOffset);
-  } else {
-    const totalSize = 64 + bgRgb565.byteLength + prevRgb565.byteLength + widgetTable.byteLength + 4;
-    finalBin = new Uint8Array(totalSize);
-    const hdr = new DataView(finalBin.buffer);
-    hdr.setUint32(0, 0x55474346, true);
-    hdr.setUint16(4, W, true); hdr.setUint16(6, H, true); hdr.setUint16(8, PW, true); hdr.setUint16(10, PH, true);
-    hdr.setUint32(12, bgOffset, true); hdr.setUint32(16, bgRgb565.byteLength, true);
-    hdr.setUint32(20, prevOffset, true); hdr.setUint32(24, prevRgb565.byteLength, true);
-    hdr.setUint32(28, widgetOffset, true); hdr.setUint32(32, visibleWidgets.length, true);
-    finalBin.set(bgRgb565, bgOffset); finalBin.set(prevRgb565, prevOffset); finalBin.set(widgetTable, widgetOffset);
-    hdr.setUint32(totalSize - 4, computeCRC16(finalBin.subarray(0, totalSize - 4), 0xffff), true);
+
+  // If user uploaded an official template.bin, patch its RGB565 buffers AND recalculate the TOPSTEP 01 CRC16 at 0x10..0x11!
+  if (loadedTemplateBin && loadedTemplateBin.byteLength > 1024) {
+    const finalBin = new Uint8Array(loadedTemplateBin);
+    const bgOffset = Math.max(1024, finalBin.byteLength - bgRgb565.byteLength);
+    const prevOffset = Math.max(1024, bgOffset - prevRgb565.byteLength);
+    if (bgOffset + bgRgb565.byteLength <= finalBin.byteLength) finalBin.set(bgRgb565, bgOffset);
+    if (prevOffset + prevRgb565.byteLength <= bgOffset) finalBin.set(prevRgb565, prevOffset);
+    // Recalculate check_crc16_568x from offset 1024 (0x400) to end of file and store at 0x10..0x11 (LE)
+    const bodyCrc = computeCRC16(finalBin.subarray(1024), 0x0000);
+    const hdrView = new DataView(finalBin.buffer);
+    hdrView.setUint16(0x10, bodyCrc, true);
+    inspectBinBuffer(finalBin, { bgOffset, prevOffset, visibleCount: visibleWidgets.length });
+    return finalBin;
   }
+
+  // Otherwise build the exact 1,024-byte (0x400) TOPSTEP 01 header + TBUI descriptor + RGB565 stream
+  const tbuiHeader = new Uint8Array(64);
+  const tbuiView = new DataView(tbuiHeader.buffer);
+  // "TBUI" magic at 0x400
+  tbuiHeader.set([0x54, 0x42, 0x55, 0x49], 0);
+  tbuiView.setUint16(4, W, true);
+  tbuiView.setUint16(6, H, true);
+  tbuiView.setUint16(8, PW, true);
+  tbuiView.setUint16(10, PH, true);
+  tbuiView.setUint32(12, 64, true); // Preview offset relative to TBUI
+  tbuiView.setUint32(16, prevRgb565.byteLength, true);
+  tbuiView.setUint32(20, 64 + prevRgb565.byteLength, true); // BG offset relative to TBUI
+  tbuiView.setUint32(24, bgRgb565.byteLength, true);
+
+  const bodyLen = tbuiHeader.byteLength + prevRgb565.byteLength + bgRgb565.byteLength;
+  const totalSize = 1024 + bodyLen;
+  const finalBin = new Uint8Array(totalSize);
+  const hdr = new DataView(finalBin.buffer);
+
+  // Offset 0x00..0x09: "TOPSTEP 01"
+  finalBin.set([0x54, 0x4f, 0x50, 0x53, 0x54, 0x45, 0x50, 0x20, 0x30, 0x31], 0x00);
+  // Project 8545 / UI 6009 metadata
+  hdr.setUint16(0x0c, 0x8545, true);
+  hdr.setUint16(0x0e, 6009, true);
+  hdr.setUint32(0x14, bodyLen, true);
+  hdr.setUint32(0x18, totalSize, true);
+  // Offset 0x24..0x27: 00 04 00 00 (points to 0x400 where TBUI block starts)
+  hdr.setUint32(0x24, 0x00000400, true);
+
+  // Offset 1024 (0x400): TBUI block + Preview RGB565 + Full BG RGB565
+  finalBin.set(tbuiHeader, 1024);
+  const prevOffset = 1024 + tbuiHeader.byteLength;
+  const bgOffset = prevOffset + prevRgb565.byteLength;
+  finalBin.set(prevRgb565, prevOffset);
+  finalBin.set(bgRgb565, bgOffset);
+
+  // Offset 0x10..0x11: CRC16 (poly 0x8005 / reflected 0xA001, init 0x0000) starting from byte 1024 to end
+  const crc568x = computeCRC16(finalBin.subarray(1024), 0x0000);
+  hdr.setUint16(0x10, crc568x, true);
+
   inspectBinBuffer(finalBin, { bgOffset, prevOffset, visibleCount: visibleWidgets.length });
   return finalBin;
 }
@@ -2031,10 +2083,52 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
 /* ============================================================================
  * 7. FLASH TO WATCH
  * ============================================================================ */
-document.getElementById('btnFlashWatch').addEventListener('click', async () => {
-  log('--- [⚡ 3. Flash to Watch Clicked] ---', 'tx');
+async function probeFfb1SecondStep() {
+  if (!bleServer || !bleServer.connected || !dfuPacketChar) {
+    return log('ERROR: Pair & Bind to the watch first!', 'err');
+  }
+  abortBleOperation = false;
   const bin = compileWatchfaceBin();
-  if (!cmdChar || !bleServer || !bleServer.connected) {
+  const fSize = bin.byteLength;
+  const fCrc = computeCRC16(bin.subarray(1024), 0x0000);
+
+  log('=== 🔬 Probing FFB1 Step 2 (After 0x81 Wake Reply) ===', 'ok');
+  otaLastResponse = null;
+  const wake13B = buildFfb1Envelope(0x01, 0, [0x04]);
+  await enqueueBleWrite(dfuPacketChar, wake13B, 'FFB1_Step1_Wake(Op=0x01)');
+  await waitForL2Response(800);
+
+  // Now send candidate Step-2 packets (File Size / Header / First Chunk with Op=0x02, 0x20, 0x03, 0x01) and watch FFB2 replies!
+  const size4LE = [fSize & 0xff, (fSize >> 8) & 0xff, (fSize >> 16) & 0xff, (fSize >> 24) & 0xff];
+  const crc2LE  = [fCrc & 0xff, (fCrc >> 8) & 0xff];
+  const first64 = Array.from(bin.subarray(0, 64));
+
+  const step2Candidates = [
+    { op: 0x02, off: 0,      pl: [...size4LE, ...crc2LE], label: 'Step2_Op0x02_Size4LE_Crc2LE(6B)' },
+    { op: 0x02, off: fSize,  pl: [...crc2LE],             label: 'Step2_Op0x02_Offset=Size_Crc2LE(2B)' },
+    { op: 0x20, off: 0,      pl: first64,                 label: 'Step2_Op0x20_Offset0_First64B' },
+    { op: 0x02, off: 0,      pl: first64,                 label: 'Step2_Op0x02_Offset0_First64B' },
+    { op: 0x01, off: 0,      pl: first64,                 label: 'Step2_Op0x01_Offset0_First64B' },
+    { op: 0x03, off: 0,      pl: first64,                 label: 'Step2_Op0x03_Offset0_First64B' }
+  ];
+
+  for (const c of step2Candidates) {
+    if (abortBleOperation) break;
+    otaLastResponse = null;
+    const pkt = buildFfb1Envelope(c.op, c.off, c.pl);
+    await enqueueBleWrite(dfuPacketChar, pkt, c.label);
+    const r = await waitForL2Response(650);
+    if (r && r.raw) {
+      const rxHex = Array.from(r.raw).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+      log(`🎯 FFB2 REPLIED to ${c.label}: [${rxHex}]`, 'ok');
+    }
+  }
+}
+
+document.getElementById('btnFlashWatch').addEventListener('click', async () => {
+  log('--- [⚡ 3. Flash to Watch (Service 9966 / FFB1 Stream) Clicked] ---', 'tx');
+  const bin = compileWatchfaceBin();
+  if (!bleServer || !bleServer.connected || !dfuPacketChar) {
     return log('ERROR: Connect & Bind to the watch first.', 'err');
   }
   if (isTransferRunning) return log('Operation already running! Click Stop first.', 'err');
@@ -2044,33 +2138,16 @@ document.getElementById('btnFlashWatch').addEventListener('click', async () => {
   otaAccepted = false;
 
   const chunkSize = Number(document.getElementById('dfuChunkSize').value) || 240;
-  const slot = Number(document.getElementById('dialSlotSelect').value) || 1;
-  const p = buildCandidatePayloads(bin, slot);
+  const dataOp = parseInt(document.getElementById('ffb1DataOpcode')?.value || '0x20', 16);
 
   try {
-    log(`Step 1: Activating Custom Dial Slot ${slot} (0x02/0xC7)...`, 'tx');
-    const sFrame = buildFitCloudFrame(0x02, 0xc7, [slot, 0x00], 0x00);
-    await enqueueBleWrite(cmdChar, sFrame.frame, `SetDialSlot(${slot})`);
-    await waitForAck(sFrame.seq, 400);
+    log(`Step 1: Sending 13B Wake & Slot 5 Packet to 0000ffb1 ([01 00..00 01 C3 01 00 04])...`, 'ok');
+    otaLastResponse = null;
+    const wake13B = buildFfb1Envelope(0x01, 0, [0x04]);
+    await enqueueBleWrite(dfuPacketChar, wake13B, 'FFB1_WakeAndSlot(13B)');
+    await waitForL2Response(1000);
 
-    log(`Step 2: Sending GUI/Flash Write Keys (0x7C, 0xAD) + OTA Start (0x01/0x03)...`, 'tx');
-    const handshakes = [
-      { cmd: 0x02, key: 0x7c, val: p.gui7B, label: 'Write_GUI_Info(0x02/0x7C)' },
-      { cmd: 0x02, key: 0xad, val: p.flash8B, label: 'Write_Flash_Space(0x02/0xAD)' },
-      { cmd: 0x01, key: 0x01, val: p.bumped53B, label: 'OTA_PreCheck_Bumped53B(0x01/0x01)' },
-      { cmd: 0x01, key: 0x03, val: [0x00, 0x00], label: 'OTA_Start_2B(0x01/0x03=[00,00])' }
-    ];
-
-    for (const hs of handshakes) {
-      if (abortBleOperation || otaAccepted) break;
-      otaLastResponse = null;
-      const { frame, seq } = buildFitCloudFrame(hs.cmd, hs.key, hs.val, 0x00);
-      await enqueueBleWrite(cmdChar, frame, `${hs.label} seq=${seq}`);
-      await waitForAck(seq, 380);
-      await waitForL2Response(240);
-    }
-
-    log(`Step 3: Streaming ${bin.byteLength.toLocaleString()}B Watchface Payload (Chunk=${chunkSize}B)...`, 'ok');
+    log(`Step 2: Streaming ${bin.byteLength.toLocaleString()}B TOPSTEP 01 Watchface over 0000ffb1 (Op=0x${dataOp.toString(16).toUpperCase()}, Chunk=${chunkSize}B, Pacing=50ms)...`, 'ok');
     const total = bin.byteLength;
     let offset = 0, blockIdx = 0;
     setDfuProgress(0, 0, total);
@@ -2079,25 +2156,21 @@ document.getElementById('btnFlashWatch').addEventListener('click', async () => {
     while (offset < total && !abortBleOperation) {
       const end = Math.min(total, offset + chunkSize);
       const slice = bin.subarray(offset, end);
-      const payload = new Uint8Array(2 + slice.length);
-      payload[0] = blockIdx & 0xff;
-      payload[1] = (blockIdx >> 8) & 0xff;
-      payload.set(slice, 2);
+      const framedPkt = buildFfb1Envelope(dataOp, offset, slice);
 
-      const { frame, seq } = buildFitCloudFrame(0x01, 0x05, payload, 0x00);
-      const logEvery = blockIdx % 25 === 0 || end === total;
-      await enqueueBleWrite(cmdChar, frame, `DFU_L2_BLK#${blockIdx} (${end}/${total}B)`, !logEvery);
-      await waitForAck(seq, 250);
+      const logEvery = blockIdx % 20 === 0 || end === total;
+      await enqueueBleWrite(dfuPacketChar, framedPkt, `FFB1_BLK#${blockIdx} off=${offset} (${end}/${total}B)`, !logEvery);
 
       offset = end;
       blockIdx++;
       setDfuProgress((offset / total) * 100, offset, total);
-      await new Promise((r) => setTimeout(r, 12));
+      // 50ms pacing from DfuBufferCheckConfig (packetInterval = 50L)
+      await new Promise((r) => setTimeout(r, 50));
     }
 
     if (!abortBleOperation) {
       const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
-      log(`✅ Streamed ${total.toLocaleString()} bytes in ${elapsedSec}s!`, 'ok');
+      log(`✅ Finished streaming ${total.toLocaleString()} bytes in ${elapsedSec}s!`, 'ok');
     }
   } catch (err) {
     log(`Flash Error: ${err.message || err}`, 'err');
@@ -2113,6 +2186,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
