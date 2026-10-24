@@ -452,12 +452,19 @@
       <button onclick="event.stopPropagation(); fetchCloudTemplate()" style="padding:2px 7px;font-size:10px">☁️ Fetch HT37 Template</button>
     </div>
     <div class="section-body" id="secDfuEngineBody">
-      <div class="field-row">
+      <div style="font-size:10px;color:var(--accent);font-family:var(--font-mono);margin-bottom:2px;">🎯 White-Arrow Upload Mode Trigger Tester (Click 1 by 1):</div>
+      <div class="alert-grid" style="grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
+        <button class="warn" onclick="testSingleUploadCandidate('key65')" title="Tests Cmd=0x02, Key=0x65 (which interrupted the scan yesterday!)">1. Test 0x02 / 0x65</button>
+        <button class="warn" onclick="testSingleUploadCandidate('key88')" title="Tests Cmd=0x02, Key=0x88 (blocked yesterday)">2. Test 0x02 / 0x88</button>
+        <button class="warn" onclick="testSingleUploadCandidate('cmd07')" title="Tests Cmd=0x07 Keys 0x01..0x04">3. Test Cmd 0x07</button>
+        <button class="primary" onclick="testSingleUploadCandidate('cmd01_full')" title="Tests 0x01/0x01 -> 0x01/0x03 -> 0x01/0x05 stream start">4. Test 0x01 Stream</button>
+        <button onclick="testSingleUploadCandidate('l1_l2_flags')" title="Tests L1/L2 version & flag bits on 0x01 and 0x02/0xB0">5. Test L1/L2 Flags</button>
+        <button onclick="testSingleUploadCandidate('early_raw_dfu')" title="Tests the early-session raw DFU start headers">6. Early Raw DFU</button>
+      </div>
+      <div class="field-row" style="display:none;">
         <label>Probe / Flash Scope</label>
         <select id="probeScopeSelect" style="width:205px">
-          <option value="prequery_then_b0_and_0103" selected>1. Pre-Query (70->C8->7D->AE) + 0xB0 & 01/03</option>
-          <option value="zero_byte_scan_01_02">2. Zero-Byte [] Scan on Cmd 0x01 & 0x02 (Safe)</option>
-          <option value="high_cmd_id_scan">3. Scan High Cmd IDs (0x11..0x30, 0x80, 0xF0..0xFF)</option>
+          <option value="prequery_then_b0_and_0103" selected>1. Pre-Query</option>
         </select>
       </div>
       <div class="field-row">
@@ -1129,6 +1136,86 @@ let l1SeqId = 1, lastAckedSeq = -1, bindConfirmed = false;
 let otaAccepted = false, otaLastResponse = null;
 let abortBleOperation = false, isTransferRunning = false;
 let allowManualReset = false;
+let allowUploadTriggerTest = false;
+
+async function testSingleUploadCandidate(which) {
+  if (!cmdChar || !bleServer || !bleServer.connected) {
+    return log('ERROR: Pair & Bind to the watch first!', 'err');
+  }
+  abortBleOperation = false;
+  allowUploadTriggerTest = true;
+  const bin = compileWatchfaceBin();
+  const p = buildCandidatePayloads(bin, 5);
+  const sz120kBE = [0x00, 0x01, 0xd4, 0xc0];
+  const sz120kLE = [0xc0, 0xd4, 0x01, 0x00];
+
+  try {
+    log(`=== 🎯 Testing Upload Candidate [${which.toUpperCase()}] — Watch screen for White Up-Arrow! ===`, 'ok');
+    const pkts = [];
+
+    if (which === 'key65') {
+      // Test 0x02/0x65 with [], [01], [01,00], and 8B descriptor
+      pkts.push({ cmd: 0x02, key: 0x65, val: [],         note: 'Try_02/65_0B_[]' });
+      pkts.push({ cmd: 0x02, key: 0x65, val: [0x01],     note: 'Try_02/65_1B_[01]' });
+      pkts.push({ cmd: 0x02, key: 0x65, val: [0x01,0x00],note: 'Try_02/65_2B_[01,00]' });
+      pkts.push({ cmd: 0x02, key: 0x65, val: p.desc8BE,  note: 'Try_02/65_8B_DescBE' });
+    } else if (which === 'key88') {
+      // Test 0x02/0x88 with [], [01], [01,00], and 8B descriptor
+      pkts.push({ cmd: 0x02, key: 0x88, val: [],         note: 'Try_02/88_0B_[]' });
+      pkts.push({ cmd: 0x02, key: 0x88, val: [0x01],     note: 'Try_02/88_1B_[01]' });
+      pkts.push({ cmd: 0x02, key: 0x88, val: [0x01,0x00],note: 'Try_02/88_2B_[01,00]' });
+      pkts.push({ cmd: 0x02, key: 0x88, val: p.desc8BE,  note: 'Try_02/88_8B_DescBE' });
+    } else if (which === 'cmd07') {
+      // Test Cmd=0x07 Keys 0x01..0x05
+      for (let k = 1; k <= 5; k++) {
+        pkts.push({ cmd: 0x07, key: k, val: [0x01],     note: `Try_07/0${k}_1B_[01]` });
+        pkts.push({ cmd: 0x07, key: k, val: [0x01,0x00],note: `Try_07/0${k}_2B_[01,00]` });
+      }
+    } else if (which === 'cmd01_full') {
+      // Test 0x01/0x01 -> 0x01/0x02 -> 0x01/0x03 -> 0x01/0x05 (with first 64B chunk of watchface)
+      pkts.push({ cmd: 0x01, key: 0x01, val: p.bumped53B, note: 'Try_01/01_53B' });
+      pkts.push({ cmd: 0x01, key: 0x02, val: [0x01, 0x00],note: 'Try_01/02_ForceAck_[01,00]' });
+      pkts.push({ cmd: 0x01, key: 0x03, val: [0x01, 0x00],note: 'Try_01/03_Start_[01,00]' });
+      pkts.push({ cmd: 0x01, key: 0x04, val: [0x00],      note: 'Try_01/04_ForceOk_[00]' });
+      pkts.push({ cmd: 0x01, key: 0x05, val: [0x00, 0x00, ...Array.from(bin.slice(0, 64))], note: 'Try_01/05_FirstChunk64B' });
+    } else if (which === 'l1_l2_flags') {
+      // Test L2 Version byte = 0x01 or 0x02 (NewOTA protocol version!) on Cmd=0x01 and Cmd=0x02/0xB0
+      for (const ver of [0x01, 0x02, 0x10]) {
+        pkts.push({ cmd: 0x01, key: 0x01, val: p.bumped53B, ver, note: `Try_01/01_L2Ver0x${ver.toString(16)}` });
+        pkts.push({ cmd: 0x01, key: 0x03, val: [0x01, 0x00],ver, note: `Try_01/03_L2Ver0x${ver.toString(16)}` });
+        pkts.push({ cmd: 0x02, key: 0xb0, val: [0x01, ...sz120kBE], ver, note: `Try_02/B0_L2Ver0x${ver.toString(16)}` });
+      }
+    } else if (which === 'early_raw_dfu') {
+      // Early-session raw DFU / Dial start frames (without 0xAB L1 wrapper or with direct DFU opcodes)
+      const rawFrames = [
+        new Uint8Array([0xfe, 0x01, ...sz120kLE, ...p.cLE]),
+        new Uint8Array([0xff, 0x01, ...sz120kBE, ...p.cBE]),
+        new Uint8Array([0x55, 0xaa, 0x01, ...sz120kLE]),
+        new Uint8Array([0xab, 0x01, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x03, 0x00, 0x01, 0x01])
+      ];
+      for (let i = 0; i < rawFrames.length; i++) {
+        await enqueueBleWrite(cmdChar, rawFrames[i], `EarlyRawDFU_${i}`);
+        await new Promise(r => setTimeout(r, 450));
+      }
+    }
+
+    for (const item of pkts) {
+      if (abortBleOperation || !bleServer || !bleServer.connected) break;
+      otaLastResponse = null;
+      const { frame, seq } = buildFitCloudFrame(item.cmd, item.key, item.val, item.ver || 0x00);
+      await enqueueBleWrite(cmdChar, frame, `${item.note} seq=${seq}`);
+      await waitForAck(seq, 350);
+      const resp = await waitForL2Response(300);
+      if (resp) {
+        log(`🎯 L2 REPLY on ${item.note}: Cmd=0x${resp.cmdId?.toString(16).padStart(2,'0')}, Key=0x${resp.keyId?.toString(16).padStart(2,'0')}, Val=[${resp.valHex}]`, 'ok');
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+    log(`✅ Finished testing [${which.toUpperCase()}]! Did the watch screen react?`, 'ok');
+  } finally {
+    allowUploadTriggerTest = false;
+  }
+}
 let writeChain = Promise.resolve();
 let rxReassembler = { active: false, seqId: 0, expectedLen: 0, expectedCrc: 0, buf: new Uint8Array(0) };
 
@@ -1188,9 +1275,12 @@ function isDangerousResetFrame(frame) {
   if (frame.length >= 13 && frame[0] === 0xab && frame[1] === 0x00) {
     const cmd = frame[8], key = frame[10];
     // Block Cmd 0x02 Key 0x40..0x45 (Factory Reset / Unbind / PowerOff) & Cmd 0x07 (System Reboot)
-    if (cmd === 0x02 && ((key >= 0x40 && key <= 0x45) || key === 0x65 || key === 0x88)) return `Blocked Reset / PowerOff / Crash key (0x02/0x${key.toString(16)})`;
+    if (cmd === 0x02 && (key >= 0x40 && key <= 0x45)) return `Blocked Factory Reset / PowerOff key (0x02/0x${key.toString(16)})`;
     if (cmd === 0x02 && key === 0x3a) return `Blocked Language key (0x02/0x3A) to keep watch in English`;
-    if (cmd === 0x07) return `Blocked System Reboot command (0x07/0x${key.toString(16)})`;
+    if (!allowUploadTriggerTest) {
+      if (cmd === 0x02 && (key === 0x65 || key === 0x88)) return `Blocked 0x02/0x${key.toString(16)} (Use Upload Trigger Tester buttons to test this key)`;
+      if (cmd === 0x07) return `Blocked Cmd 0x07 (Use Upload Trigger Tester buttons to test this key)`;
+    }
   }
   return null;
 }
@@ -2078,6 +2168,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
