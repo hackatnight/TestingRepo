@@ -36,26 +36,27 @@
   .workspace { flex:1; display:grid; grid-template-columns:300px 1fr 390px; overflow:hidden; }
   .panel { background:var(--panel-bg); border-right:1px solid var(--panel-border); display:flex; flex-direction:column; overflow-y:auto; }
   .panel.right { border-right:none; border-left:1px solid var(--panel-border); }
-  .section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); padding:9px 14px 6px; border-bottom:1px solid var(--panel-border); display:flex; justify-content:space-between; align-items:center; background:#10151f; }
-  .section-body { padding:9px 14px; border-bottom:1px solid var(--panel-border); display:flex; flex-direction:column; gap:7px; }
-  .widget-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
-  .widget-card { background:#181f2e; border:1px solid #263147; border-radius:6px; padding:8px 9px; cursor:pointer; display:flex; flex-direction:column; gap:3px; transition:all 0.15s; }
+  .section-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); padding:5px 10px 4px; border-bottom:1px solid var(--panel-border); display:flex; justify-content:space-between; align-items:center; background:#10151f; }
+  .section-body { padding:6px 10px; border-bottom:1px solid var(--panel-border); display:flex; flex-direction:column; gap:4px; }
+  .widget-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+  .widget-card { background:#181f2e; border:1px solid #263147; border-radius:5px; padding:4px 7px; cursor:pointer; display:flex; flex-direction:column; gap:1px; transition:all 0.15s; }
   .widget-card:hover { border-color:var(--accent); background:rgba(0,229,255,0.08); transform:translateY(-1px); }
   .widget-card .w-top { display:flex; align-items:center; justify-content:space-between; }
-  .widget-card .w-icon { font-size:15px; }
+  .widget-card .w-icon { font-size:12px; }
   .widget-card .w-add-badge { font-size:10px; color:var(--accent); font-family:var(--font-mono); opacity:0.8; }
-  .widget-card .w-name { font-size:12px; font-weight:600; }
-  .widget-card .w-desc { font-size:10px; color:var(--text-muted); }
+  .widget-card .w-name { font-size:11px; font-weight:600; line-height:1.1; }
+  .widget-card .w-desc { font-size:9px; color:var(--text-muted); line-height:1.1; }
   .stage { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; background:radial-gradient(circle at center,#161f30 0%,#0b0e14 75%),repeating-linear-gradient(0deg,rgba(255,255,255,0.02) 0px,rgba(255,255,255,0.02) 1px,transparent 1px,transparent 20px); overflow:hidden; }
   .stage-toolbar { position:absolute; top:14px; display:flex; gap:8px; align-items:center; background:rgba(19,24,34,0.92); backdrop-filter:blur(8px); padding:6px 12px; border-radius:8px; border:1px solid var(--panel-border); z-index:10; }
   .watch-chassis { position:relative; padding:22px; border-radius:50%; background:linear-gradient(145deg,#2b3343,#12161f); box-shadow:0 20px 50px rgba(0,0,0,0.8),inset 0 2px 4px rgba(255,255,255,0.15),0 0 0 2px #384357; display:flex; align-items:center; justify-content:center; transition:border-radius 0.25s; }
   .watch-chassis.rect-shape { border-radius:44px; }
   .watch-chassis::after { content:''; position:absolute; right:-14px; top:50%; transform:translateY(-50%); width:10px; height:44px; background:linear-gradient(to bottom,#4a5568,#1a202c,#4a5568); border-radius:3px; border:1px solid #2d3748; }
-  canvas#watchCanvas { background:#000; cursor:grab; box-shadow:inset 0 0 12px rgba(0,0,0,0.9); }
+  canvas#watchCanvas { background:transparent; border-radius:50%; cursor:grab; box-shadow:inset 0 0 12px rgba(0,0,0,0.9); transition:border-radius 0.25s; }
+  .watch-chassis.rect-shape canvas#watchCanvas { border-radius:36px; }
   canvas#watchCanvas:active { cursor:grabbing; }
   .field-row { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; }
   .field-row label { color:var(--text-muted); font-size:11px; white-space:nowrap; }
-  input[type="text"], input[type="number"], select { background:#0e131b; border:1px solid #283347; color:var(--text-main); padding:5px 8px; border-radius:4px; font-size:12px; font-family:var(--font-mono); width:155px; }
+  input[type="text"], input[type="number"], select { background:#0e131b; border:1px solid #283347; color:var(--text-main); padding:3px 6px; border-radius:4px; font-size:11px; font-family:var(--font-mono); width:150px; }
   input[type="color"] { background:none; border:1px solid #283347; width:44px; height:26px; cursor:pointer; border-radius:4px; }
   input[type="range"] { flex:1; accent-color:var(--accent); }
   .layer-toolbar { display:flex; gap:6px; margin-bottom:2px; }
@@ -245,11 +246,13 @@
         <button class="success" onclick="sendWatchAlert(0x04, 'SMS Text')">💬 SMS Text (04/04)</button>
         <button onclick="sendWatchAlert(0x05, 'QQ Notice')">🐧 QQ Notice (04/05)</button>
         <button onclick="sendWatchAlert(0x06, 'WeChat Notice')">🟢 WeChat (04/06)</button>
-        <button onclick="sendWatchAlert(0x0b, 'WhatsApp')">📲 WhatsApp (04/0B)</button>
+        <button onclick="sendWatchAlert(0x0a, 'WhatsApp')">📲 WhatsApp (04/0A)</button>
+        <button onclick="sendWatchAlert(0x09, 'Messenger / WA')">💬 Messenger/WA (04/09)</button>
         <button onclick="sendWatchAlert(0x07, 'Facebook')">📘 Facebook (04/07)</button>
         <button onclick="sendWatchAlert(0x08, 'X / Twitter')">𝕏 Twitter / X (04/08)</button>
-        <button onclick="sendWatchAlert(0x0a, 'Instagram')">📸 Instagram (04/0A)</button>
-        <button onclick="sendWatchAlert(0x11, 'App Notice')">🔔 App Notice (04/11)</button>
+        <button onclick="sendWatchAlert(0x0c, 'Instagram')">📸 Instagram (04/0C)</button>
+        <button onclick="sendWatchAlert(0x11, 'Email')">✉️ Email (04/11)</button>
+        <button onclick="sendWatchAlert(0x0b, 'App Notice')">🔔 App Notice (04/0B)</button>
         <button class="danger" onclick="triggerFactoryResetPrompt()" title="Cmd=0x02, Key=0x40: Plays beep and factory resets watch">⚠️ Factory Reset (02/40)</button>
       </div>
 
@@ -1583,3 +1586,4 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
