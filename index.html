@@ -584,20 +584,19 @@
         <button onclick="clearLogs()" style="padding:2px 8px;font-size:10px">🧹 Clear</button>
       </div>
     </div>
-    <div class="terminal" id="logTerminal"></div>
-  </div>
-  <div class="inspector-explorer-row" style="display:flex;gap:8px;align-items:stretch;margin-top:8px;flex-wrap:wrap;">
-      <!-- Left: FitCloud Binary Struct & Offset Inspector -->
-      <div class="hex-inspector" id="hexInspector" style="flex:1;min-width:280px;margin:0;">
-        <strong>[FitCloud Binary Struct & Offset Inspector]</strong><br/>
-        Discovered <code>0x02/0x7E</code> = <code>[03 01 01 68 01 68 00]</code> (LCD=3, 360×360 GUI Info) &
+    <div class="terminal" id="logTerminal">
+        <!-- [FitCloud Binary Struct & Offset Inspector] moved inside Widget Layers -->
+        <div class="hex-inspector" id="hexInspector" style="margin-top:10px;font-family:var(--font-mono);font-size:10px;">
+          <strong>[FitCloud Binary Struct & Offset Inspector]</strong><br/>
+          Discovered <code>0x02/0x7E</code> = <code>[03 01 01 68 01 68 00]</code> (LCD=3, 360×360 GUI Info) &
 <code>0x02/0xAF</code> = <code>[00 00 08 26 00 08 2F 50]</code> (Flash Space)! Click "🔬 2. Discover Trigger (Safe)" to
 test their Write keys!
+        </div>
       </div>
-
-      <!-- Right: HT37 Command Explorer -->
-      <div class="hex-inspector" id="commandExplorer" style="flex:1;min-width:280px;margin:0;background:rgba(10,18,30,0.88);border:1px solid rgba(0,229,255,0.3);box-shadow:0 0 10px rgba(0,229,255,0.06);padding:8px;font-family:inherit;">
-        <div style="font-weight:bold;color:var(--accent,#00e5ff);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+  </div>
+    <!-- 🧪 HT37 Command Explorer (Full Width, Unconstrained Height) -->
+    <div class="section-card" id="commandExplorer" style="margin-top:8px;background:rgba(10,18,30,0.92);border:1px solid rgba(0,229,255,0.35);box-shadow:0 0 12px rgba(0,229,255,0.08);padding:10px;height:auto !important;max-height:none !important;overflow:visible !important;font-family:inherit;">
+      <div style="font-weight:bold;color:var(--accent,#00e5ff);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
           <span>🧪 [HT37 Command Explorer]</span>
           <span style="font-size:9px;background:rgba(0,229,255,0.15);color:var(--accent,#00e5ff);padding:1px 6px;border-radius:3px;font-family:var(--font-mono);">1-BY-1 PROBE</span>
         </div>
@@ -652,8 +651,7 @@ test their Write keys!
         <!-- Dynamic Prediction Callout -->
         <div id="explorerPrediction" style="font-size:9px;color:var(--text-dim,#aaa);line-height:1.3;padding:3px 4px;background:rgba(0,0,0,0.3);border-radius:3px;border:1px solid rgba(255,255,255,0.06);">
           💡 <b>Prediction:</b> Turns on green optical LEDs on back of watch; watch emits live BPM packets.
-        </div>
-      </div>
+    </div>
     </div>
 </div>
 
