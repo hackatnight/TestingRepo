@@ -2031,7 +2031,14 @@ async function checkReassemblyComplete() {
     sensors.battery = pct;
     document.getElementById('simBat').value = pct;
     document.getElementById('valBat').textContent = pct;
-    document.getElementById('bleStatusText').textContent = `HT37 • 360×360 • IC_568X • 🔋${pct}%`;
+          const sBadge = document.getElementById('bleStatusText');
+      if (sBadge) {
+        if (!sBadge.textContent.includes('🔋')) {
+          sBadge.textContent += ` • 🔋${pct}%`;
+        } else {
+          sBadge.textContent = sBadge.textContent.replace(/🔋\d+%/, `🔋${pct}%`);
+        }
+      }
     log(`🔋 Watch Battery (0x1C): ${pct}% (${bars} bars, ${charging ? 'Charging' : 'Discharging'})`, 'ok');
   }
 
@@ -2133,6 +2140,14 @@ function decodeDeviceConfigTlvs(payload) {
       const fwVer = `${subVal[26]}.${String(subVal[27]).padStart(2, '0')}`;
       const mac = Array.from(subVal.slice(33, 39)).map((b) => b.toString(16).padStart(2, '0').toUpperCase()).join(':');
       log(`Parsed Watch DeviceInfo (0x11, ${subVal.length}B): Project=${proj}, FW=v${fwVer}, IC=IC_568X (gui-5681), LCD=360×360 Circle, MAC=${mac}`, 'ok');
+
+        // Update status badge next to Pair & Bind button with 0x02/0x20 Master Config dump
+        const cleanProj = proj.replace(/^0+/, '') || proj;
+        const statusBadge = document.getElementById('bleStatusText');
+        if (statusBadge) {
+          statusBadge.textContent = `HT37 (IC_568X) • Proj: ${cleanProj} • FW: v${fwVer} • ${mac}`;
+          statusBadge.title = `0x02/0x20 Master Config Dump: Project=${proj}, FW=v${fwVer}, IC=IC_568X (gui-5681), MAC=${mac}`;
+        }
     } else if (subKey === 0x14) {
       log(`Parsed Watch Notification Switch Bitmask (0x14): [${subHex}]`, 'ok');
     } else if (subKey === 0x17) {
