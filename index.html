@@ -216,7 +216,14 @@
           <input type="text" id="liveSensorHex" value="16 10 1A 02 | 1013hPa 50%" readonly style="width:150px;font-size:9px;padding:2px 5px;color:var(--accent);" />
         </div>
         <div class="field-row" style="gap:4px;">
-          <button class="primary" onclick="pushWeatherToWatch()" style="flex:1;justify-content:center;padding:4px 6px;font-size:10px;">🌤️ Push Weather (Safe)</button>
+          <select id="weatherFmtSelect" style="width:135px;font-size:9px;padding:2px 4px;" title="Select FitCloud Weather Payload Structure">
+            <option value="fc_city_7b" selected>1. 7B + CityLen + City (0x35)</option>
+            <option value="fc_7b_only">2. Pure 7B Today (0x35)</option>
+            <option value="fc_time_11b">3. 4B Time + 7B Today (0x35)</option>
+            <option value="fc_13b_ext">4. 13B Ext + City + Forecast (0x35+0x43)</option>
+            <option value="fc_topstep">5. TopStep Full Weather Struct</option>
+          </select>
+          <button class="primary" onclick="pushWeatherToWatch()" style="flex:1;justify-content:center;padding:4px 6px;font-size:10px;">🌤️ Push Weather</button>
         </div>
       </div>
     </div>
@@ -1385,15 +1392,21 @@ function updateLiveSensorReadout() {
   }
 }
 
-function buildFitCloudTimeBytes() {
+function buildFitCloudPackedTime4B() {
   const now = new Date();
-  const yr = Math.max(0, now.getFullYear() - 2000);
-  const mo = now.getMonth() + 1;
-  const da = now.getDate();
-  const hr = now.getHours();
-  const mi = now.getMinutes();
-  const se = now.getSeconds();
-  return [yr & 0xff, mo & 0xff, da & 0xff, hr & 0xff, mi & 0xff, se & 0xff];
+  const yr = Math.max(0, now.getFullYear() - 2000) & 0x3f;
+  const mo = (now.getMonth() + 1) & 0x0f;
+  const da = now.getDate() & 0x1f;
+  const hr = now.getHours() & 0x1f;
+  const mi = now.getMinutes() & 0x3f;
+  const se = now.getSeconds() & 0x3f;
+  const packed = ((yr << 26) >>> 0) | (mo << 22) | (da << 17) | (hr << 12) | (mi << 6) | se;
+  return [
+    (packed >>> 24) & 0xff,
+    (packed >>> 16) & 0xff,
+    (packed >>> 8) & 0xff,
+    packed & 0xff
+  ];
 }
 
 async function pushWeatherToWatch() {
@@ -1407,49 +1420,63 @@ async function pushWeatherToWatch() {
   const cur = encodeFitCloudTemp(document.getElementById('liveTempCur').value);
   const min = encodeFitCloudTemp(document.getElementById('liveTempMin').value);
   const max = encodeFitCloudTemp(document.getElementById('liveTempMax').value);
+  const fmt = document.getElementById('weatherFmtSelect')?.value || 'fc_city_7b';
+  const cityBytes = Array.from(new TextEncoder().encode('HT37'));
 
-  // 1. Sync Watch Time (0x02/0x01) so weather timestamp is valid
-  const time6B = buildFitCloudTimeBytes();
-  log(`🕒 Step 1/4: Syncing Watch Time (0x02/0x01 = [${time6B.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ')}])...`, 'tx');
-  const tFrame = buildFitCloudFrame(0x02, 0x01, time6B, 0x00);
-  await enqueueBleWrite(cmdChar, tFrame.frame, `SyncTime_0x01 seq=${tFrame.seq}`);
+  // 1. Sync Watch Time using FitCloud 4-byte bit-packed timestamp (0x02/0x01)
+  const time4B = buildFitCloudPackedTime4B();
+  log(`🕒 Step 1/3: Syncing FitCloud 4B Packed Time (0x02/0x01 = [${time4B.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ')}])...`, 'tx');
+  const tFrame = buildFitCloudFrame(0x02, 0x01, time4B, 0x00);
+  await enqueueBleWrite(cmdChar, tFrame.frame, `SyncTime4B_0x01 seq=${tFrame.seq}`);
   await waitForAck(tFrame.seq, 350);
 
-  // 2. Enable Function/Weather Switch (0x02/0x18 -> TLV 0x1A, and 0x02/0x60 UI config weather toggle)
-  log(`🔓 Step 2/4: Turning ON "Weather Push in APP" Switch (0x02/0x18 = [00 20] & [01 01] & [FF FF])...`, 'ok');
-  for (const swVal of [[0x00, 0x20], [0x20, 0x00], [0x01, 0x00], [0x03, 0xff]]) {
-    const sw = buildFitCloudFrame(0x02, 0x18, swVal, 0x00);
-    await enqueueBleWrite(cmdChar, sw.frame, `EnableWeatherSwitch(0x02/0x18) seq=${sw.seq}`);
-    await waitForAck(sw.seq, 300);
-  }
+  // 2. Enable Function Switch (0x02/0x18): Keep Weather Push ON (0x0220 / 0x03EB) with Celsius (clear Fahrenheit bit 0x04)
+  // Note: 0x03FF had bit 2 (0x04 = Fahrenheit) set, which converted 0C -> 32F! Clearing 0x04 -> [03 FB] keeps Celsius + Weather Push ON!
+  const swBytes = [0x03, 0xfb];
+  log(`🔓 Step 2/3: Setting Function/Weather Switch (0x02/0x18 = [03 FB] -> Weather ON + Celsius)...`, 'ok');
+  const sw = buildFitCloudFrame(0x02, 0x18, swBytes, 0x00);
+  await enqueueBleWrite(cmdChar, sw.frame, `EnableWeatherSwitch(0x02/0x18) seq=${sw.seq}`);
+  await waitForAck(sw.seq, 300);
 
-  // 3. Send Weather Payload variations on 0x02/0x35 (7B Today, 13B Today+Wind/Hum/UV, 19B Today+3Day Forecast)
-  const weather7B = [cur, min, max, code, 0x00, 0x00, 0x00];
-  const weather13B = [cur, min, max, code, 0x00, 0x00, 0x00, 0x02, 0x32, 0x05, 0x00, 0x00, 0x00];
-  const weather19B = [
-    cur, min, max, code,
-    min, max, code,
-    min, max, code,
-    min, max, code,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-  ];
+  // 3. Build the selected Weather Payload so packets don't overwrite each other!
+  let payload = [];
+  if (fmt === 'fc_city_7b') {
+    // FitCloud Standard: [CurTemp, MinTemp, MaxTemp, WeatherCode, PressureH, PressureL, WindScale, CityLen, ...CityUTF8]
+    payload = [cur, min, max, code, (sensors.baro >> 8) & 0xff, sensors.baro & 0xff, 0x02, cityBytes.length, ...cityBytes];
+  } else if (fmt === 'fc_7b_only') {
+    // Pure 7B Today: [CurTemp, MinTemp, MaxTemp, WeatherCode, AirQuality, WindScale, UV]
+    payload = [cur, min, max, code, 0x01, 0x02, 0x03];
+  } else if (fmt === 'fc_time_11b') {
+    // 4B Packed Timestamp + [CurTemp, MinTemp, MaxTemp, WeatherCode, CityLen, ...CityUTF8]
+    payload = [...time4B, cur, min, max, code, cityBytes.length, ...cityBytes];
+  } else if (fmt === 'fc_13b_ext') {
+    // 7B + City on 0x35, PLUS 7-day forecast on 0x43
+    payload = [cur, min, max, code, 0x01, 0x02, 0x03, cityBytes.length, ...cityBytes];
+  } else {
+    // TopStep / Extended 20B with 4B timestamp + Today + 3-day Forecast + City
+    payload = [...time4B, cur, min, max, code, min, max, code, min, max, code, min, max, code, cityBytes.length, ...cityBytes];
+  }
 
   document.getElementById('rawCmd').value = '0x02';
   document.getElementById('rawKey').value = '0x35';
-  document.getElementById('rawPayload').value = weather7B.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+  document.getElementById('rawPayload').value = payload.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
 
-  log(`🌤️ Step 3/4: Pushing Weather Data (Cur=${sensors.weatherTemp}°C, Min=${document.getElementById('liveTempMin').value}°C, Max=${document.getElementById('liveTempMax').value}°C, Sky=${sensors.weatherCond})...`, 'ok');
-  for (const [lbl, pl] of [['Weather7B', weather7B], ['Weather13B', weather13B], ['Weather19B_Forecast', weather19B]]) {
-    const wf = buildFitCloudFrame(0x02, 0x35, pl, 0x00);
-    await enqueueBleWrite(cmdChar, wf.frame, `${lbl}(0x02/0x35) seq=${wf.seq}`);
-    await waitForAck(wf.seq, 350);
+  log(`🌤️ Step 3/3: Pushing Weather [${fmt}] (Cur=${sensors.weatherTemp}°C, Min=${document.getElementById('liveTempMin').value}°C, Max=${document.getElementById('liveTempMax').value}°C, Sky=${sensors.weatherCond})...`, 'ok');
+  const wf = buildFitCloudFrame(0x02, 0x35, payload, 0x00);
+  await enqueueBleWrite(cmdChar, wf.frame, `Weather_${fmt}(0x02/0x35) seq=${wf.seq}`);
+  await waitForAck(wf.seq, 350);
+
+  if (fmt === 'fc_13b_ext') {
+    const forecast = [
+      0x03, // 3 days forecast
+      min, max, code,
+      min, max, code,
+      min, max, code
+    ];
+    const ff = buildFitCloudFrame(0x02, 0x43, forecast, 0x00);
+    await enqueueBleWrite(cmdChar, ff.frame, `WeatherForecast(0x02/0x43) seq=${ff.seq}`);
+    await waitForAck(ff.seq, 350);
   }
-
-  // 4. Read back AllConfig (0x02/0x20) to verify TLV 0x1A changed from [00 00]
-  log(`🔍 Step 4/4: Reading back Watch Config (0x02/0x20) to check TLV 0x1A...`, 'tx');
-  const rb = buildFitCloudFrame(0x02, 0x20, [0x01], 0x00);
-  await enqueueBleWrite(cmdChar, rb.frame, `VerifyWeatherConfig(0x02/0x20) seq=${rb.seq}`);
-  await waitForAck(rb.seq, 400);
 }
 
 async function activateWatchDialSlot() {
@@ -1774,6 +1801,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
