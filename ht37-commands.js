@@ -178,4 +178,26 @@
     }
   };
 
+
+  // === READ LIVE BATTERY OVER BLUETOOTH SIG (0x180F) ===
+  window.readSigBattery = async function() {
+    if (!bleServer || !bleServer.connected) {
+      return log('ERROR: Connect & Bind to the watch first.', 'err');
+    }
+    try {
+      log('🔋 Querying standard Bluetooth SIG Battery Service (0x180F / 0x2A19)...', 'ok');
+      const bService = await bleServer.getPrimaryService(0x180f);
+      const bChar = await bService.getCharacteristic(0x2a19);
+      const val = await bChar.readValue();
+      const batteryPct = val.getUint8(0);
+      log(`🔋 LIVE BATTERY REPORT: ${batteryPct}% charge remaining`, 'ok');
+      const descEl = document.getElementById('explorerPrediction');
+      if (descEl) descEl.innerHTML = `🔋 <b>Live Battery:</b> Watch reports <b>${batteryPct}%</b> battery charge!`;
+    } catch (err) {
+      log(`ℹ️ SIG 0x180F read: ${err.message}. Trying L2 probe...`, 'warn');
+      const { frame, seq } = buildFitCloudFrame(0x01, 0x03, [], 0x00);
+      await enqueueBleWrite(cmdChar, frame, `BatteryProbe(0x01/0x03) seq=${seq}`);
+    }
+  };
+
 })(typeof window !== 'undefined' ? window : this);

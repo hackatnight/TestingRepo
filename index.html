@@ -604,37 +604,28 @@ test their Write keys!
         <!-- Predicted Presets Dropdown -->
         <div style="margin-bottom:5px;">
           <select id="explorerPresetSelect" onchange="loadExplorerPreset(this.value)" style="width:100%;font-size:10px;padding:3px 5px;background:#151b26;color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:3px;outline:none;">
-            <optgroup label="🔬 Biometrics & Health Sensors">
-              <option value="0x02|0x15|01|💚 Start PPG Heart Rate Reading|Turns on green optical LEDs on back of watch; watch emits live BPM packets." selected>💚 02/15=[01] Start Heart Rate PPG (Green LEDs)</option>
-              <option value="0x02|0x15|00|🛑 Stop PPG Heart Rate Reading|Turns off optical green LEDs on back of watch.">🛑 02/15=[00] Stop Heart Rate PPG</option>
-              <option value="0x02|0x16|01|🩸 Start SpO2 Blood Oxygen Reading|Fires red & infrared optical LEDs for single oxygen spot check.">🩸 02/16=[01] Start SpO2 Blood Oxygen</option>
-              <option value="0x02|0x14|01|🩺 Start Blood Pressure Reading|Triggers systolic/diastolic calculation on watch.">🩺 02/14=[01] Start Blood Pressure Test</option>
-              <option value="0x02|0x17|01|🫁 Start Respiration Rate Reading|Measures breaths per minute algorithm.">🫁 02/17=[01] Start Respiration Rate</option>
-              <option value="0x02|0x1E|01|⚡ Start Stress / HRV Reading|Runs Heart Rate Variability / stress check.">⚡ 02/1E=[01] Start Stress / HRV Test</option>
+            <optgroup label="📡 Live Health & Activity Data Sync (Cmd=0x03)">
+              <option value="0x03|0x01||🏃 03/01 Sync Today's Live Steps & Activity|Asks watch to dump current live step counter, calories, and distance." selected>🏃 03/01 Sync Live Steps & Activity</option>
+              <option value="0x03|0x02||📊 03/02 Sync History Steps Data|Requests hourly activity records stored in watch flash.">📊 03/02 Sync Hourly Steps Data</option>
+              <option value="0x03|0x04||❤️ 03/04 Sync Heart Rate Sensor Records|Requests recent heart rate measurement logs from watch.">❤️ 03/04 Sync Heart Rate Records</option>
+              <option value="0x03|0x06||🩸 03/06 Sync SpO2 Blood Oxygen Records|Requests blood oxygen spot checks stored on watch.">🩸 03/06 Sync SpO2 Records</option>
+              <option value="0x03|0x03||💤 03/03 Sync Sleep Analysis Data|Requests deep/light sleep duration records.">💤 03/03 Sync Sleep Analysis</option>
             </optgroup>
-            <optgroup label="📊 Queries & Device Telemetry (Cmd=0x01)">
-              <option value="0x01|0x30||🔋 Query Battery Level & Charge State|Prompts watch to report battery percent and charging flag.">🔋 01/30 Query Battery Level</option>
-              <option value="0x01|0x03||🎯 Query Daily Step Target|Reads 4-byte daily step goal from watch flash.">🎯 01/03 Query Step Target</option>
-              <option value="0x01|0x02||⏰ Query Stored Hardware Alarms|Reads scheduled alarm clock slots.">⏰ 01/02 Query Stored Alarms</option>
-              <option value="0x01|0x01||📱 Query Device Specs & Version|Reads hardware model, screen resolution, firmware version.">📱 01/01 Query Device Specs</option>
-              <option value="0x01|0x18||⚙️ Query Function Switch Bank|Reads active unit switches (12/24h, metric/imperial, DND).">⚙️ 01/18 Query Unit Switches</option>
-              <option value="0x01|0x24||🌙 Query Scheduled DND Window|Reads start/stop hours for Do Not Disturb.">🌙 01/24 Query DND Window</option>
-              <option value="0x01|0x05||🪑 Query Sedentary Reminder|Reads sedentary alert schedule.">🪑 01/05 Query Sedentary Alert</option>
-              <option value="0x01|0x06||💧 Query Drink Water Reminder|Reads hydration alert schedule.">💧 01/06 Query Water Alert</option>
+            <optgroup label="⚡ Verified Working Device Commands">
+              <option value="0x02|0x20|01|📋 02/20=[01] Master Config & Register Dump|Triggers the full 164B hardware register dump (SoC, FW, MAC, Dials).">📋 02/20 Master Config & Register Dump</option>
+              <option value="0x02|0x3B|01|🔊 02/3B=[01] Find Watch Chime & Screen Alert|Fires the internal audio amplifier chime and lights screen.">🔊 02/3B Find Watch Chime</option>
+              <option value="0x02|0x70|01|🎨 02/70=[01] Switch to Dial Slot 1|Swaps the active displayed watch face immediately.">🎨 02/70 Switch to Dial Slot 1</option>
+              <option value="0x02|0x70|00|🎨 02/70=[00] Switch to Dial Slot 0|Swaps the active displayed watch face to default.">🎨 02/70 Switch to Dial Slot 0</option>
+              <option value="0x02|0x18|03 EB|🕒 02/18=[03 EB] Set 24H Clock + °C Units|Writes unit mode to 24-hour time and Celsius.">🕒 02/18 Set 24H + °C Units</option>
+              <option value="0x02|0x18|03 EF|🕒 02/18=[03 EF] Set 12H Clock + °C Units|Writes unit mode to 12-hour time and Celsius.">🕒 02/18 Set 12H + °C Units</option>
+              <option value="0x02|0x03|10 27 00 00|🎯 02/03=[10 27 00 00] Set Step Goal (10,000)|Writes 10k daily step target; watch returns Key=0x04 ACK.">🎯 02/03 Set Step Goal (10k)</option>
+              <option value="0x01|0x03||🎯 01/03 Query Step Goal Status|Queries step target; verified to return Key=0x04=[01].">🎯 01/03 Query Step Goal Status</option>
+              <option value="0x01|0x01||📱 01/01 Query Firmware / OTA Status|Queries firmware state; verified to return Key=0x02=[00 00].">📱 01/01 Query Firmware / OTA Status</option>
             </optgroup>
-            <optgroup label="⚙️ Device Settings & Gestures (Cmd=0x02)">
-              <option value="0x02|0x21|01|👋 Enable Raise-to-Wake Gesture|Screen wakes automatically on wrist turn.">👋 02/21=[01] Enable Raise-to-Wake</option>
-              <option value="0x02|0x21|00|🚫 Disable Raise-to-Wake Gesture|Screen only wakes on physical button click.">🚫 02/21=[00] Disable Raise-to-Wake</option>
-              <option value="0x02|0x25|05|⏱️ Display Timeout: 5 Seconds|Sets LCD backlight duration to 5s.">⏱️ 02/25=[05] Display Timeout: 5s</option>
-              <option value="0x02|0x25|0A|⏱️ Display Timeout: 10 Seconds|Sets LCD backlight duration to 10s.">⏱️ 02/25=[0A] Display Timeout: 10s</option>
-              <option value="0x02|0x25|0F|⏱️ Display Timeout: 15 Seconds|Sets LCD backlight duration to 15s.">⏱️ 02/25=[0F] Display Timeout: 15s</option>
-              <option value="0x02|0x03|10 27 00 00|🎯 Set Step Goal: 10,000 Steps|Writes 10,000 steps little-endian (0x2710).">🎯 02/03 Set Step Goal (10k)</option>
-            </optgroup>
-            <optgroup label="📱 Peripheral & State Triggers">
-              <option value="0x02|0x20|01|📷 Enter Camera Remote Mode (App -> Watch)|Instructs watch to display camera shutter screen.">📷 02/20=[01] Launch Camera Mode</option>
-              <option value="0x02|0x20|00|📷 Exit Camera Remote Mode|Dismisses camera shutter screen on watch.">📷 02/20=[00] Close Camera Mode</option>
-              <option value="0x02|0x7E||🖥️ Query LCD GUI Spec (0x7E)|Reads 360x360 GUI layout info.">🖥️ 02/7E Query LCD GUI Spec</option>
-              <option value="0x02|0xAF||💾 Query Flash Space Spec (0xAF)|Reads available dial flash boundaries.">💾 02/AF Query Flash Space</option>
+            <optgroup label="🔬 Dedicated Sensor Stream Probes">
+              <option value="0x06|0x01|01|📡 06/01=[01] Live PPG Stream (Cmd=0x06)|Probes the dedicated live telemetry stream bus.">📡 06/01=[01] Live Stream Bus (Cmd 0x06)</option>
+              <option value="0x06|0x02|01|📡 06/02=[01] Live Sensor Stream (Cmd=0x06)|Probes secondary sensor stream channel.">📡 06/02=[01] Live Sensor Channel</option>
+              <option value="0x01|0x15||📄 01/15 Read Screen / Page Display List|Reads the active page bitmask (Write=0x15).">📄 01/15 Read Active Screen Pages</option>
             </optgroup>
           </select>
         </div>
@@ -645,7 +636,7 @@ test their Write keys!
           <input type="text" id="explorerKey" value="0x15" placeholder="Key" style="width:44px;font-size:10px;font-family:var(--font-mono);padding:2px 4px;background:#151b26;color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:3px;" />
           <input type="text" id="explorerPayload" value="01" placeholder="Payload hex (e.g. 01)" style="flex:1;min-width:60px;font-size:10px;font-family:var(--font-mono);padding:2px 4px;background:#151b26;color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:3px;" />
           <button class="primary" onclick="sendExplorerCommand()" style="padding:3px 8px;font-size:10px;white-space:nowrap;">⚡ Send</button>
-          <button onclick="advanceExplorerNext()" title="Advance to next predicted command" style="padding:3px 6px;font-size:10px;">⏭️</button>
+          <button onclick="advanceExplorerNext()" title="Advance to next predicted command" style="padding:3px 6px;font-size:10px;">⏭️</button>`n          <button class="success" onclick="readSigBattery()" title="Reads live battery percentage over standard Bluetooth SIG Service (0x180F)" style="padding:3px 7px;font-size:10px;">🔋 Battery</button>
         </div>
 
         <!-- Dynamic Prediction Callout -->
