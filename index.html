@@ -255,6 +255,31 @@
         <button onclick="sendWatchAlert(0x0b, 'App Notice')">🔔 App Notice (04/0B)</button>
         <button class="danger" onclick="triggerFactoryResetPrompt()" title="Cmd=0x02, Key=0x40: Plays beep and factory resets watch">⚠️ Factory Reset (02/40)</button>
       </div>
+      <div class="raw-cmd-Row" style="display:flex;gap:4px;align-items:center;margin-top:2px;">
+        <select id="extraAlertKey" style="flex:1;width:auto;font-size:11px;padding:4px 6px;">
+          <option value="0x0d">💬 04/0D - FB Messenger</option>
+          <option value="0x0e">📌 04/0E - Pinterest</option>
+          <option value="0x0f">👻 04/0F - Snapchat</option>
+          <option value="0x10">🟢 04/10 - LINE</option>
+          <option value="0x12">💛 04/12 - KakaoTalk</option>
+          <option value="0x13">💜 04/13 - Viber</option>
+          <option value="0x14">🌐 04/14 - Skype</option>
+          <option value="0x15">✈️ 04/15 - Telegram</option>
+          <option value="0x16">🎵 04/16 - TikTok / App 16</option>
+          <option value="0x17">▶️ 04/17 - YouTube / App 17</option>
+          <option value="0x18">📅 04/18 - Calendar / App 18</option>
+          <option value="0x19">🍎 04/19 - iOS Mail / App 19</option>
+          <option value="0x1a">💼 04/1A - DingTalk / App 1A</option>
+          <option value="0x1b">💳 04/1B - Alipay / App 1B</option>
+          <option value="0x1c">🛍️ 04/1C - Taobao / App 1C</option>
+          <option value="0x1d">🔔 04/1D - Extra Icon 1D</option>
+          <option value="0x1e">🔔 04/1E - Extra Icon 1E</option>
+          <option value="0x1f">🔔 04/1F - Extra Icon 1F</option>
+          <option value="0x20">🔔 04/20 - Extra Icon 20</option>
+        </select>
+        <button class="primary" style="padding:4px 8px;font-size:11px" onclick="const s=document.getElementById('extraAlertKey');sendWatchAlert(parseInt(s.value,16), s.options[s.selectedIndex].text)">🔔 Test Icon</button>
+        <button class="warn" style="padding:4px 7px;font-size:11px" title="Sends 04/0D..04/18 one by one every 2.5s with the hex key in the message so you can see every icon on the watch!" onclick="(async()=>{for(let k=0x0d;k<=0x18;k++){if(abortBleOperation)break;if(k===0x11)continue;document.getElementById('alertMsg').value='Key 04/'+k.toString(16).toUpperCase().padStart(2,'0');await sendWatchAlert(k,'Scan_0x'+k.toString(16));await new Promise(r=>setTimeout(r,2500));}})()">🎞️ Scan 0D..18</button>
+      </div>
 
       <div class="raw-cmd-box">
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--accent);font-family:var(--font-mono)">
@@ -1586,5 +1611,6 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
