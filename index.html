@@ -1455,26 +1455,22 @@ async function pushWeatherToWatch() {
 
   // 2. Send Weather Payload according to selected mode
   if (fmt === 'scan_weather_keys') {
-    log(`🔍 Probing candidate Weather Keys in Cmd=0x02 with Cur=${sensors.weatherTemp}°C (0x${cur.toString(16).toUpperCase()}), Min=${min}°C, Max=${max}°C...`, 'ok');
+    log(`🔍 Tagging each candidate key with a UNIQUE Temperature (31°C..39°C, 41°C) + Different Sky Codes (0x01..0x06) so the watch display reveals the exact key!`, 'ok');
     const candidates = [
-      // All-zero config TLVs from 0x02/0x21:
-      { key: 0x2e, val: [cur, min, max, code, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], name: 'Key0x2E_TLV0x30_10B' },
-      { key: 0x4c, val: [cur, min, max, code, 0x00, 0x00], name: 'Key0x4C_TLV0x4E_6B' },
-      { key: 0x57, val: [cur, min, max, code, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], name: 'Key0x57_TLV0x59_10B' },
-      // Standard FitCloud / TopStep Weather keys around 0x31..0x39 & 0x42..0x45:
-      { key: 0x31, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x31_7B' },
-      { key: 0x32, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x32_7B' },
-      { key: 0x33, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x33_7B' },
-      { key: 0x34, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x34_7B' },
-      { key: 0x35, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x35_7B' },
-      { key: 0x36, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x36_7B' },
-      { key: 0x37, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x37_7B' },
-      { key: 0x38, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x38_7B' },
-      { key: 0x39, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x39_7B' },
-      { key: 0x42, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x42_7B' },
-      { key: 0x43, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x43_7B' },
-      { key: 0x44, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x44_7B' },
-      { key: 0x45, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x45_7B' }
+      // Reset 0x2E and 0x57 to clean 00s first:
+      { key: 0x2e, val: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], name: 'Reset_Key0x2E_10B' },
+      { key: 0x57, val: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], name: 'Reset_Key0x57_10B' },
+      // Each key gets its own unique temperature (31°C..39°C, and 41°C for 0x4C) and SkyCode=0x01 (Sunny):
+      { key: 0x31, val: [31, 15, 25, 0x01, 0x01, 0x01, 0x01], name: 'Key0x31_Temp31C' },
+      { key: 0x32, val: [32, 15, 25, 0x01, 0x01, 0x01, 0x01], name: 'Key0x32_Temp32C' },
+      { key: 0x33, val: [33, 15, 25, 0x01, 0x01, 0x01, 0x01], name: 'Key0x33_Temp33C' },
+      { key: 0x34, val: [34, 15, 25, 0x01, 0x01, 0x01, 0x01], name: 'Key0x34_Temp34C' },
+      { key: 0x35, val: [35, 15, 25, 0x01, 0x01, 0x01, 0x01], name: 'Key0x35_Temp35C' },
+      { key: 0x36, val: [36, 15, 25, 0x01, 0x01, 0x01, 0x01], name: 'Key0x36_Temp36C' },
+      { key: 0x37, val: [37, 15, 25, 0x01, 0x01, 0x01, 0x01], name: 'Key0x37_Temp37C' },
+      { key: 0x38, val: [38, 15, 25, 0x01, 0x01, 0x01, 0x01], name: 'Key0x38_Temp38C' },
+      { key: 0x39, val: [39, 15, 25, 0x01, 0x01, 0x01, 0x01], name: 'Key0x39_Temp39C' },
+      { key: 0x4c, val: [41, 15, 25, 0x01, 0x01, 0x01],       name: 'Key0x4C_Temp41C_6B' }
     ];
     for (const c of candidates) {
       if (abortBleOperation) break;
@@ -1482,10 +1478,7 @@ async function pushWeatherToWatch() {
       await enqueueBleWrite(cmdChar, wf.frame, `${c.name} seq=${wf.seq}`);
       await waitForAck(wf.seq, 280);
     }
-    // Read back 0x02/0x20 to see if 0x1A, 0x30, 0x4E, or 0x59 changed!
-    const rb = buildFitCloudFrame(0x02, 0x20, [0x01], 0x00);
-    await enqueueBleWrite(cmdChar, rb.frame, `ReadBackAllConfig(0x02/0x20) seq=${rb.seq}`);
-    await waitForAck(rb.seq, 400);
+    log(`👉 Look at the watch temperature right now: 31=0x31, 32=0x32, 33=0x33, 34=0x34, 35=0x35, 36=0x36, 37=0x37, 38=0x38, 39=0x39, 41=0x4C!`, 'ok');
     return;
   }
 
@@ -1839,6 +1832,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
