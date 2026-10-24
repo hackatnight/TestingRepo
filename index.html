@@ -48,9 +48,25 @@
   .widget-card .w-desc { font-size:9px; color:var(--text-muted); line-height:1.1; }
   .stage { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; background:radial-gradient(circle at center,#161f30 0%,#0b0e14 75%),repeating-linear-gradient(0deg,rgba(255,255,255,0.02) 0px,rgba(255,255,255,0.02) 1px,transparent 1px,transparent 20px); overflow:hidden; }
   .stage-toolbar { position:absolute; top:14px; display:flex; gap:8px; align-items:center; background:rgba(19,24,34,0.92); backdrop-filter:blur(8px); padding:6px 12px; border-radius:8px; border:1px solid var(--panel-border); z-index:10; }
-  .watch-chassis { position:relative; padding:22px; border-radius:50%; background:linear-gradient(145deg,#2b3343,#12161f); box-shadow:0 20px 50px rgba(0,0,0,0.8),inset 0 2px 4px rgba(255,255,255,0.15),0 0 0 2px #384357; display:flex; align-items:center; justify-content:center; transition:border-radius 0.25s; }
+  .watch-chassis { position:relative; padding:26px; border-radius:50%; background:linear-gradient(145deg,#2b3343,#12161f); box-shadow:0 20px 50px rgba(0,0,0,0.85),inset 0 2px 5px rgba(255,255,255,0.18),0 0 0 3px #384357; display:flex; align-items:center; justify-content:center; transition:border-radius 0.25s; margin:18px; }
   .watch-chassis.rect-shape { border-radius:44px; }
-  .watch-chassis::after { content:''; position:absolute; right:-14px; top:50%; transform:translateY(-50%); width:10px; height:44px; background:linear-gradient(to bottom,#4a5568,#1a202c,#4a5568); border-radius:3px; border:1px solid #2d3748; }
+  .ht37-lug-top, .ht37-lug-bot { position:absolute; left:50%; transform:translateX(-50%); width:130px; height:22px; background:linear-gradient(90deg,#1a202c,#2d3748,#1a202c); border:1px solid #384357; z-index:0; }
+  .ht37-lug-top { top:-16px; border-radius:10px 10px 0 0; }
+  .ht37-lug-bot { bottom:-16px; border-radius:0 0 10px 10px; }
+  .ht37-flashlight-bubble { position:absolute; top:-21px; left:50%; transform:translateX(-50%); width:26px; height:13px; border-radius:12px 12px 6px 6px; background:radial-gradient(circle at 50% 35%, rgba(255,255,255,0.95), rgba(180,235,255,0.55) 55%, rgba(40,60,85,0.9)); border:1.5px solid #63738a; box-shadow:inset 0 1px 3px #fff, 0 0 6px rgba(0,229,255,0.25); z-index:3; cursor:pointer; transition:all 0.2s; }
+  .ht37-flashlight-bubble.lit { background:radial-gradient(circle at 50% 35%, #ffffff, #e0ffff 60%, #00e5ff); box-shadow:0 -18px 35px 12px rgba(255,255,255,0.85), 0 -6px 18px 4px rgba(0,229,255,0.8), inset 0 0 6px #fff; }
+  .ht37-btn { position:absolute; width:16px; height:42px; background:linear-gradient(to bottom,#5a677d,#1e2533,#5a677d); border:1.5px solid #3a465e; border-radius:4px; z-index:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:filter 0.15s; box-shadow:0 3px 8px rgba(0,0,0,0.6); }
+  .ht37-btn:hover { filter:brightness(1.25); border-color:var(--accent); }
+  .ht37-btn:active { filter:brightness(0.9); }
+  .ht37-btn-label { position:absolute; font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.6px; color:var(--text-muted); white-space:nowrap; pointer-events:none; text-shadow:0 1px 3px #000; }
+  .ht37-btn.top-left { left:-8px; top:16%; transform:rotate(-28deg); }
+  .ht37-btn.top-left .ht37-btn-label { right:22px; transform:rotate(28deg); color:#00e5ff; }
+  .ht37-btn.top-right { right:-8px; top:16%; transform:rotate(28deg); border-right:2px solid #ff5252; }
+  .ht37-btn.top-right .ht37-btn-label { left:22px; transform:rotate(-28deg); color:#ff8a80; }
+  .ht37-btn.bot-left { left:-8px; bottom:16%; transform:rotate(28deg); }
+  .ht37-btn.bot-left .ht37-btn-label { right:22px; transform:rotate(-28deg); color:#00e676; }
+  .ht37-btn.bot-right { right:-8px; bottom:16%; transform:rotate(-28deg); border-right:2px solid var(--warn); }
+  .ht37-btn.bot-right .ht37-btn-label { left:22px; transform:rotate(28deg); color:var(--warn); }
   canvas#watchCanvas { background:transparent; border-radius:50%; cursor:grab; box-shadow:inset 0 0 12px rgba(0,0,0,0.9); transition:border-radius 0.25s; }
   .watch-chassis.rect-shape canvas#watchCanvas { border-radius:36px; }
   canvas#watchCanvas:active { cursor:grabbing; }
@@ -271,7 +287,16 @@
       <span style="color:#303c54">|</span>
       <button onclick="resetDefaultWatchface()">🔄 Reset Preset</button>
     </div>
-    <div id="watchChassis" class="watch-chassis"><canvas id="watchCanvas" width="360" height="360"></canvas></div>
+    <div id="watchChassis" class="watch-chassis">
+      <div class="ht37-lug-top"></div>
+      <div id="ht37FlashlightBubble" class="ht37-flashlight-bubble" onclick="this.classList.toggle('lit');log('🔦 Toggled HT37 Top LED Flashlight Bubble preview.', 'ok');" title="HT37 Top Clear LED Flashlight Bubble (Click to toggle glow)"></div>
+      <div class="ht37-btn top-left" onclick="document.getElementById('ht37FlashlightBubble').classList.toggle('lit');log('🔦 Pressed Top-Left [LIGHT] Pusher.', 'ok');" title="Top-Left Button: Flashlight"><span class="ht37-btn-label">🔦 LIGHT</span></div>
+      <div class="ht37-btn top-right" onclick="log('⚡ Pressed Top-Right [POWER] Pusher.', 'tx');" title="Top-Right Button: Power / Back"><span class="ht37-btn-label">POWER ⚡</span></div>
+      <div class="ht37-btn bot-left" onclick="log('🛰️ Pressed Bottom-Left [GPS] Pusher.', 'tx');" title="Bottom-Left Button: GPS / Tactical"><span class="ht37-btn-label">🛰️ GPS</span></div>
+      <div class="ht37-btn bot-right" onclick="log('🏃 Pressed Bottom-Right [SPORT] Pusher (Main Menu).', 'tx');" title="Bottom-Right Button: Sport / Main Menu"><span class="ht37-btn-label">SPORT 🏃</span></div>
+      <div class="ht37-lug-bot"></div>
+      <canvas id="watchCanvas" width="360" height="360" style="position:relative;z-index:2;"></canvas>
+    </div>
   </div>
 
   <div class="panel right">
@@ -404,9 +429,9 @@
       <div class="field-row">
         <label>Probe / Flash Scope</label>
         <select id="probeScopeSelect" style="width:205px">
-          <option value="lead_b0_all_lengths" selected>1. Lead C: 0x02/0xB0 Lengths 0..64B (Watch 0xB7!)</option>
-          <option value="lead_0103_2b_patterns">2. Lead A: 0x01/03 2-Byte Patterns (Big/Little Endian)</option>
-          <option value="lead_0101_all_lengths">3. Lead B: 0x01/01 Every Length 13..100B</option>
+          <option value="scan_cmd02_lower_safe" selected>1. Scan Lower Cmd 0x02 (0x02..0x7B Safe)</option>
+          <option value="scan_cmd04_and_05_high">2. Scan Cmd 0x04 (0x16..0x60) & Cmd 0x05 (0x41..0x80)</option>
+          <option value="scan_cmd01_all_keys">3. Scan Cmd 0x01 All Keys (0x01..0x60)</option>
         </select>
       </div>
       <div class="field-row">
@@ -1832,55 +1857,35 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
   isTransferRunning = true;
   otaAccepted = false;
 
-  const bin = compileWatchfaceBin();
-  const slot = Number(document.getElementById('dialSlotSelect').value) || 1;
   const scope = document.getElementById('probeScopeSelect').value;
-  const p = buildCandidatePayloads(bin, slot);
-
-  log(`Starting Surgical Length & Pattern Discovery (Scope=${scope})...`, 'ok');
-  log(`👀 Watch terminal for 0x02/0xB7 != [01] or 0x01/0x04 != [02]!`, 'warn');
+  log(`Starting Complete Key Map Discovery (Scope=${scope})...`, 'ok');
 
   const tests = [];
 
-  if (scope === 'lead_b0_all_lengths') {
-    // Test 0x02/0xB0 across EVERY byte length from 0 to 64B to see which length changes 0x02/0xB7 from [01]!
-    for (let len = 0; len <= 64; len++) {
-      const arr = new Array(len).fill(0x01);
-      tests.push({ cmd: 0x02, key: 0xb0, val: arr, note: `B0_Len_${len}B` });
-    }
-    // Also test 0x02/0xB0 with first byte = 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x10, 0x20, 0xFF (1B & 2B & 4B):
-    for (const b0 of [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x08, 0x10, 0x20, 0xff]) {
-      tests.push({ cmd: 0x02, key: 0xb0, val: [b0, 0x00], note: `B0_2B_[0x${b0.toString(16)},00]` });
-      tests.push({ cmd: 0x02, key: 0xb0, val: [0x00, b0], note: `B0_2B_[00,0x${b0.toString(16)}]` });
+  if (scope === 'scan_cmd02_lower_safe') {
+    // Scan Cmd=0x02 Keys 0x02..0x7B (Skipping 0x40..0x45 Reset and 0x65)
+    const skip02 = new Set([0x01, 0x12, 0x18, 0x1b, 0x20, 0x36, 0x37, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x60, 0x65]);
+    for (let k = 0x02; k <= 0x7b; k++) {
+      if (skip02.has(k)) continue;
+      tests.push({ cmd: 0x02, key: k, val: [0x01], note: `Lower02_Key0x${k.toString(16).padStart(2,'0').toUpperCase()}_[01]` });
     }
   }
 
-  if (scope === 'lead_0103_2b_patterns') {
-    // We proved 0x01/0x03 MUST be 2 bytes (ValLen == 2) and must follow 0x01/0x01!
-    // Test 2-byte patterns [0x00, X], [X, 0x00], [X, X] where X = 0x00..0x20, 0x40, 0x80, 0xFF
-    const mod53 = [...watchDeviceInfo53B];
-    mod53[27] = 0x08; // v1.08
-    mod53[44] = 0x11; // UI bump
-    const vals = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0c, 0x10, 0x20, 0x40, 0x80, 0xff];
-    for (const v of vals) {
-      tests.push({ cmd: 0x01, key: 0x01, val: mod53,      note: `Pre_01/01_for_00_${v.toString(16)}` });
-      tests.push({ cmd: 0x01, key: 0x03, val: [0x00, v],  note: `Try_01/03_2B_[00,0x${v.toString(16).padStart(2,'0')}]` });
+  if (scope === 'scan_cmd04_and_05_high') {
+    for (let k = 0x16; k <= 0x60; k++) {
+      tests.push({ cmd: 0x04, key: k, val: [0x01], note: `Cmd04_Key0x${k.toString(16).padStart(2,'0').toUpperCase()}_[01]` });
     }
-    for (const v of [0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80]) {
-      tests.push({ cmd: 0x01, key: 0x01, val: mod53,      note: `Pre_01/01_for_${v.toString(16)}_01` });
-      tests.push({ cmd: 0x01, key: 0x03, val: [v, 0x01],  note: `Try_01/03_2B_[0x${v.toString(16).padStart(2,'0')},01]` });
+    for (let k = 0x41; k <= 0x80; k++) {
+      tests.push({ cmd: 0x05, key: k, val: [0x01], note: `Cmd05_Key0x${k.toString(16).padStart(2,'0').toUpperCase()}_[01]` });
     }
   }
 
-  if (scope === 'lead_0101_all_lengths') {
-    // Test every exact length of 0x01/0x01 from 13 to 96 bytes that we didn't test yet!
-    for (let len = 13; len <= 96; len++) {
-      const arr = new Array(len).fill(0x01);
-      for (let i = 0; i < Math.min(len, watchDeviceInfo53B.length); i++) arr[i] = watchDeviceInfo53B[i];
-      if (len > 27) arr[27] = 0x08;
-      if (len > 44) arr[44] = 0x11;
-      tests.push({ cmd: 0x01, key: 0x01, val: arr, note: `Try_01/01_ExactLen_${len}B` });
-    }
+  if (scope === 'scan_cmd01_all_keys') {
+    // Test sending a first data block directly to 0x01/0x05, 0x01/0x06, 0x01/0x07 after 0x01/0x01!
+    tests.push({ cmd: 0x01, key: 0x01, val: watchDeviceInfo53B, note: 'PreCheck_01/01_53B' });
+    tests.push({ cmd: 0x01, key: 0x05, val: [0x00, 0x00, 0x01, 0x02, 0x03, 0x04], note: 'DirectChunk_01/05_Blk0' });
+    tests.push({ cmd: 0x01, key: 0x06, val: [0x00, 0x00], note: 'Check_01/06_2B' });
+    tests.push({ cmd: 0x01, key: 0x07, val: [0x00, 0x00], note: 'Check_01/07_2B' });
   }
 
   for (let i = 0; i < tests.length; i++) {
@@ -1889,8 +1894,8 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
     otaLastResponse = null;
     const { frame, seq } = buildFitCloudFrame(t.cmd, t.key, t.val, 0x00);
     await enqueueBleWrite(cmdChar, frame, `${t.note} seq=${seq}`);
-    await waitForAck(seq, 320);
-    const resp = await waitForL2Response(260);
+    await waitForAck(seq, 300);
+    const resp = await waitForL2Response(220);
     if (resp) {
       log(`🎯 L2 REPLY on ${t.note}: Cmd=0x${resp.cmdId?.toString(16).padStart(2,'0')}, Key=0x${resp.keyId?.toString(16).padStart(2,'0')}, Val=[${resp.valHex}]`, 'ok');
     }
@@ -1985,6 +1990,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
