@@ -312,8 +312,10 @@
             <option value="0x04|0x08|04 58 2D 48 51 00 08 52 61 77 20 54 65 73 74 00 00">𝕏 Vibrate + X/Twitter Popup: "X-HQ: Raw Test" (0x04 / 0x08)</option>
             <option value="0x04|0x01|08 43 41 4C 4C 20 4E 4F 57 00 00 00 00">📞 Vibrate Incoming Call: "CALL NOW" (0x04 / 0x01)</option>
             <option value="0x04|0x02|00">☎️ Dismiss / End Incoming Call (0x04 / 0x02)</option>
-            <option value="0x05|0x23|01 00">❤️ Start Live Watch Heart Rate Stream (0x05 / 0x23 = 01)</option>
-            <option value="0x05|0x23|00 00">🛑 Stop Live Watch Heart Rate Stream (0x05 / 0x23 = 00)</option>
+            <option value="0x05|0x23|01 00">❤️ Start Green LEDs: Live Heart Rate Stream (0x05 / 0x23 = 01 00)</option>
+            <option value="0x05|0x23|02 00">🩸 Start Red+Green LEDs: SpO2 / BP Mode 2 (0x05 / 0x23 = 02 00)</option>
+            <option value="0x05|0x23|04 00">🔴 Start Red+Green LEDs: SpO2 / BP Mode 4 (0x05 / 0x23 = 04 00)</option>
+            <option value="0x05|0x23|00 00">🛑 Stop All Watch Optical LEDs (0x05 / 0x23 = 00 00)</option>
             <option value="0x02|0x1b|">🔋 Query Watch Battery % (0x02 / 0x1B -> Replies 0x1C)</option>
             <option value="0x02|0x7d|01">📐 Query Watch 360x360 GUI Info (0x02 / 0x7D [01] -> Replies 0x7E)</option>
             <option value="0x02|0xae|01">💾 Query Watch Flash Space (0x02 / 0xAE [01] -> Replies 0xAF)</option>
@@ -1502,30 +1504,43 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
   const tests = [];
 
   if (scope === 'dial_write_and_ota' || scope === 'all_safe_new') {
-    // 1. Test 0x01/0x01 with bumped FW version (v1.08) + size/CRC variants, followed by 0x01/0x03
-    tests.push({ cmd: 0x01, key: 0x01, val: p.bumped53B, note: 'OTA_01_01_Bumped53B_v1.08' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x01, 0x08], note: 'OTA_01_03_2B_[01,08]' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x00, 0x00], note: 'OTA_01_03_2B_[00,00]' });
+    const strUid = Array.from(new TextEncoder().encode('probe-user-01'));
+    const padded32Uid = [...strUid, ...new Array(32 - strUid.length).fill(0)];
+    // 1. Authenticate session with 0x03/0x15 (UserLogin) in case OTA requires Login state
+    tests.push({ cmd: 0x03, key: 0x15, val: padded32Uid, note: 'Auth_Login_32B(0x03/0x15)' });
+    tests.push({ cmd: 0x03, key: 0x15, val: [0x00], note: 'Auth_Login_1B(0x03/0x15)' });
 
-    // 2. Test newly discovered Cmd=0x02 Dial/GUI & Flash Write Keys with non-empty payloads
-    const targetWriteKeys = [
-      { k: 0x7c, name: 'GUI_Write_0x7C' },
-      { k: 0x7d, name: 'GUI_ReadReq_0x7D' },
-      { k: 0xad, name: 'Flash_Write_0xAD' },
-      { k: 0xae, name: 'Flash_ReadReq_0xAE' },
-      { k: 0xb0, name: 'Key0xB0_To_0xB7' }
-    ];
-    for (const tk of targetWriteKeys) {
-      tests.push({ cmd: 0x02, key: tk.k, val: [0x01], note: `${tk.name}_[01]` });
-      tests.push({ cmd: 0x02, key: tk.k, val: [0x01, 0x00], note: `${tk.name}_[01,00]` });
-      tests.push({ cmd: 0x02, key: tk.k, val: p.gui7B, note: `${tk.name}_GUI7B` });
-      tests.push({ cmd: 0x02, key: tk.k, val: p.desc8LE, note: `${tk.name}_Desc8LE` });
-      tests.push({ cmd: 0x02, key: tk.k, val: p.flash8B, note: `${tk.name}_Flash8B` });
-    }
-    // Re-test 0x01/0x01 and 0x01/0x03 right after writing the Cmd=0x02 Dial/Flash keys!
-    tests.push({ cmd: 0x01, key: 0x01, val: p.desc8LE, note: 'PostWrite_OTA_01_01_Desc8LE' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x00, 0x00], note: 'PostWrite_OTA_01_03_[00,00]' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x01, 0x00], note: 'PostWrite_OTA_01_03_[01,00]' });
+    // 2. Test 0x01/0x01 (OTA PreCheck) with varying payload formats & lengths
+    tests.push({ cmd: 0x01, key: 0x01, val: [], note: 'OTA_01_01_Empty0B' });
+    tests.push({ cmd: 0x01, key: 0x01, val: [0x01], note: 'OTA_01_01_1B_[01]' });
+    tests.push({ cmd: 0x01, key: 0x01, val: [0x02], note: 'OTA_01_01_1B_[02_Dial]' });
+    tests.push({ cmd: 0x01, key: 0x01, val: [0x01, 0x00], note: 'OTA_01_01_2B_[01,00]' });
+    tests.push({ cmd: 0x01, key: 0x01, val: p.sLE, note: 'OTA_01_01_4B_SizeLE' });
+    tests.push({ cmd: 0x01, key: 0x01, val: p.sBE, note: 'OTA_01_01_4B_SizeBE' });
+    tests.push({ cmd: 0x01, key: 0x01, val: [...p.sLE, ...p.cLE], note: 'OTA_01_01_6B_SizeCRC_LE' });
+    tests.push({ cmd: 0x01, key: 0x01, val: [...p.sBE, ...p.cBE], note: 'OTA_01_01_6B_SizeCRC_BE' });
+    tests.push({ cmd: 0x01, key: 0x01, val: p.desc8LE, note: 'OTA_01_01_8B_DescLE' });
+    tests.push({ cmd: 0x01, key: 0x01, val: p.desc8BE, note: 'OTA_01_01_8B_DescBE' });
+    tests.push({ cmd: 0x01, key: 0x01, val: p.flash8B, note: 'OTA_01_01_8B_FlashAddrSize' });
+    tests.push({ cmd: 0x01, key: 0x01, val: [...p.bumped53B, ...p.sLE, ...p.cLE], note: 'OTA_01_01_59B_DevInfoPlusSizeCRC' });
+
+    // 3. Test 0x01/0x03 (OTA Start) with varying payload lengths (0B, 1B, 2B, 4B, 6B, 8B, 53B)
+    tests.push({ cmd: 0x01, key: 0x03, val: [], note: 'OTA_01_03_Empty0B' });
+    tests.push({ cmd: 0x01, key: 0x03, val: [0x00], note: 'OTA_01_03_1B_[00]' });
+    tests.push({ cmd: 0x01, key: 0x03, val: [0x01], note: 'OTA_01_03_1B_[01]' });
+    tests.push({ cmd: 0x01, key: 0x03, val: [0x02], note: 'OTA_01_03_1B_[02_Dial]' });
+    tests.push({ cmd: 0x01, key: 0x03, val: [0x03], note: 'OTA_01_03_1B_[03_GUI]' });
+    tests.push({ cmd: 0x01, key: 0x03, val: [0x01, 0x00], note: 'OTA_01_03_2B_[01,00]' });
+    tests.push({ cmd: 0x01, key: 0x03, val: [0x02, 0x00], note: 'OTA_01_03_2B_[02,00]' });
+    tests.push({ cmd: 0x01, key: 0x03, val: p.sLE, note: 'OTA_01_03_4B_SizeLE' });
+    tests.push({ cmd: 0x01, key: 0x03, val: p.sBE, note: 'OTA_01_03_4B_SizeBE' });
+    tests.push({ cmd: 0x01, key: 0x03, val: [...p.sLE, ...p.cLE], note: 'OTA_01_03_6B_SizeCRC_LE' });
+    tests.push({ cmd: 0x01, key: 0x03, val: [...p.sBE, ...p.cBE], note: 'OTA_01_03_6B_SizeCRC_BE' });
+    tests.push({ cmd: 0x01, key: 0x03, val: p.desc8LE, note: 'OTA_01_03_8B_DescLE' });
+    tests.push({ cmd: 0x01, key: 0x03, val: p.desc8BE, note: 'OTA_01_03_8B_DescBE' });
+    tests.push({ cmd: 0x01, key: 0x03, val: p.flash8B, note: 'OTA_01_03_8B_FlashAddrSize' });
+    tests.push({ cmd: 0x01, key: 0x03, val: p.bumped53B, note: 'OTA_01_03_53B_BumpedDevInfo' });
+    tests.push({ cmd: 0x01, key: 0x03, val: Array.from(bin.slice(0, 64)), note: 'OTA_01_03_64B_BinHeader' });
   }
 
   if (scope === 'cmd03_05_scan' || scope === 'all_safe_new') {
@@ -1647,6 +1662,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
