@@ -454,7 +454,7 @@
     <div class="section-body" id="secDfuEngineBody">
       <div style="font-size:10px;color:var(--accent);font-family:var(--font-mono);margin-bottom:2px;">🎯 White-Arrow Upload Mode Trigger Tester (Click 1 by 1):</div>
       <div class="alert-grid" style="grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
-        <button class="warn" onclick="testSingleUploadCandidate('key65')" title="Tests Cmd=0x02, Key=0x65 (which interrupted the scan yesterday!)">1. Test 0x02 / 0x65</button>
+        <button class="success" onclick="testSingleUploadCandidate('clean_tlvs')" title="Restores clean factory values to TLV 0x24, 0x27, 0x2A, 0x2D, 0x30, 0x48, 0x4E, 0x59">🛠️ 1. Clean Config TLVs</button>
         <button class="warn" onclick="testSingleUploadCandidate('key88')" title="Tests Cmd=0x02, Key=0x88 (blocked yesterday)">2. Test 0x02 / 0x88</button>
         <button class="warn" onclick="testSingleUploadCandidate('cmd07')" title="Tests Cmd=0x07 Keys 0x01..0x04">3. Test Cmd 0x07</button>
         <button class="primary" onclick="testSingleUploadCandidate('cmd01_full')" title="Tests 0x01/0x01 -> 0x01/0x03 -> 0x01/0x05 stream start">4. Test 0x01 Stream</button>
@@ -1153,12 +1153,16 @@ async function testSingleUploadCandidate(which) {
     log(`=== 🎯 Testing Upload Candidate [${which.toUpperCase()}] — Watch screen for White Up-Arrow! ===`, 'ok');
     const pkts = [];
 
-    if (which === 'key65') {
-      // Test 0x02/0x65 with [], [01], [01,00], and 8B descriptor
-      pkts.push({ cmd: 0x02, key: 0x65, val: [],         note: 'Try_02/65_0B_[]' });
-      pkts.push({ cmd: 0x02, key: 0x65, val: [0x01],     note: 'Try_02/65_1B_[01]' });
-      pkts.push({ cmd: 0x02, key: 0x65, val: [0x01,0x00],note: 'Try_02/65_2B_[01,00]' });
-      pkts.push({ cmd: 0x02, key: 0x65, val: p.desc8BE,  note: 'Try_02/65_8B_DescBE' });
+    if (which === 'clean_tlvs') {
+      pkts.push({ cmd: 0x02, key: 0x22, val: [0x00, 0x01, 0xe0, 0x04, 0xec],                         note: 'Restore_DND_0x22(5B)' });
+      pkts.push({ cmd: 0x02, key: 0x25, val: [0x00, 0x01, 0xe0, 0x04, 0xec, 0x00, 0x3c],             note: 'Restore_DrinkWater_0x25(7B)' });
+      pkts.push({ cmd: 0x02, key: 0x28, val: [0x00, 0x00, 0x3c, 0x01, 0xe0, 0x04, 0xec, 0x00, 0x00], note: 'Restore_Sedentary_0x28(9B)' });
+      pkts.push({ cmd: 0x02, key: 0x2b, val: [0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], note: 'Restore_TLV2D_0x2B(9B)' });
+      pkts.push({ cmd: 0x02, key: 0x2e, val: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], note: 'Restore_TLV30_0x2E(10B)' });
+      pkts.push({ cmd: 0x02, key: 0x46, val: [0x00, 0x78, 0x00, 0x96, 0x28, 0x3c],                   note: 'Restore_BP_0x46(6B)' });
+      pkts.push({ cmd: 0x02, key: 0x4c, val: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00],                   note: 'Restore_TLV4E_0x4C(6B)' });
+      pkts.push({ cmd: 0x02, key: 0x57, val: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], note: 'Restore_TLV59_0x57(10B)' });
+      pkts.push({ cmd: 0x02, key: 0x20, val: [0x01],                                                 note: 'Verify_ReadAllConfig_0x20' });
     } else if (which === 'key88') {
       // Test 0x02/0x88 with [], [01], [01,00], and 8B descriptor
       pkts.push({ cmd: 0x02, key: 0x88, val: [],         note: 'Try_02/88_0B_[]' });
@@ -1277,9 +1281,10 @@ function isDangerousResetFrame(frame) {
     // Block Cmd 0x02 Key 0x40..0x45 (Factory Reset / Unbind / PowerOff) & Cmd 0x07 (System Reboot)
     if (cmd === 0x02 && (key >= 0x40 && key <= 0x45)) return `Blocked Factory Reset / PowerOff key (0x02/0x${key.toString(16)})`;
     if (cmd === 0x02 && key === 0x3a) return `Blocked Language key (0x02/0x3A) to keep watch in English`;
+    if (cmd === 0x02 && key === 0x65) return `Blocked Restart/Unbind key (0x02/0x65)`;
     if (!allowUploadTriggerTest) {
-      if (cmd === 0x02 && (key === 0x65 || key === 0x88)) return `Blocked 0x02/0x${key.toString(16)} (Use Upload Trigger Tester buttons to test this key)`;
-      if (cmd === 0x07) return `Blocked Cmd 0x07 (Use Upload Trigger Tester buttons to test this key)`;
+      if (cmd === 0x02 && key === 0x88) return `Blocked 0x02/0x88`;
+      if (cmd === 0x07) return `Blocked Cmd 0x07`;
     }
   }
   return null;
@@ -2168,6 +2173,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
