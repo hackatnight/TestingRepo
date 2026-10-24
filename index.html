@@ -162,8 +162,11 @@
       </div>
     </div>
 
-    <div class="section-title"><span>2. Watch Screen & Background Layer</span></div>
-    <div class="section-body">
+    <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'secScreenBgBody')">
+      <span>2. Watch Screen & Background Layer <span class="caret">▾</span></span>
+      <span style="font-size:9px;color:var(--text-muted)">Toggle</span>
+    </div>
+    <div class="section-body" id="secScreenBgBody">
       <div class="field-row">
         <label>LCD Resolution</label>
         <select id="lcdPreset" onchange="updateScreenPreset()">
@@ -211,13 +214,13 @@
       </div>
     </div>
 
-    <div class="section-title">
-      <span>3. Live Sensor & Weather</span>
+    <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'secSensorWeatherBody')">
+      <span>3. Live Sensor & Weather <span class="caret">▾</span></span>
       <div style="display:flex;gap:4px;">
-        <button onclick="enableDeviceOrientation()" style="padding:2px 6px;font-size:10px">🧭 Gyro</button>
+        <button onclick="event.stopPropagation(); enableDeviceOrientation()" style="padding:2px 6px;font-size:10px">🧭 Gyro</button>
       </div>
     </div>
-    <div class="section-body">
+    <div class="section-body" id="secSensorWeatherBody">
       <div class="compact-slider-row"><label>🧭 Heading</label><input type="range" id="simHeading" min="0" max="359" value="42" /><span class="compact-slider-val"><span id="valHeading">42</span>°</span></div>
       <div class="compact-slider-row"><label>❤️ Heart BPM</label><input type="range" id="simHr" min="45" max="195" value="76" /><span class="compact-slider-val"><span id="valHr">76</span></span></div>
       <div class="compact-slider-row"><label>👟 Steps</label><input type="range" id="simSteps" min="0" max="15000" value="6840" /><span class="compact-slider-val"><span id="valSteps">6840</span></span></div>
@@ -319,11 +322,11 @@
 
   <div class="panel right">
     <!-- WATCH ALERT & COMMAND TESTER WINDOW -->
-    <div class="section-title">
-      <span>🔔 Watch Alert & Command Tester</span>
-      <button class="warn" onclick="enableAllWatchAlerts()" style="padding:2px 7px;font-size:10px" title="Writes Cmd=0x02, Key=0x12=[FF FF FF FF] so SMS & all App notices are enabled">🔓 Enable All Alerts</button>
+    <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'secAlertTesterBody')">
+      <span>🔔 Watch Alert & Command Tester <span class="caret">▾</span></span>
+      <button class="warn" onclick="event.stopPropagation(); enableAllWatchAlerts()" style="padding:2px 7px;font-size:10px" title="Writes Cmd=0x02, Key=0x12=[FF FF FF FF] so SMS & all App notices are enabled">🔓 Enable All Alerts</button>
     </div>
-    <div class="section-body">
+    <div class="section-body" id="secAlertTesterBody">
       <div class="field-row">
         <label>Caller / Sender</label>
         <input type="text" id="alertSender" value="HT37 Studio" placeholder="Caller or App" style="width:205px" />
@@ -444,11 +447,11 @@
       </div>
     </div>
 
-    <div class="section-title">
-      <span>FitCloud .BIN & IC_568X DFU Engine</span>
-      <button onclick="fetchCloudTemplate()" style="padding:2px 7px;font-size:10px">☁️ Fetch HT37 Template</button>
+    <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'secDfuEngineBody')">
+      <span>FitCloud .BIN & IC_568X DFU Engine <span class="caret">▾</span></span>
+      <button onclick="event.stopPropagation(); fetchCloudTemplate()" style="padding:2px 7px;font-size:10px">☁️ Fetch HT37 Template</button>
     </div>
-    <div class="section-body">
+    <div class="section-body" id="secDfuEngineBody">
       <div class="field-row">
         <label>Probe / Flash Scope</label>
         <select id="probeScopeSelect" style="width:205px">
@@ -501,8 +504,8 @@
       <div id="layerList" class="layer-list"></div>
     </div>
 
-    <div class="section-title">
-      <span>Selected Layer Inspector</span>
+    <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'inspectorBody')">
+      <span>Selected Layer Inspector <span class="caret">▾</span></span>
       <span id="selWidgetTag" style="color:var(--accent);font-family:var(--font-mono)">NONE</span>
     </div>
     <div class="section-body" id="inspectorBody">
@@ -2075,6 +2078,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
