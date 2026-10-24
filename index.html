@@ -313,8 +313,8 @@
             <option value="0x04|0x01|08 43 41 4C 4C 20 4E 4F 57 00 00 00 00">📞 Vibrate Incoming Call: "CALL NOW" (0x04 / 0x01)</option>
             <option value="0x04|0x02|00">☎️ Dismiss / End Incoming Call (0x04 / 0x02)</option>
             <option value="0x02|0x1b|">🔋 Query Watch Battery % (0x02 / 0x1B -> Replies 0x1C)</option>
-            <option value="0x02|0x7e|">📐 Query Watch 360x360 GUI Info (0x02 / 0x7E -> Replies 0x7F)</option>
-            <option value="0x02|0xaf|">💾 Query Watch Flash Space (0x02 / 0xAF -> Replies 0xB0)</option>
+            <option value="0x02|0x7e|01">📐 Query Watch 360x360 GUI Info (0x02 / 0x7E [01] -> Replies 0x7E)</option>
+            <option value="0x02|0xaf|01">💾 Query Watch Flash Space (0x02 / 0xAF [01] -> Replies 0xAF)</option>
             <option value="0x02|0xc8|">🎨 Query Active Watchface Slots (0x02 / 0xC8 -> Replies 0xC9)</option>
             <option value="0x02|0x20|01">📋 Query Full Watch DeviceInfo TLVs (0x02 / 0x20 -> Replies 0x21)</option>
           </select>
@@ -1642,6 +1642,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
