@@ -452,14 +452,11 @@
       <button onclick="event.stopPropagation(); fetchCloudTemplate()" style="padding:2px 7px;font-size:10px">☁️ Fetch HT37 Template</button>
     </div>
     <div class="section-body" id="secDfuEngineBody">
-      <div style="font-size:10px;color:var(--accent);font-family:var(--font-mono);margin-bottom:2px;">🎯 White-Arrow Upload Mode Trigger Tester (Click 1 by 1):</div>
+      <div style="font-size:10px;color:var(--accent);font-family:var(--font-mono);margin-bottom:2px;">🚀 Service 9966 (FFB1/FFB2) IC_568X Upload Mode Control:</div>
       <div class="alert-grid" style="grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
-        <button class="success" onclick="testSingleUploadCandidate('clean_tlvs')" title="Restores clean factory values to TLV 0x24, 0x27, 0x2A, 0x2D, 0x30, 0x48, 0x4E, 0x59">🛠️ 1. Clean Config TLVs</button>
-        <button class="warn" onclick="testSingleUploadCandidate('key88')" title="Tests Cmd=0x02, Key=0x88 (blocked yesterday)">2. Test 0x02 / 0x88</button>
-        <button class="warn" onclick="testSingleUploadCandidate('cmd07')" title="Tests Cmd=0x07 Keys 0x01..0x04">3. Test Cmd 0x07</button>
-        <button class="primary" onclick="testSingleUploadCandidate('cmd01_full')" title="Tests 0x01/0x01 -> 0x01/0x03 -> 0x01/0x05 stream start">4. Test 0x01 Stream</button>
-        <button onclick="testSingleUploadCandidate('l1_l2_flags')" title="Tests L1/L2 version & flag bits on 0x01 and 0x02/0xB0">5. Test L1/L2 Flags</button>
-        <button onclick="testSingleUploadCandidate('early_raw_dfu')" title="Tests the early-session raw DFU start headers">6. Early Raw DFU</button>
+        <button class="success" onclick="triggerWhiteArrowFfb1()" title="Sends [01 00 00 00 00 00 00 00 01 C3 01 00 04] to 0000ffb1 on Service 00009966!" style="grid-column:span 2;padding:6px;font-size:11px;">🚀 1. Trigger White Arrow Upload Mode (FFB1)</button>
+        <button onclick="testSingleUploadCandidate('clean_tlvs')" title="Restores clean factory values to TLV 0x24..0x59">🛠️ Clean Config TLVs</button>
+        <button onclick="testSingleUploadCandidate('ffb1_variants')" title="Tests FFB1 Wake & Slot header variations">🔬 Test FFB1 Variants</button>
       </div>
       <div class="field-row" style="display:none;">
         <label>Probe / Flash Scope</label>
@@ -1231,6 +1228,7 @@ let watchDeviceInfo53B = [
 ];
 
 const OPTIONAL_SERVICES = [
+  '00009966-3c17-d293-8e48-14fe2e4da212',
   '000001ff-3c17-d293-8e48-14fe2e4da212',
   '000002ff-3c17-d293-8e48-14fe2e4da212',
   '000003ff-3c17-d293-8e48-14fe2e4da212',
@@ -1517,7 +1515,12 @@ async function discoverServicesAndSubscribe() {
       if (ch.properties.write || ch.properties.writeWithoutResponse) {
         allWritableChars.push(ch);
         if (cUuid.includes('ff02') || (sUuid.includes('01ff') && !cmdChar)) cmdChar = ch;
-        if (!cUuid.includes('ff02') && (!dfuPacketChar || ch.properties.writeWithoutResponse)) dfuPacketChar = ch;
+        if (cUuid.includes('ffb1') || sUuid.includes('9966')) {
+          dfuPacketChar = ch;
+          log(`      ⭐ Bound IC_568X OTA Data Pipe TX Char: ${cUuid.slice(0, 8)} (Service 9966)`, 'ok');
+        } else if (!cUuid.includes('ff02') && !dfuPacketChar) {
+          dfuPacketChar = ch;
+        }
       }
     }
   }
@@ -1786,7 +1789,27 @@ async function handleBleNotification(event) {
     return;
   }
 
+  if (charShort.includes('ffb2') || data[0] === 0x81 || data[0] === 0x80) {
+    log(`🚀 IC_568X FFB2 OTA RESPONSE (${data.length}B, Op=0x${data[0]?.toString(16).toUpperCase()}): [${hex}]`, 'ok');
+    if (data[0] === 0x81) {
+      otaAccepted = true;
+      log(`🎉 BINGO! Watch illuminated White Arrow Upload Mode and replied 0x81 (${data.length}B) on FFB2!`, 'ok');
+    }
+  }
   otaLastResponse = { raw: data, charUuid: charShort };
+}
+
+async function triggerWhiteArrowFfb1() {
+  if (!bleServer || !bleServer.connected) {
+    return log('ERROR: Pair & Bind to the watch first!', 'err');
+  }
+  const targetChar = dfuPacketChar || cmdChar;
+  if (!targetChar) return log('ERROR: No writable characteristic found!', 'err');
+  abortBleOperation = false;
+  // Exact 13-byte Wake & Slot 5 (Custom Dial Type = 0x04) packet for Service 00009966 -> 0000ffb1:
+  const wake13B = new Uint8Array([0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xc3, 0x01, 0x00, 0x04]);
+  log(`🚀 Sending 13-Byte IC_568X Wake & Slot 5 Packet to [${targetChar.uuid.slice(0, 8)}]: [01 00 00 00 00 00 00 00 01 C3 01 00 04]...`, 'ok');
+  await enqueueBleWrite(targetChar, wake13B, 'FFB1_WakeAndSlot(13B)');
 }
 
 async function checkReassemblyComplete() {
@@ -2001,91 +2024,8 @@ function buildCandidatePayloads(bin, slot) {
 }
 
 document.getElementById('btnDiscoverTrigger').addEventListener('click', async () => {
-  log('--- [🔬 2. Discover Trigger (Safe) Clicked] ---', 'tx');
-  if (!cmdChar || !bleServer || !bleServer.connected) {
-    return log('ERROR: Pair & Bind to the watch first!', 'err');
-  }
-  if (isTransferRunning) return log('Already running! Click Stop first.', 'err');
-
-  abortBleOperation = false;
-  isTransferRunning = true;
-  otaAccepted = false;
-
-  const bin = compileWatchfaceBin();
-  const slot = 5; // Slot 5 = Custom Watchface Slot
-  const scope = document.getElementById('probeScopeSelect').value;
-  const p = buildCandidatePayloads(bin, slot);
-  const sz120kLE = [0xc0, 0xd4, 0x01, 0x00];
-  const sz120kBE = [0x00, 0x01, 0xd4, 0xc0];
-
-  log(`Starting Discovery Scan (Scope=${scope})...`, 'ok');
-  const tests = [];
-
-  if (scope === 'prequery_then_b0_and_0103') {
-    // 1. Switch to Slot 5 (Custom Watchface) first, then run the exact FitCloud Dial Pre-Queries (0xC8 -> 0x7D -> 0xAE) before each 0xB0 / 0x01 test!
-    const b0Payloads = [
-      [0x01],
-      [0x05],
-      [0x05, 0x00, 0x0d],
-      [0x00, 0x0d, ...sz120kBE],
-      [0x05, ...sz120kBE],
-      [0x05, ...sz120kLE],
-      [0x00, 0x00, 0x08, 0x26, ...sz120kBE],
-      [0x00, 0x00, 0x08, 0x26, ...sz120kBE, ...p.cBE],
-      [0x05, 0x00, 0x0d, ...sz120kBE, ...p.cBE],
-      p.desc8BE,
-      p.desc8LE
-    ];
-    tests.push({ cmd: 0x02, key: 0x70, val: [0x05], note: 'Pre_SetSlot5(0x02/0x70=[05])' });
-    tests.push({ cmd: 0x02, key: 0xc8, val: [],     note: 'Pre_ReadDialSlots(0x02/0xC8)' });
-    for (let idx = 0; idx < b0Payloads.length; idx++) {
-      tests.push({ cmd: 0x02, key: 0x7d, val: [0x01],          note: `Pre_GuiInfo_${idx}(0x02/0x7D)` });
-      tests.push({ cmd: 0x02, key: 0xae, val: [0x01],          note: `Pre_FlashSpace_${idx}(0x02/0xAE)` });
-      tests.push({ cmd: 0x02, key: 0xb0, val: b0Payloads[idx], note: `Try_02/B0_AfterAE_Variant${idx}(${b0Payloads[idx].length}B)` });
-    }
-    // Also test 0x01/0x01 + 0x01/0x03 right after 0x7D + 0xAE + Slot 5!
-    const dev53 = [...watchDeviceInfo53B];
-    dev53[27] = 0x08; dev53[44] = 0x11;
-    tests.push({ cmd: 0x02, key: 0x7d, val: [0x01],       note: 'Pre_GuiInfo_OTA(0x02/0x7D)' });
-    tests.push({ cmd: 0x02, key: 0xae, val: [0x01],       note: 'Pre_FlashSpace_OTA(0x02/0xAE)' });
-    tests.push({ cmd: 0x01, key: 0x01, val: dev53,        note: 'Try_01/01_AfterAE_53B' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x01, 0x00], note: 'Try_01/03_AfterAE_[01,00]' });
-  } else if (scope === 'zero_byte_scan_01_02') {
-    // Many FitCloud Read/Trigger keys (like 0x1B, 0x60, 0xC8) ONLY respond to 0-byte [] payloads!
-    const skip02 = new Set([0x01, 0x12, 0x15, 0x18, 0x1b, 0x20, 0x36, 0x3a, 0x3b, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x60, 0x65, 0x70, 0x88, 0xc8]);
-    for (let k = 0x01; k <= 0x30; k++) {
-      tests.push({ cmd: 0x01, key: k, val: [], note: `ZeroB_01/0x${k.toString(16).padStart(2,'0').toUpperCase()}_[]` });
-    }
-    for (let k = 0x02; k <= 0xfe; k++) {
-      if (skip02.has(k)) continue;
-      tests.push({ cmd: 0x02, key: k, val: [], note: `ZeroB_02/0x${k.toString(16).padStart(2,'0').toUpperCase()}_[]` });
-    }
-  } else if (scope === 'high_cmd_id_scan') {
-    // Scan higher L2 Command IDs (0x11..0x30, 0x80, 0xA0, 0xF0..0xFE) with Key=0x01 [01] and []
-    const cmdIds = [];
-    for (let c = 0x11; c <= 0x30; c++) cmdIds.push(c);
-    cmdIds.push(0x80, 0x90, 0xa0, 0xb0, 0xc0, 0xd0, 0xe0, 0xf0, 0xf1, 0xf2, 0xfe, 0xff);
-    for (const c of cmdIds) {
-      tests.push({ cmd: c, key: 0x01, val: [0x01], note: `HighCmd_0x${c.toString(16).toUpperCase()}_Key01_[01]` });
-      tests.push({ cmd: c, key: 0x01, val: [],     note: `HighCmd_0x${c.toString(16).toUpperCase()}_Key01_[]` });
-    }
-  }
-
-  for (let i = 0; i < tests.length; i++) {
-    if (abortBleOperation || otaAccepted || !bleServer || !bleServer.connected) break;
-    const t = tests[i];
-    otaLastResponse = null;
-    const { frame, seq } = buildFitCloudFrame(t.cmd, t.key, t.val, 0x00);
-    await enqueueBleWrite(cmdChar, frame, `${t.note} seq=${seq}`);
-    await waitForAck(seq, 280);
-    const resp = await waitForL2Response(180);
-    if (resp) {
-      log(`🎯 L2 REPLY on ${t.note}: Cmd=0x${resp.cmdId?.toString(16).padStart(2,'0')}, Key=0x${resp.keyId?.toString(16).padStart(2,'0')}, Val=[${resp.valHex}]`, 'ok');
-    }
-  }
-
-  isTransferRunning = false;
-  log(`✅ Finished ${scope} (${tests.length} tests)! Copy and paste the logs here!`, 'ok');
+  log('--- [🔬 2. Discover Trigger (Safe) -> Sending FFB1 Wake & Slot Packet] ---', 'tx');
+  await triggerWhiteArrowFfb1();
 });
 
 /* ============================================================================
@@ -2173,6 +2113,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
