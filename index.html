@@ -312,6 +312,8 @@
             <option value="0x04|0x08|04 58 2D 48 51 00 08 52 61 77 20 54 65 73 74 00 00">𝕏 Vibrate + X/Twitter Popup: "X-HQ: Raw Test" (0x04 / 0x08)</option>
             <option value="0x04|0x01|08 43 41 4C 4C 20 4E 4F 57 00 00 00 00">📞 Vibrate Incoming Call: "CALL NOW" (0x04 / 0x01)</option>
             <option value="0x04|0x02|00">☎️ Dismiss / End Incoming Call (0x04 / 0x02)</option>
+            <option value="0x05|0x23|01 00">❤️ Start Live Watch Heart Rate Stream (0x05 / 0x23 = 01)</option>
+            <option value="0x05|0x23|00 00">🛑 Stop Live Watch Heart Rate Stream (0x05 / 0x23 = 00)</option>
             <option value="0x02|0x1b|">🔋 Query Watch Battery % (0x02 / 0x1B -> Replies 0x1C)</option>
             <option value="0x02|0x7d|01">📐 Query Watch 360x360 GUI Info (0x02 / 0x7D [01] -> Replies 0x7E)</option>
             <option value="0x02|0xae|01">💾 Query Watch Flash Space (0x02 / 0xAE [01] -> Replies 0xAF)</option>
@@ -1411,6 +1413,17 @@ async function checkReassemblyComplete() {
     log(`🚀 L2 RESPONSE: Cmd=0x${cmdId.toString(16).padStart(2,'0')}, Key=0x${keyId.toString(16).padStart(2,'0')}, Val=[${valHex}]`, 'ok');
   }
 
+  if (cmdId === 0x05 && keyId === 0x24 && valBytes.length >= 6) {
+    const liveBpm = valBytes[5];
+    if (liveBpm > 30 && liveBpm < 220) {
+      sensors.hr = liveBpm;
+      document.getElementById('simHr').value = liveBpm;
+      document.getElementById('valHr').textContent = liveBpm;
+    }
+    log(`❤️ Watch Live Sensor Stream (0x05/0x24): BPM=${liveBpm} | Raw=[${valHex}]`, 'ok');
+    return;
+  }
+
   if (cmdId === 0x02 && keyId === 0x1c && valBytes.length >= 3) {
     const charging = valBytes[0] !== 0, bars = valBytes[1], pct = Math.min(100, Math.max(0, valBytes[2]));
     sensors.battery = pct;
@@ -1521,6 +1534,7 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
       tests.push({ cmd: 0x03, key: k, val: [0x01], note: `Cmd03_Key0x${k.toString(16).padStart(2,'0')}_1B` });
     }
     for (let k = 0x09; k <= 0x40; k++) {
+      if (k === 0x23) continue;
       tests.push({ cmd: 0x05, key: k, val: [0x01], note: `Cmd05_Key0x${k.toString(16).padStart(2,'0')}_1B` });
     }
   }
@@ -1633,6 +1647,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
