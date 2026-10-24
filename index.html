@@ -404,10 +404,9 @@
       <div class="field-row">
         <label>Probe / Flash Scope</label>
         <select id="probeScopeSelect" style="width:205px">
-          <option value="deep_cmd01_probe" selected>1. Deep Probe 0x01/01 & 0x01/03 (Find 0x00 OK)</option>
-          <option value="cmd02_gap_7f_cf">2. Cmd 0x02 Gap (0x7F..0xAC & 0xBB..0xCF Safe)</option>
-          <option value="cmd06_to_12_scan">3. Scan Cmd 0x06, 0x09, 0x0A..0x12 (Safe)</option>
-          <option value="group2_dial_keys">4. Re-test 0x7C / 0xAD / 0xB0..0xBA</option>
+          <option value="paired_0101_0103_lengths" selected>1. Paired 01/01->01/03 (Lengths 0..64B)</option>
+          <option value="fuzz_53b_sections">2. 53B Section Fuzz on 01/01->01/03</option>
+          <option value="dial_02_82_98_a4_b0">3. Test New 0x02 Keys (80/82/98/A4/B0/DA/E0/E8)</option>
         </select>
       </div>
       <div class="field-row">
@@ -1840,69 +1839,59 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
   const sz120kLE = [0xc0, 0xd4, 0x01, 0x00];
   const sz120kBE = [0x00, 0x01, 0xd4, 0xc0];
 
-  log(`Starting Surgical Upload-Mode Discovery (Scope=${scope})...`, 'ok');
+  log(`Starting Paired OTA & Dial Trigger Discovery (Scope=${scope})...`, 'ok');
   log(`👀 Watch your HT37 screen for the White Up-Arrow + 0% Upload screen!`, 'warn');
 
   const tests = [];
 
-  if (scope === 'deep_cmd01_probe') {
-    // Part A: Why did 0x01/0x03 return [02] for 2B and [01] for 7B?
-    // Test 0x01/0x03 with lengths 0B, 1B, 2B, 3B, 4B, 5B, 6B, 8B, 9B, 10B, 12B, 16B, 20B, 53B
-    for (const b0 of [0x00, 0x01, 0x02, 0x03, 0x04, 0x20, 0xff]) {
-      tests.push({ cmd: 0x01, key: 0x03, val: [b0], note: `P1_01/03_1B_[0x${b0.toString(16)}]` });
-    }
-    tests.push({ cmd: 0x01, key: 0x03, val: [], note: 'P1_01/03_0B_Empty' });
-    for (const len of [3, 4, 5, 6, 8, 9, 10, 11, 12, 14, 16, 20, 32]) {
-      const arr = new Array(len).fill(0x00);
-      arr[0] = 0x01;
-      if (len >= 5) { arr[1] = sz120kBE[0]; arr[2] = sz120kBE[1]; arr[3] = sz120kBE[2]; arr[4] = sz120kBE[3]; }
-      tests.push({ cmd: 0x01, key: 0x03, val: arr, note: `P1_01/03_Len${len}B` });
-    }
-
-    // Part B: Bump each 2-byte field inside the 53-byte DeviceInfo on 0x01/0x01 to see which field makes 0x01/0x02 != [00 00]!
-    const offsetsToBump = [0, 2, 6, 8, 10, 12, 14, 16, 24, 26, 28, 30, 41, 43, 45, 48, 50];
-    for (const off of offsetsToBump) {
-      const mod53 = [...watchDeviceInfo53B];
-      mod53[off] = (mod53[off] + 1) & 0xff;
-      if (off + 1 < mod53.length) mod53[off + 1] = (mod53[off + 1] + 1) & 0xff;
-      tests.push({ cmd: 0x01, key: 0x01, val: mod53, note: `P1_01/01_53B_BumpOff_${off}` });
-    }
-    // Also test 53B with ALL version fields bumped at once + followed immediately by 0x01/0x03:
-    const allBumped53 = [...watchDeviceInfo53B];
-    allBumped53[0] = 0x01; allBumped53[1] = 0x01;
-    allBumped53[6] = 0x0c; allBumped53[8] = 0x0c;
-    allBumped53[12] = 0x28; allBumped53[26] = 0x02;
-    allBumped53[41] = 0x47; allBumped53[43] = 0x22;
-    tests.push({ cmd: 0x01, key: 0x01, val: allBumped53, note: 'P1_01/01_53B_AllVersionsBumped' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x00, 0x00], note: 'P1_01/03_AfterAllBumped_2B' });
-    tests.push({ cmd: 0x01, key: 0x03, val: allBumped53,  note: 'P1_01/03_With53B_Header' });
-  }
-
-  if (scope === 'cmd02_gap_7f_cf') {
-    // Scan the gap between 0x7E (360x360 GUI Info) and 0xAF (536KB Flash Space), plus 0xBB..0xCF!
-    // (Skip 0x88 which is blocked by safety firewall)
-    for (let k = 0x7f; k <= 0xac; k++) {
-      if (k === 0x88) continue;
-      tests.push({ cmd: 0x02, key: k, val: [0x01], note: `G2Gap_02/0x${k.toString(16).toUpperCase()}_[01]` });
-    }
-    for (let k = 0xbb; k <= 0xcf; k++) {
-      if (k === 0xc8) continue;
-      tests.push({ cmd: 0x02, key: k, val: [0x01], note: `G2Gap_02/0x${k.toString(16).toUpperCase()}_[01]` });
-    }
-  }
-
-  if (scope === 'cmd06_to_12_scan') {
-    // Scan CmdId = 0x06, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10 (Keys 0x01..0x08)
-    for (const c of [0x06, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10]) {
-      for (let k = 0x01; k <= 0x08; k++) {
-        tests.push({ cmd: c, key: k, val: [0x01], note: `Cmd0x${c.toString(16).padStart(2,'0')}_Key0x0${k}_[01]` });
+  if (scope === 'paired_0101_0103_lengths') {
+    // Test 0x01/0x01 across all candidate lengths (0B..64B), each immediately followed by 0x01/0x03!
+    const lengths = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 54, 56, 60, 64];
+    for (const len of lengths) {
+      const v01 = new Array(len).fill(0x01);
+      if (len >= 6) {
+        // Put project ID 85 45 at bytes 4..5 if long enough
+        v01[4] = 0x85; v01[5] = 0x45;
       }
+      tests.push({ cmd: 0x01, key: 0x01, val: v01, note: `LenTest_01/01_${len}B` });
+      // Pair with 0x01/0x03 of same length (or 4B/8B)
+      const v03 = len > 0 ? v01 : [0x01];
+      tests.push({ cmd: 0x01, key: 0x03, val: v03, note: `LenTest_01/03_${v03.length}B` });
     }
   }
 
-  if (scope === 'group2_dial_keys') {
-    tests.push({ cmd: 0x02, key: 0x7c, val: [0x03, 0x01, 0x01, 0x68, 0x01, 0x68, 0x00], note: 'G2_02/7C_Exact7E_7B' });
-    tests.push({ cmd: 0x02, key: 0xad, val: [0x00, 0x00, 0x08, 0x26, ...sz120kBE],      note: 'G2_02/AD_Id0826_Size120kBE(8B)' });
+  if (scope === 'fuzz_53b_sections') {
+    // Keep Project/MAC intact or vary each section of the 53B DeviceInfo with 0xFF / +1, paired with 0x01/0x03
+    for (let i = 0; i < 53; i++) {
+      const b53 = [...watchDeviceInfo53B];
+      b53[i] = (b53[i] + 1) & 0xff;
+      tests.push({ cmd: 0x01, key: 0x01, val: b53, note: `ByteBump53B_Idx${i}_(0x${watchDeviceInfo53B[i].toString(16)}->0x${b53[i].toString(16)})` });
+    }
+    // Also test 53B with 0xFF in all zero bytes, and 53B with endian-swapped versions:
+    const ffZeros = watchDeviceInfo53B.map(b => b === 0x00 ? 0x01 : b);
+    tests.push({ cmd: 0x01, key: 0x01, val: ffZeros, note: 'ByteBump53B_AllZerosTo01' });
+    tests.push({ cmd: 0x01, key: 0x03, val: [0x01, 0x00], note: 'StartAfter_AllZerosTo01' });
+
+    const maxVer = [...watchDeviceInfo53B];
+    for (const idx of [0,1,2,3, 6,7, 8,9, 10,11, 12,13, 26,27, 43,44]) maxVer[idx] = 0xff;
+    tests.push({ cmd: 0x01, key: 0x01, val: maxVer, note: 'ByteBump53B_MaxVersionsFF' });
+    tests.push({ cmd: 0x01, key: 0x03, val: [0xff, 0xff], note: 'StartAfter_MaxVersionsFF' });
+  }
+
+  if (scope === 'dial_02_82_98_a4_b0') {
+    // Test the Write counterparts to the new Read/Reply keys we just found in Group 3 & Gap Scan:
+    // 0x80->0x81 (Write=0x7F?), 0x82->0x83, 0x99->0x9A (Write=0x98), 0xA5->0xA6 (Write=0xA4),
+    // 0xB0->0xB7, 0xDB->0xDC (Write=0xDA), 0xE1->0xE2 (Write=0xE0), 0xE9->0xEA (Write=0xE8)
+    tests.push({ cmd: 0x02, key: 0xa4, val: [0x00], note: 'TestWrite_02/A4_[00]' });
+    tests.push({ cmd: 0x02, key: 0xa4, val: [0x01], note: 'TestWrite_02/A4_[01]' });
+    tests.push({ cmd: 0x02, key: 0xa4, val: [0x02], note: 'TestWrite_02/A4_[02]' });
+    tests.push({ cmd: 0x02, key: 0xa4, val: [0x04], note: 'TestWrite_02/A4_[04]' });
+    tests.push({ cmd: 0x02, key: 0xa5, val: [0x01], note: 'VerifyRead_02/A5' });
+
+    tests.push({ cmd: 0x02, key: 0xe0, val: [0x01, 0x00, 0x08, 0x26, ...sz120kBE], note: 'TestWrite_02/E0_DialId_Size' });
+    tests.push({ cmd: 0x02, key: 0xe8, val: [0xff, 0xfd, 0x01], note: 'TestWrite_02/E8_[FF,FD,01]' });
+    tests.push({ cmd: 0x02, key: 0xb0, val: [0x01, 0x02, 0x00, ...sz120kBE], note: 'TestWrite_02/B0_7B_Slot1_SizeBE' });
+    tests.push({ cmd: 0x02, key: 0xb0, val: [0x00, 0x08, 0x26, ...sz120kBE], note: 'TestWrite_02/B0_7B_Id0826_SizeBE' });
   }
 
   for (let i = 0; i < tests.length; i++) {
@@ -1911,8 +1900,8 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
     otaLastResponse = null;
     const { frame, seq } = buildFitCloudFrame(t.cmd, t.key, t.val, 0x00);
     await enqueueBleWrite(cmdChar, frame, `${t.note} seq=${seq}`);
-    await waitForAck(seq, 300);
-    const resp = await waitForL2Response(220);
+    await waitForAck(seq, 320);
+    const resp = await waitForL2Response(260);
     if (resp) {
       log(`🎯 L2 REPLY on ${t.note}: Cmd=0x${resp.cmdId?.toString(16).padStart(2,'0')}, Key=0x${resp.keyId?.toString(16).padStart(2,'0')}, Val=[${resp.valHex}]`, 'ok');
     }
@@ -2007,6 +1996,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
