@@ -1371,7 +1371,7 @@ function isDangerousResetFrame(frame) {
     if (cmd === 0x02 && key === 0x65) return `Blocked Restart/Unbind key (0x02/0x65)`;
     if (!allowUploadTriggerTest) {
       if (cmd === 0x02 && key === 0x88) return `Blocked 0x02/0x88`;
-      if (cmd === 0x07) return `Blocked Cmd 0x07`;
+      if (cmd === 0x07 && key !== 0x03) return `Blocked Cmd 0x07 (Non-Media)`;
     }
   }
   return null;
