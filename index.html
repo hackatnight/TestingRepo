@@ -58,15 +58,15 @@
   .ht37-btn { position:absolute; top:50%; left:50%; width:38px; height:14px; margin-left:-19px; margin-top:-7px; background:linear-gradient(to top,#0c1017 0%,#1e2636 60%,#2c374d 100%); border:1px solid #38465c; border-bottom:2px solid #000; border-radius:4px 4px 1px 1px; z-index:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:filter 0.15s; box-shadow:0 2px 6px rgba(0,0,0,0.7); }
     .ht37-btn:hover { filter:brightness(1.3); }
     .ht37-btn:active { filter:brightness(0.85); transform:scale(0.96); }
-    .ht37-btn-label { position:absolute; top:18px; left:50%; font-family:var(--font-mono); font-size:8.5px; font-weight:700; letter-spacing:0.5px; white-space:nowrap; pointer-events:none; text-shadow:0 1px 3px #000; z-index:2; }
+    .ht37-btn-label { position:absolute; top:17px; left:50%; font-family:var(--font-mono); font-size:8px; font-weight:700; letter-spacing:0.6px; white-space:nowrap; pointer-events:none; text-shadow:0 1px 3px #000; z-index:2; }
     .ht37-btn.top-left { transform:rotate(-55deg) translateY(-210px); border-top:3px solid #00e5ff; }
-    .ht37-btn.top-left .ht37-btn-label { transform:translateX(-50%) rotate(55deg); color:#00e5ff; }
+    .ht37-btn.top-left .ht37-btn-label { transform:translateX(-50%); color:#00e5ff; }
     .ht37-btn.top-right { transform:rotate(55deg) translateY(-210px); border-top:3px solid #ff5252; }
-    .ht37-btn.top-right .ht37-btn-label { transform:translateX(-50%) rotate(-55deg); color:#ff8a80; }
+    .ht37-btn.top-right .ht37-btn-label { transform:translateX(-50%); color:#ff8a80; }
     .ht37-btn.bot-left { transform:rotate(-125deg) translateY(-210px); border-top:3px solid #00e676; }
-    .ht37-btn.bot-left .ht37-btn-label { transform:translateX(-50%) rotate(125deg); color:#00e676; }
+    .ht37-btn.bot-left .ht37-btn-label { transform:translateX(-50%) rotate(180deg); color:#00e676; }
     .ht37-btn.bot-right { transform:rotate(125deg) translateY(-210px); border-top:3px solid var(--warn); }
-    .ht37-btn.bot-right .ht37-btn-label { transform:translateX(-50%) rotate(-125deg); color:var(--warn); }
+    .ht37-btn.bot-right .ht37-btn-label { transform:translateX(-50%) rotate(180deg); color:var(--warn); }
   canvas#watchCanvas { background:transparent; border-radius:50%; cursor:grab; box-shadow:inset 0 0 12px rgba(0,0,0,0.9); transition:border-radius 0.25s; }
   .watch-chassis.rect-shape canvas#watchCanvas { border-radius:36px; }
   canvas#watchCanvas:active { cursor:grabbing; }
