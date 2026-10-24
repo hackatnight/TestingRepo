@@ -135,40 +135,7 @@
     .hex-inspector { border-left:none; border-top:1px solid var(--panel-border); height:auto; }
     input[type="text"], input[type="number"], select { max-width:62vw; }
   }
-    /* --- COMPACT WIDGET BUTTONS & SLIM BAR SLIDERS --- */
-    [id*="Widget"] button, [id*="widget"] button, .widget-layer-btn {
-      padding: 3px 6px !important;
-      font-size: 10px !important;
-      min-height: 22px !important;
-    }
-    input[type="range"] {
-      -webkit-appearance: none !important;
-      appearance: none !important;
-      height: 4px !important;
-      background: rgba(255, 255, 255, 0.18) !important;
-      border-radius: 2px !important;
-      outline: none !important;
-      margin: 5px 0 !important;
-    }
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none !important;
-      appearance: none !important;
-      width: 6px !important;
-      height: 14px !important;
-      border-radius: 1px !important;
-      background: var(--accent, #00e5ff) !important;
-      cursor: pointer !important;
-      box-shadow: 0 0 3px rgba(0, 229, 255, 0.6) !important;
-    }
-    input[type="range"]::-moz-range-thumb {
-      width: 6px !important;
-      height: 14px !important;
-      border-radius: 1px !important;
-      background: var(--accent, #00e5ff) !important;
-      cursor: pointer !important;
-      border: none !important;
-    }
-  </style>
+</style>
 </head>
 <body>
 
@@ -192,11 +159,11 @@
 
 <div class="workspace">
   <div class="panel">
-    <div class="section-title collapsible collapsed" onclick="toggleSectionCollapse(this, 'secAddWidgetBody')">
-      <span>1. Add Widget Layer <span class="caret">▸</span></span>
+    <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'secAddWidgetBody')">
+      <span>1. Add Widget Layer <span class="caret">▾</span></span>
       <span style="font-size:10px;color:var(--accent)">Click to Toggle</span>
     </div>
-    <div class="section-body collapsed" id="secAddWidgetBody" style="display:none;">
+    <div class="section-body" id="secAddWidgetBody">
       <div class="widget-grid">
         <div class="widget-card" onclick="addWidget('compass')"><div class="w-top"><span class="w-icon">🧭</span><span class="w-add-badge">+ LAYER</span></div><span class="w-name">Live Compass</span><span class="w-desc">Rotating Rose + Deg</span></div>
         <div class="widget-card" onclick="addWidget('heartrate')"><div class="w-top"><span class="w-icon">❤️</span><span class="w-add-badge">+ LAYER</span></div><span class="w-name">Heart Rate PPG</span><span class="w-desc">Live BPM + ECG Graph</span></div>
@@ -212,12 +179,47 @@
       </div>
     </div>
 
-    <div class="section-title collapsible collapsed" onclick="toggleSectionCollapse(this, 'secScreenBgBody')">
-      <span>2. Watch Screen & Background Layer <span class="caret">▸</span></span>
+    <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'secScreenBgBody')">
+      <span>2. Watch Screen & Background Layer <span class="caret">▾</span></span>
       <span style="font-size:9px;color:var(--text-muted)">Toggle</span>
     </div>
     <div class="section-body" id="secScreenBgBody">
-      
+      <div class="field-row">
+        <label>LCD Resolution</label>
+        <select id="lcdPreset" onchange="updateScreenPreset()">
+          <option value="360x360x0" selected>360×360 Circle (HT37)</option>
+          <option value="454x454x0">454×454 Circle (AMOLED)</option>
+          <option value="466x466x0">466×466 Circle (HD)</option>
+          <option value="240x240x0">240×240 Circle</option>
+          <option value="240x284x1">240×284 Rectangle</option>
+          <option value="320x385x1">320×385 Rectangle</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label>Background Style</label>
+        <select id="bgPreset" onchange="updateBgTheme()">
+          <option value="tactical">Tactical Radar Grid</option>
+          <option value="cyber">Cyberpunk Carbon</option>
+          <option value="deepblue">Abyssal Diver</option>
+          <option value="oled">Pure OLED Black</option>
+          <option value="image">Custom Image Upload</option>
+        </select>
+      </div>
+      <div class="field-row"><label>Upload BG Image</label><input type="file" id="bgFileInput" accept="image/*" style="width:155px;font-size:11px" /></div>
+      <div class="field-row"><label>BG Image Control</label><button id="btnDeleteBg" class="danger" onclick="deleteBackgroundImage()" disabled style="width:155px;justify-content:center;">🗑️ Delete BG Image</button></div>
+      <div class="field-row">
+        <label>Watchface (02/70)</label>
+        <div style="display:flex;gap:4px">
+          <select id="dialSlotSelect" onchange="activateWatchDialSlot()" style="width:105px">
+            <option value="0">Watchface 0</option>
+            <option value="1" selected>Watchface 1</option>
+            <option value="2">Watchface 2</option>
+            <option value="3">Watchface 3</option>
+            <option value="4">Watchface 4</option>
+            <option value="5">Watchface 5</option>
+          </select>
+          <button class="primary" onclick="activateWatchDialSlot()" title="Verified Cmd=0x02, Key=0x70: Switch active watchface on watch">🎨 Switch</button>
+        </div>
       </div>
       <div class="alert-grid" style="grid-template-columns:repeat(6,1fr);gap:2px;">
         <button onclick="switchWatchfaceByIndex(0)" style="font-size:9px;padding:3px 2px;">⌚ WF 0</button>
@@ -260,7 +262,13 @@
           <option value="UNKNOWN">❓ 0x00 - Unknown</option>
         </select>
       </div>
-      
+      <div style="border-top:1px solid var(--panel-border);padding-top:4px;margin-top:2px;display:flex;flex-direction:column;gap:3px;">
+        <div class="field-row">
+          <label>🌡️ Cur/Min/Max °C</label>
+          <div style="display:flex;gap:3px;width:150px;">
+            <input type="number" id="liveTempCur" value="22" style="width:48px;font-size:10px;padding:2px 4px;" title="Current Temp °C" oninput="sensors.weatherTemp=Number(this.value);document.getElementById('simWeatherTemp').value=this.value;document.getElementById('valWeatherTemp').textContent=this.value;updateLiveSensorReadout();" />
+            <input type="number" id="liveTempMin" value="16" style="width:48px;font-size:10px;padding:2px 4px;" title="Min Temp °C" oninput="updateLiveSensorReadout();" />
+            <input type="number" id="liveTempMax" value="26" style="width:48px;font-size:10px;padding:2px 4px;" title="Max Temp °C" oninput="updateLiveSensorReadout();" />
           </div>
         </div>
         <div class="field-row">
@@ -454,7 +462,6 @@
           <button class="warn send-sm" onclick="sendCustomRawL2()" title="Send Custom L2 Command" style="background:rgba(255,171,0,0.22);border:1px solid var(--warn);color:var(--success);font-size:13px;padding:3px 9px;line-height:1;">▶</button>
         </div>
       </div>
-      </div>
     </div>
 
     <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'secDfuEngineBody')">
@@ -527,8 +534,8 @@
       <div id="layerList" class="layer-list"></div>
     </div>
 
-    <div class="section-title collapsible collapsed" onclick="toggleSectionCollapse(this, 'inspectorBody')">
-      <span>Selected Layer Inspector <span class="caret">▸</span></span>
+    <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'inspectorBody')">
+      <span>Selected Layer Inspector <span class="caret">▾</span></span>
       <span id="selWidgetTag" style="color:var(--accent);font-family:var(--font-mono)">NONE</span>
     </div>
     <div class="section-body" id="inspectorBody">
@@ -1428,7 +1435,7 @@ async function enableAllWatchAlerts() {
   await enqueueBleWrite(cmdChar, r.frame, `VerifyConfig(0x02/0x20) seq=${r.seq}`);
 }
 
-  async function sendWatchAlert(keyId, label) {
+async function sendWatchAlert(keyId, label) {
   if (!cmdChar || !bleServer || !bleServer.connected) {
     return log('ERROR: Pair & Bind to the watch first!', 'err');
   }
