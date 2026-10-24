@@ -462,6 +462,88 @@
           <button class="warn send-sm" onclick="sendCustomRawL2()" title="Send Custom L2 Command" style="background:rgba(255,171,0,0.22);border:1px solid var(--warn);color:var(--success);font-size:13px;padding:3px 9px;line-height:1;">▶</button>
         </div>
       </div>
+      <!-- ======================================================= -->
+      <!-- 🔬 HT37 COMMAND & KEY DISCOVERY LAB (EXPANDABLE)      -->
+      <!-- ======================================================= -->
+      <div class="section-card" id="secDiscoveryLab" style="margin-top:12px;border:1px solid rgba(0,229,255,0.3);box-shadow:0 0 15px rgba(0,229,255,0.08);">
+        <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'secDiscoveryBody')" style="background:rgba(0,229,255,0.06);">
+          <span>🔬 Command & Key Discovery Lab <span class="caret">▾</span></span>
+          <span style="font-size:9px;background:var(--accent,#00e5ff);color:#000;padding:2px 6px;border-radius:3px;font-weight:bold;font-family:var(--font-mono)">REVERSE ENG</span>
+        </div>
+        <div class="section-body" id="secDiscoveryBody" style="padding:10px;">
+          <!-- Single Key Probe -->
+          <div style="font-size:11px;font-weight:600;color:var(--accent,#00e5ff);margin-bottom:6px;display:flex;justify-content:space-between;">
+            <span>⚡ Interactive Single Probe</span>
+            <span style="font-size:9px;color:var(--text-dim,#888)">Probe Cmd + Key & inspect live RX</span>
+          </div>
+          <div class="field-row" style="gap:4px;display:flex;align-items:center;">
+            <select id="probeCmdType" style="width:110px;font-size:10px;padding:3px 4px;">
+              <option value="0x01" selected>0x01 (GET / Query)</option>
+              <option value="0x02">0x02 (SET / Action)</option>
+              <option value="0x04">0x04 (ALERT / Notice)</option>
+            </select>
+            <input type="text" id="probeKeyHex" value="0x30" placeholder="Key (e.g. 0x30)" style="width:75px;font-size:11px;font-family:var(--font-mono);padding:3px 5px;" />
+            <input type="text" id="probePayloadHex" value="" placeholder="Optional Payload (e.g. 01 00)" style="flex:1;min-width:70px;font-size:11px;font-family:var(--font-mono);padding:3px 5px;" />
+            <button class="primary" onclick="triggerManualKeyProbe()" style="padding:4px 9px;font-size:10px;">🎯 Probe</button>
+          </div>
+
+          <!-- Automated Scanner -->
+          <div style="font-size:11px;font-weight:600;color:var(--accent,#00e5ff);margin:10px 0 6px 0;display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px;">
+            <span>📡 Automated Key Range Scanner</span>
+            <label style="font-size:10px;color:var(--warn,#ffd600);cursor:pointer;display:flex;align-items:center;gap:4px;">
+              <input type="checkbox" id="scanSafeMode" checked /> Safe Mode (Skip 0x40/0x98)
+            </label>
+          </div>
+          <div class="field-row" style="gap:4px;display:flex;align-items:center;flex-wrap:wrap;">
+            <label style="font-size:10px;">Cmd:</label>
+            <select id="scannerCmdType" style="width:105px;font-size:10px;padding:3px 4px;">
+              <option value="0x01" selected>0x01 (Safe Query)</option>
+              <option value="0x02">0x02 (Set / Action)</option>
+              <option value="0x04">0x04 (Notify / Alert)</option>
+            </select>
+            <label style="font-size:10px;margin-left:4px;">From:</label>
+            <input type="text" id="scanRangeStart" value="0x00" style="width:48px;font-size:10px;font-family:var(--font-mono);padding:2px 4px;" />
+            <label style="font-size:10px;">To:</label>
+            <input type="text" id="scanRangeEnd" value="0x45" style="width:48px;font-size:10px;font-family:var(--font-mono);padding:2px 4px;" />
+            <label style="font-size:10px;">Delay:</label>
+            <input type="number" id="scanStepDelay" value="350" min="150" step="50" style="width:52px;font-size:10px;padding:2px 4px;" title="Milliseconds between probe frames" />
+            <span style="font-size:9px;color:var(--text-dim,#888)">ms</span>
+
+            <button id="btnStartScan" class="warn" onclick="startAutomatedKeyScan()" style="padding:4px 10px;font-size:10px;margin-left:auto;">▶️ Start Scan</button>
+            <button id="btnStopScan" class="danger" onclick="stopAutomatedKeyScan()" style="padding:4px 8px;font-size:10px;display:none;">⏹️ Stop</button>
+          </div>
+
+          <!-- Progress Bar & Status -->
+          <div id="scanStatusBar" style="display:none;margin-top:6px;background:rgba(0,0,0,0.3);border-radius:3px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);">
+            <div id="scanProgressBar" style="width:0%;height:4px;background:var(--accent,#00e5ff);transition:width 0.2s"></div>
+            <div id="scanStatusText" style="padding:4px 6px;font-size:9px;font-family:var(--font-mono);color:var(--text-dim,#aaa);">Idle</div>
+          </div>
+
+          <!-- Discovered Responsive Keys Log Table -->
+          <div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.07);padding-top:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:10px;font-weight:600;color:var(--text,#ddd)">Discovered Responsive Keys (<span id="countDiscoveredKeys">0</span>)</span>
+              <button onclick="clearDiscoveryTable()" style="font-size:9px;padding:2px 6px;background:transparent;border:1px solid rgba(255,255,255,0.2);">Clear</button>
+            </div>
+            <div style="max-height:160px;overflow-y:auto;background:rgba(0,0,0,0.4);border-radius:4px;border:1px solid rgba(255,255,255,0.06);padding:2px;">
+              <table style="width:100%;font-size:9px;border-collapse:collapse;font-family:var(--font-mono);" id="tblDiscoveryResults">
+                <thead>
+                  <tr style="color:var(--text-dim,#888);border-bottom:1px solid rgba(255,255,255,0.1);text-align:left;">
+                    <th style="padding:3px 4px;">Cmd</th>
+                    <th style="padding:3px 4px;">Key</th>
+                    <th style="padding:3px 4px;">Status</th>
+                    <th style="padding:3px 4px;">Latency</th>
+                    <th style="padding:3px 4px;">RX Response</th>
+                  </tr>
+                </thead>
+                <tbody id="bodyDiscoveryResults">
+                  <tr><td colspan="5" style="text-align:center;padding:10px;color:var(--text-dim,#666);">No scan results yet. Run a probe or scan above.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'secDfuEngineBody')">
@@ -1435,7 +1517,214 @@ async function enableAllWatchAlerts() {
   await enqueueBleWrite(cmdChar, r.frame, `VerifyConfig(0x02/0x20) seq=${r.seq}`);
 }
 
-async function sendWatchAlert(keyId, label) {
+  // ===============================================================
+  // 📋 HT37 MASTER COMMAND REGISTRY
+  // Centralized dictionary for all known and probeable watch opcodes
+  // ===============================================================
+  const HT37_COMMAND_REGISTRY = [
+    // --- SYSTEM & CLOCK (Cmd: 0x02) ---
+    { id: 'SYNC_TIME',       cmd: 0x02, key: 0x01, name: 'Sync Time (6B)',         cat: 'system', isSafe: true,  desc: 'Sets watch RTC clock and resets midnight step counter' },
+    { id: 'ENABLE_ALERTS',   cmd: 0x02, key: 0x12, name: 'Master Alert Whitelist', cat: 'system', isSafe: true,  desc: 'Writes [FF FF FF FF] mask so all notifications display' },
+    { id: 'SET_UNITS_24H',   cmd: 0x02, key: 0x18, name: '24H + °C Units',         cat: 'system', isSafe: true,  desc: 'Function switch bank 0x03=0xEB' },
+    { id: 'SET_UNITS_12H',   cmd: 0x02, key: 0x18, name: '12H + °C Units',         cat: 'system', isSafe: true,  desc: 'Function switch bank 0x03=0xEF' },
+    { id: 'WEATHER_PUSH',    cmd: 0x02, key: 0x36, name: 'Weather Push (7B)',      cat: 'system', isSafe: true,  desc: 'Pushes sky code and temperatures to complications' },
+    { id: 'FIND_WATCH',      cmd: 0x02, key: 0x3B, name: 'Find Watch Chime',       cat: 'action', isSafe: true,  desc: 'Fires speaker chime and lights display [01]' },
+    { id: 'SWITCH_DIAL',     cmd: 0x02, key: 0x70, name: 'Switch Dial Slot',       cat: 'dial',   isSafe: true,  desc: 'Swaps active watchface index [slotId]' },
+    { id: 'FACTORY_RESET',   cmd: 0x02, key: 0x40, name: 'Factory Reset',          cat: 'system', isSafe: false, desc: 'Beeps and erases user flash (DANGEROUS)' },
+
+    // --- TELEPHONY & NOTICES (Cmd: 0x04) ---
+    { id: 'CALL_INCOMING',   cmd: 0x04, key: 0x01, name: 'Incoming Call Alert',    cat: 'alert',  isSafe: true,  desc: 'Continuous vibration + caller prompt' },
+    { id: 'CALL_END',        cmd: 0x04, key: 0x02, name: 'End / Dismiss Call',     cat: 'alert',  isSafe: true,  desc: 'Dismisses incoming call vibration' },
+    { id: 'CALL_MUTE',       cmd: 0x04, key: 0x03, name: 'Mute Ringing Call',      cat: 'alert',  isSafe: true,  desc: 'Mutes call vibration without rejecting' },
+    { id: 'SMS_NOTICE',      cmd: 0x04, key: 0x04, name: 'SMS Text Message',       cat: 'alert',  isSafe: true,  desc: 'SMS icon + sender & body struct' },
+    { id: 'QQ_NOTICE',       cmd: 0x04, key: 0x05, name: 'QQ Messenger Notice',    cat: 'alert',  isSafe: true,  desc: 'QQ icon notification' },
+    { id: 'WECHAT_NOTICE',   cmd: 0x04, key: 0x06, name: 'WeChat Notice',          cat: 'alert',  isSafe: true,  desc: 'WeChat green icon notification' },
+    { id: 'FACEBOOK_NOTICE', cmd: 0x04, key: 0x07, name: 'Facebook Notice',        cat: 'alert',  isSafe: true,  desc: 'Facebook blue icon notification' },
+    { id: 'TWITTER_NOTICE',  cmd: 0x04, key: 0x08, name: 'X / Twitter Notice',     cat: 'alert',  isSafe: true,  desc: 'X / Twitter icon notification' },
+    { id: 'LINKEDIN_NOTICE', cmd: 0x04, key: 0x09, name: 'LinkedIn Notice',        cat: 'alert',  isSafe: true,  desc: 'LinkedIn icon notification' },
+    { id: 'INSTA_NOTICE',    cmd: 0x04, key: 0x0A, name: 'Instagram Notice',       cat: 'alert',  isSafe: true,  desc: 'Instagram icon notification' },
+    { id: 'GENERIC_NOTICE',  cmd: 0x04, key: 0x0B, name: 'General App Notice',     cat: 'alert',  isSafe: true,  desc: 'Generic bell notice icon' },
+    { id: 'WHATSAPP_NOTICE', cmd: 0x04, key: 0x0C, name: 'WhatsApp Notice',        cat: 'alert',  isSafe: true,  desc: 'WhatsApp icon notification' },
+    { id: 'LINE_NOTICE',     cmd: 0x04, key: 0x0D, name: 'LINE Notice',            cat: 'alert',  isSafe: true,  desc: 'LINE icon notification' },
+    { id: 'MESSENGER_NOTICE',cmd: 0x04, key: 0x0E, name: 'FB Messenger Notice',    cat: 'alert',  isSafe: true,  desc: 'Messenger icon notification' },
+    { id: 'KAKAO_NOTICE',    cmd: 0x04, key: 0x0F, name: 'KakaoTalk Notice',       cat: 'alert',  isSafe: true,  desc: 'KakaoTalk icon notification' },
+    { id: 'SKYPE_NOTICE',    cmd: 0x04, key: 0x10, name: 'Skype Notice',           cat: 'alert',  isSafe: true,  desc: 'Skype icon notification' },
+    { id: 'EMAIL_NOTICE',    cmd: 0x04, key: 0x11, name: 'Email Notice',           cat: 'alert',  isSafe: true,  desc: 'Email letter envelope icon' },
+    { id: 'TELEGRAM_NOTICE', cmd: 0x04, key: 0x12, name: 'Telegram Notice',        cat: 'alert',  isSafe: true,  desc: 'Telegram paper airplane icon' },
+    { id: 'VIBER_NOTICE',    cmd: 0x04, key: 0x13, name: 'Viber Notice',           cat: 'alert',  isSafe: true,  desc: 'Viber purple phone icon' },
+    { id: 'SNAPCHAT_NOTICE', cmd: 0x04, key: 0x15, name: 'Snapchat Notice',        cat: 'alert',  isSafe: true,  desc: 'Snapchat ghost icon' },
+
+    // --- CANDIDATE QUERY COMMANDS (Cmd: 0x01) ---
+    { id: 'QUERY_TIME',      cmd: 0x01, key: 0x01, name: 'Query Clock / Model',    cat: 'query',  isSafe: true,  desc: 'Queries watch clock / device specs' },
+    { id: 'QUERY_ALARMS',    cmd: 0x01, key: 0x02, name: 'Query Stored Alarms',    cat: 'query',  isSafe: true,  desc: 'Reads scheduled alarm clock slots' },
+    { id: 'QUERY_STEP_GOAL', cmd: 0x01, key: 0x03, name: 'Query Step Target',      cat: 'query',  isSafe: true,  desc: 'Queries 4-byte daily step goal' },
+    { id: 'QUERY_UNITS',     cmd: 0x01, key: 0x18, name: 'Query Unit Settings',    cat: 'query',  isSafe: true,  desc: 'Reads current unit switch bank' },
+    { id: 'QUERY_BATTERY',   cmd: 0x01, key: 0x30, name: 'Query Battery Level',    cat: 'query',  isSafe: true,  desc: 'Reads watch battery percent and charging flag' }
+  ];
+
+  // --- DISCOVERY PROBER & SCANNER ENGINE ---
+  let isDiscoveryScanning = false;
+  let discoveredKeysCount = 0;
+  let lastDiscoveryRxEvent = null;
+
+  function clearDiscoveryTable() {
+    const tbody = document.getElementById('bodyDiscoveryResults');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:10px;color:var(--text-dim,#666);">Table cleared. Ready for new probe.</td></tr>';
+    discoveredKeysCount = 0;
+    const counter = document.getElementById('countDiscoveredKeys');
+    if (counter) counter.innerText = '0';
+  }
+
+  function appendDiscoveryResult(cmdHex, keyHex, status, latencyMs, rxBytesHex) {
+    const tbody = document.getElementById('bodyDiscoveryResults');
+    if (!tbody) return;
+    if (discoveredKeysCount === 0) tbody.innerHTML = '';
+    discoveredKeysCount++;
+    const counter = document.getElementById('countDiscoveredKeys');
+    if (counter) counter.innerText = discoveredKeysCount.toString();
+
+    const isSuccess = status.includes('ACK') || status.includes('DATA');
+    const color = isSuccess ? '#00e676' : '#ffd600';
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+    tr.innerHTML = `
+      <td style="padding:3px 4px;color:var(--accent,#00e5ff)">${cmdHex}</td>
+      <td style="padding:3px 4px;font-weight:bold;color:#fff">${keyHex}</td>
+      <td style="padding:3px 4px;color:${color}">${status}</td>
+      <td style="padding:3px 4px;color:var(--text-dim,#888)">${latencyMs} ms</td>
+      <td style="padding:3px 4px;font-family:var(--font-mono);color:#fff;word-break:break-all;">${rxBytesHex || '—'}</td>
+    `;
+    tbody.prepend(tr);
+  }
+
+  // Hook to capture response packets during discovery
+  window.registerDiscoveryRxPacket = function(dataArray) {
+    lastDiscoveryRxEvent = {
+      bytes: Array.from(dataArray),
+      time: performance.now()
+    };
+  };
+
+  async function probeWatchKey(cmdByte, keyByte, payload = [], timeoutMs = 400) {
+    if (!cmdChar || !bleServer || !bleServer.connected) {
+      log('ERROR: Pair & Bind to the HT37 first before probing.', 'err');
+      return { success: false, reason: 'NOT_CONNECTED' };
+    }
+
+    lastDiscoveryRxEvent = null;
+    const t0 = performance.now();
+    const { frame, seq } = buildFitCloudFrame(cmdByte, keyByte, payload, 0x00);
+    const cmdHex = '0x' + cmdByte.toString(16).padStart(2,'0').toUpperCase();
+    const keyHex = '0x' + keyByte.toString(16).padStart(2,'0').toUpperCase();
+
+    await enqueueBleWrite(cmdChar, frame, `Probe(${cmdHex}/${keyHex}) seq=${seq}`);
+
+    // Wait for response packet or timeout
+    const pollInterval = 25;
+    let elapsed = 0;
+    while (elapsed < timeoutMs) {
+      if (lastDiscoveryRxEvent) {
+        const latency = Math.round(performance.now() - t0);
+        const rx = lastDiscoveryRxEvent.bytes;
+        const rxHex = rx.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+        return { success: true, latency, rxHex, rxBytes: rx };
+      }
+      await new Promise(r => setTimeout(r, pollInterval));
+      elapsed += pollInterval;
+    }
+
+    return { success: false, latency: Math.round(performance.now() - t0), reason: 'TIMEOUT' };
+  }
+
+  async function triggerManualKeyProbe() {
+    const cmd = parseInt(document.getElementById('probeCmdType').value, 16);
+    const keyStr = document.getElementById('probeKeyHex').value.trim();
+    const key = parseInt(keyStr, 16);
+    if (isNaN(key)) return log('Invalid Key Hex entered', 'err');
+
+    const payloadRaw = document.getElementById('probePayloadHex').value.trim();
+    let payload = [];
+    if (payloadRaw.length > 0) {
+      payload = payloadRaw.split(/[\s,]+/).map(h => parseInt(h, 16)).filter(n => !isNaN(n));
+    }
+
+    const cmdHex = '0x' + cmd.toString(16).padStart(2, '0').toUpperCase();
+    const keyHex = '0x' + key.toString(16).padStart(2, '0').toUpperCase();
+    log(`🔬 Probing [Cmd=${cmdHex}, Key=${keyHex}, Payload=[${payload.map(b=>b.toString(16).padStart(2,'0')).join(' ')}]]...`, 'ok');
+
+    const res = await probeWatchKey(cmd, key, payload, 600);
+    if (res.success) {
+      log(`🎯 Key ${keyHex} RESPONDS! Latency: ${res.latency}ms, RX: [${res.rxHex}]`, 'ok');
+      appendDiscoveryResult(cmdHex, keyHex, '✅ ACK/DATA', res.latency, res.rxHex);
+    } else {
+      log(`⚠️ Key ${keyHex} timed out (No response / silent)`, 'warn');
+      appendDiscoveryResult(cmdHex, keyHex, '❌ Silent', res.latency, 'Timeout (No ACK)');
+    }
+  }
+
+  async function startAutomatedKeyScan() {
+    if (!cmdChar || !bleServer || !bleServer.connected) {
+      return log('ERROR: Connect to watch before starting discovery scanner.', 'err');
+    }
+    const cmd = parseInt(document.getElementById('scannerCmdType').value, 16);
+    const startKey = parseInt(document.getElementById('scanRangeStart').value, 16);
+    const endKey = parseInt(document.getElementById('scanRangeEnd').value, 16);
+    const delay = Math.max(150, parseInt(document.getElementById('scanStepDelay').value) || 350);
+    const safeMode = document.getElementById('scanSafeMode').checked;
+
+    if (isNaN(startKey) || isNaN(endKey) || startKey > endKey) {
+      return log('ERROR: Invalid Scan Range specified.', 'err');
+    }
+
+    isDiscoveryScanning = true;
+    document.getElementById('btnStartScan').style.display = 'none';
+    document.getElementById('btnStopScan').style.display = 'inline-block';
+    const sBar = document.getElementById('scanStatusBar');
+    const pBar = document.getElementById('scanProgressBar');
+    const sTxt = document.getElementById('scanStatusText');
+    sBar.style.display = 'block';
+
+    const total = (endKey - startKey) + 1;
+    let tested = 0;
+    const cmdHex = '0x' + cmd.toString(16).padStart(2, '0').toUpperCase();
+    log(`🚀 Starting Automated Scanner on ${cmdHex} from Key 0x${startKey.toString(16)} to 0x${endKey.toString(16)} (SafeMode=${safeMode})...`, 'ok');
+
+    for (let k = startKey; k <= endKey; k++) {
+      if (!isDiscoveryScanning || abortBleOperation) break;
+
+      // Safe mode filter: skip known dangerous resets or flash wipes
+      if (safeMode && (k === 0x40 || k === 0x98 || k === 0xFF)) {
+        log(`🛡️ SafeMode: Skipped dangerous Key 0x${k.toString(16).padStart(2,'0').toUpperCase()}`, 'warn');
+        tested++;
+        continue;
+      }
+
+      const keyHex = '0x' + k.toString(16).padStart(2, '0').toUpperCase();
+      sTxt.innerText = `Scanning: ${keyHex} (${tested + 1}/${total})...`;
+      pBar.style.width = `${Math.round(((tested + 1) / total) * 100)}%`;
+
+      const res = await probeWatchKey(cmd, k, [], delay);
+      if (res.success) {
+        log(`🌟 FOUND ACTIVE KEY: ${cmdHex} / ${keyHex} responded with [${res.rxHex}]`, 'ok');
+        appendDiscoveryResult(cmdHex, keyHex, '🌟 ACTIVE ACK', res.latency, res.rxHex);
+      }
+      tested++;
+      await new Promise(r => setTimeout(r, 60));
+    }
+
+    stopAutomatedKeyScan();
+    log('🏁 Automated Key Discovery Scan finished.', 'ok');
+  }
+
+  function stopAutomatedKeyScan() {
+    isDiscoveryScanning = false;
+    document.getElementById('btnStartScan').style.display = 'inline-block';
+    document.getElementById('btnStopScan').style.display = 'none';
+    const sTxt = document.getElementById('scanStatusText');
+    if (sTxt) sTxt.innerText = 'Scan Completed / Stopped.';
+  }
+
+  async function sendWatchAlert(keyId, label) {
   if (!cmdChar || !bleServer || !bleServer.connected) {
     return log('ERROR: Pair & Bind to the watch first!', 'err');
   }
