@@ -1385,6 +1385,17 @@ function updateLiveSensorReadout() {
   }
 }
 
+function buildFitCloudTimeBytes() {
+  const now = new Date();
+  const yr = Math.max(0, now.getFullYear() - 2000);
+  const mo = now.getMonth() + 1;
+  const da = now.getDate();
+  const hr = now.getHours();
+  const mi = now.getMinutes();
+  const se = now.getSeconds();
+  return [yr & 0xff, mo & 0xff, da & 0xff, hr & 0xff, mi & 0xff, se & 0xff];
+}
+
 async function pushWeatherToWatch() {
   updateLiveSensorReadout();
   if (!cmdChar || !bleServer || !bleServer.connected) {
@@ -1397,16 +1408,48 @@ async function pushWeatherToWatch() {
   const min = encodeFitCloudTemp(document.getElementById('liveTempMin').value);
   const max = encodeFitCloudTemp(document.getElementById('liveTempMax').value);
 
-  // Pure numeric Weather payload (No text string): [CurTemp, MinTemp, MaxTemp, WeatherCode, 00, 00, 00]
+  // 1. Sync Watch Time (0x02/0x01) so weather timestamp is valid
+  const time6B = buildFitCloudTimeBytes();
+  log(`🕒 Step 1/4: Syncing Watch Time (0x02/0x01 = [${time6B.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ')}])...`, 'tx');
+  const tFrame = buildFitCloudFrame(0x02, 0x01, time6B, 0x00);
+  await enqueueBleWrite(cmdChar, tFrame.frame, `SyncTime_0x01 seq=${tFrame.seq}`);
+  await waitForAck(tFrame.seq, 350);
+
+  // 2. Enable Function/Weather Switch (0x02/0x18 -> TLV 0x1A, and 0x02/0x60 UI config weather toggle)
+  log(`🔓 Step 2/4: Turning ON "Weather Push in APP" Switch (0x02/0x18 = [00 20] & [01 01] & [FF FF])...`, 'ok');
+  for (const swVal of [[0x00, 0x20], [0x20, 0x00], [0x01, 0x00], [0x03, 0xff]]) {
+    const sw = buildFitCloudFrame(0x02, 0x18, swVal, 0x00);
+    await enqueueBleWrite(cmdChar, sw.frame, `EnableWeatherSwitch(0x02/0x18) seq=${sw.seq}`);
+    await waitForAck(sw.seq, 300);
+  }
+
+  // 3. Send Weather Payload variations on 0x02/0x35 (7B Today, 13B Today+Wind/Hum/UV, 19B Today+3Day Forecast)
   const weather7B = [cur, min, max, code, 0x00, 0x00, 0x00];
+  const weather13B = [cur, min, max, code, 0x00, 0x00, 0x00, 0x02, 0x32, 0x05, 0x00, 0x00, 0x00];
+  const weather19B = [
+    cur, min, max, code,
+    min, max, code,
+    min, max, code,
+    min, max, code,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  ];
 
   document.getElementById('rawCmd').value = '0x02';
   document.getElementById('rawKey').value = '0x35';
   document.getElementById('rawPayload').value = weather7B.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
 
-  log(`🌤️ Pushing Numeric Weather to Watch: Cur=${sensors.weatherTemp}°C, Min=${document.getElementById('liveTempMin').value}°C, Max=${document.getElementById('liveTempMax').value}°C, Sky=${sensors.weatherCond} (0x0${code})`, 'ok');
-  const { frame, seq } = buildFitCloudFrame(0x02, 0x35, weather7B, 0x00);
-  await enqueueBleWrite(cmdChar, frame, `WeatherPush_0x35 seq=${seq}`);
+  log(`🌤️ Step 3/4: Pushing Weather Data (Cur=${sensors.weatherTemp}°C, Min=${document.getElementById('liveTempMin').value}°C, Max=${document.getElementById('liveTempMax').value}°C, Sky=${sensors.weatherCond})...`, 'ok');
+  for (const [lbl, pl] of [['Weather7B', weather7B], ['Weather13B', weather13B], ['Weather19B_Forecast', weather19B]]) {
+    const wf = buildFitCloudFrame(0x02, 0x35, pl, 0x00);
+    await enqueueBleWrite(cmdChar, wf.frame, `${lbl}(0x02/0x35) seq=${wf.seq}`);
+    await waitForAck(wf.seq, 350);
+  }
+
+  // 4. Read back AllConfig (0x02/0x20) to verify TLV 0x1A changed from [00 00]
+  log(`🔍 Step 4/4: Reading back Watch Config (0x02/0x20) to check TLV 0x1A...`, 'tx');
+  const rb = buildFitCloudFrame(0x02, 0x20, [0x01], 0x00);
+  await enqueueBleWrite(cmdChar, rb.frame, `VerifyWeatherConfig(0x02/0x20) seq=${rb.seq}`);
+  await waitForAck(rb.seq, 400);
 }
 
 async function activateWatchDialSlot() {
@@ -1532,10 +1575,16 @@ function decodeDeviceConfigTlvs(payload) {
       log(`Parsed Watch DeviceInfo (0x11, ${subVal.length}B): Project=${proj}, FW=v${fwVer}, IC=IC_568X (gui-5681), LCD=360×360 Circle, MAC=${mac}`, 'ok');
     } else if (subKey === 0x14) {
       log(`Parsed Watch Notification Switch Bitmask (0x14): [${subHex}]`, 'ok');
+    } else if (subKey === 0x17) {
+      log(`Parsed Watch Page/Screen Switch (0x17, Write=0x15): [${subHex}]`, 'ok');
+    } else if (subKey === 0x1a) {
+      log(`Parsed Watch Function/Weather Switch (0x1A, Write=0x18): [${subHex}]`, 'ok');
     } else if (subKey === 0x2a) {
       log(`Parsed Watch TLV 0x2A (9B): [${subHex}]`, 'ok');
     } else if (subKey === 0xc9) {
       log(`Parsed Watch Dial Slots (0xC9): ${subHex} (5 slots active)`, 'ok');
+    } else {
+      log(`Parsed Watch Config TLV 0x${subKey.toString(16).padStart(2,'0').toUpperCase()} (${subLen}B): [${subHex}]`, 'rx');
     }
     idx += 2 + subLen;
   }
@@ -1725,6 +1774,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
