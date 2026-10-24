@@ -109,6 +109,15 @@
   .progress-wrap { width:100%; height:10px; background:#1a2232; border-radius:5px; overflow:hidden; display:none; border:1px solid #283347; }
   .progress-bar { height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--success)); transition:width 0.08s; }
   .progress-label { font-size:11px; font-family:var(--font-mono); color:var(--accent); text-align:right; display:none; }
+  .section-title.collapsible { cursor:pointer; user-select:none; }
+  .section-title.collapsible:hover { color:var(--accent); background:#151c2a; }
+  .section-title .caret { font-size:10px; transition:transform 0.18s; display:inline-block; margin-left:5px; color:var(--accent); }
+  .section-title.collapsed .caret { transform:rotate(-90deg); }
+  .section-body.collapsed-body { display:none !important; }
+  .compact-slider-row { display:grid; grid-template-columns:82px 1fr 46px; align-items:center; gap:6px; font-size:10px; height:19px; }
+  .compact-slider-row label { color:var(--text-muted); font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .compact-slider-row input[type="range"] { height:4px; margin:0; cursor:pointer; accent-color:var(--accent); }
+  .compact-slider-val { font-family:var(--font-mono); font-size:10px; color:var(--accent); text-align:right; background:#0e131b; border:1px solid #232d42; border-radius:3px; padding:1px 4px; line-height:1.2; }
 </style>
 </head>
 <body>
@@ -133,11 +142,11 @@
 
 <div class="workspace">
   <div class="panel">
-    <div class="section-title">
-      <span>1. Add Widget Layer</span>
-      <span style="font-size:10px;color:var(--accent)">Click to Add Layer</span>
+    <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'secAddWidgetBody')">
+      <span>1. Add Widget Layer <span class="caret">▾</span></span>
+      <span style="font-size:10px;color:var(--accent)">Click to Toggle</span>
     </div>
-    <div class="section-body">
+    <div class="section-body" id="secAddWidgetBody">
       <div class="widget-grid">
         <div class="widget-card" onclick="addWidget('compass')"><div class="w-top"><span class="w-icon">🧭</span><span class="w-add-badge">+ LAYER</span></div><span class="w-name">Live Compass</span><span class="w-desc">Rotating Rose + Deg</span></div>
         <div class="widget-card" onclick="addWidget('heartrate')"><div class="w-top"><span class="w-icon">❤️</span><span class="w-add-badge">+ LAYER</span></div><span class="w-name">Heart Rate PPG</span><span class="w-desc">Live BPM + ECG Graph</span></div>
@@ -209,12 +218,13 @@
       </div>
     </div>
     <div class="section-body">
-      <div class="field-row"><label>🧭 Heading (<span id="valHeading">42</span>°)</label><input type="range" id="simHeading" min="0" max="359" value="42" /></div>
-      <div class="field-row"><label>❤️ Heart (<span id="valHr">76</span> BPM)</label><input type="range" id="simHr" min="45" max="195" value="76" /></div>
-      <div class="field-row"><label>👟 Steps (<span id="valSteps">6840</span>)</label><input type="range" id="simSteps" min="0" max="15000" value="6840" /></div>
-      <div class="field-row"><label>⛰️ Baro (<span id="valBaro">1013</span> hPa)</label><input type="range" id="simBaro" min="950" max="1050" value="1013" /></div>
-      <div class="field-row"><label>🌤️ Weather (<span id="valWeatherTemp">22</span>°C)</label><input type="range" id="simWeatherTemp" min="-15" max="45" value="22" /></div>
-      <div class="field-row">
+      <div class="compact-slider-row"><label>🧭 Heading</label><input type="range" id="simHeading" min="0" max="359" value="42" /><span class="compact-slider-val"><span id="valHeading">42</span>°</span></div>
+      <div class="compact-slider-row"><label>❤️ Heart BPM</label><input type="range" id="simHr" min="45" max="195" value="76" /><span class="compact-slider-val"><span id="valHr">76</span></span></div>
+      <div class="compact-slider-row"><label>👟 Steps</label><input type="range" id="simSteps" min="0" max="15000" value="6840" /><span class="compact-slider-val"><span id="valSteps">6840</span></span></div>
+      <div class="compact-slider-row"><label>⛰️ Baro hPa</label><input type="range" id="simBaro" min="950" max="1050" value="1013" /><span class="compact-slider-val"><span id="valBaro">1013</span></span></div>
+      <div class="compact-slider-row"><label>🔋 Battery</label><input type="range" id="simBat" min="1" max="100" value="50" /><span class="compact-slider-val"><span id="valBat">50</span>%</span></div>
+      <div class="compact-slider-row"><label>🌤️ Weather</label><input type="range" id="simWeatherTemp" min="-15" max="45" value="22" /><span class="compact-slider-val"><span id="valWeatherTemp">22</span>°C</span></div>
+      <div class="field-row" style="margin-top:1px;">
         <label>🌦️ Sky Condition</label>
         <select id="simWeatherCond" onchange="sensors.weatherCond = this.value; updateLiveSensorReadout();">
           <option value="SUNNY" selected>☀️ 0x01 - Sunny</option>
@@ -232,7 +242,6 @@
           <option value="UNKNOWN">❓ 0x00 - Unknown</option>
         </select>
       </div>
-      <div class="field-row"><label>🔋 Battery (<span id="valBat">50</span>%)</label><input type="range" id="simBat" min="1" max="100" value="50" /></div>
       <div style="border-top:1px solid var(--panel-border);padding-top:4px;margin-top:2px;display:flex;flex-direction:column;gap:3px;">
         <div class="field-row">
           <label>🌡️ Cur/Min/Max °C</label>
@@ -355,8 +364,7 @@
         <button onclick="sendWatchAlert(0x13, 'Viber')">💜 Viber (04/13)</button>
         <button onclick="sendWatchAlert(0x15, 'Snapchat')">👻 Snapchat (04/15)</button>
         <button class="danger" onclick="triggerFactoryResetPrompt()" title="Cmd=0x02, Key=0x40: Plays beep and factory resets watch">⚠️ Reset (02/40)</button>
-        <button class="warn" onclick="sendWatchChime(0x3b, 'Find Watch Chime')" title="Cmd=0x02, Key=0x3B=[01]: Verified Find Watch Chime & Screen Alert" style="grid-column:span 2;">🔊 Find Watch Chime (02/3B)</button>
-        <button class="success" onclick="activateWatchDialSlot()" title="Verified Cmd=0x02, Key=0x70: Switch Active Watchface" style="grid-column:span 1;">⌚ Dial (02/70)</button>
+        <button class="warn" onclick="sendWatchChime(0x3b, 'Find Watch Chime')" title="Cmd=0x02, Key=0x3B=[01]: Verified Find Watch Chime & Screen Alert" style="grid-column:span 3;">🔊 Find Watch Chime (02/3B)</button>
       </div>
       <div class="raw-cmd-Row" style="display:flex;gap:4px;align-items:center;margin-top:2px;">
         <select id="extraAlertKey" style="flex:1;width:auto;font-size:10px;padding:3px 5px;">
@@ -469,11 +477,11 @@
       <div class="progress-label" id="dfuProgressLabel">0% (0 / 0 KB)</div>
     </div>
 
-    <div class="section-title">
-      <span>Widget Layers (<span id="layerCountBadge">0</span>)</span>
-      <button onclick="clearAllWidgets()" class="danger" style="padding:2px 7px;font-size:10px">Clear All</button>
+    <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'secWidgetLayersBody')">
+      <span>Widget Layers (<span id="layerCountBadge">0</span>) <span class="caret">▾</span></span>
+      <button onclick="event.stopPropagation(); clearAllWidgets()" class="danger" style="padding:2px 7px;font-size:10px">Clear All</button>
     </div>
-    <div class="section-body">
+    <div class="section-body" id="secWidgetLayersBody">
       <div class="layer-toolbar">
         <select id="quickAddSelect">
           <option value="compass">🧭 Live Compass Layer</option>
@@ -575,6 +583,12 @@ async function copyAllLogs() {
     document.execCommand('copy'); document.body.removeChild(ta);
     log('Copied all terminal logs to clipboard (fallback)!', 'ok');
   }
+}
+function toggleSectionCollapse(titleEl, bodyId) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  titleEl.classList.toggle('collapsed');
+  body.classList.toggle('collapsed-body');
 }
 function clearLogs() { logHistory = []; document.getElementById('logTerminal').innerHTML = ''; log('Logs cleared.', 'rx'); }
 
@@ -2061,6 +2075,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
