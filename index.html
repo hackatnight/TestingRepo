@@ -33,8 +33,8 @@
   button.success { background:var(--success); color:#05080c; border-color:var(--success); }
   button.danger { background:rgba(255,82,82,0.14); color:var(--danger); border-color:rgba(255,82,82,0.4); }
   button.danger:hover:not(:disabled) { background:var(--danger); color:#fff; border-color:var(--danger); }
-  .workspace { flex:1; display:grid; grid-template-columns:300px 1fr 390px; overflow:hidden; }
-  .panel { background:var(--panel-bg); border-right:1px solid var(--panel-border); display:flex; flex-direction:column; overflow-y:auto; }
+  .workspace { flex:1; display:grid; grid-template-columns:345px 1fr 390px; overflow:hidden; }
+  .panel { background:var(--panel-bg); border-right:1px solid var(--panel-border); display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; }
   .panel.right { border-right:none; border-left:1px solid var(--panel-border); }
   .section-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); padding:5px 10px 4px; border-bottom:1px solid var(--panel-border); display:flex; justify-content:space-between; align-items:center; background:#10151f; }
   .section-body { padding:6px 10px; border-bottom:1px solid var(--panel-border); display:flex; flex-direction:column; gap:4px; }
@@ -178,8 +178,11 @@
     </div>
 
     <div class="section-title">
-      <span>3. Live Sensor & Weather Simulator</span>
-      <button onclick="enableDeviceOrientation()" style="padding:2px 6px;font-size:10px">Use Gyro</button>
+      <span>3. Live Sensor & Weather</span>
+      <div style="display:flex;gap:4px;">
+        <button class="success" onclick="pullWatchDataToStudio()" style="padding:2px 6px;font-size:10px" title="Pulls Battery, Steps, Live Heart Rate, Units, Dial Slot & Config from Watch">📥 Get Watch Data</button>
+        <button onclick="enableDeviceOrientation()" style="padding:2px 6px;font-size:10px">🧭 Gyro</button>
+      </div>
     </div>
     <div class="section-body">
       <div class="field-row"><label>🧭 Heading (<span id="valHeading">42</span>°)</label><input type="range" id="simHeading" min="0" max="359" value="42" /></div>
@@ -223,21 +226,24 @@
           <label>📡 Weather Hex</label>
           <input type="text" id="liveSensorHex" value="16 10 1A 02 | 1013hPa 50%" readonly style="width:150px;font-size:9px;padding:2px 5px;color:var(--accent);" />
         </div>
-        <div class="field-row" style="gap:3px;">
-          <select id="watchTimeUnitSelect" onchange="applyWatchUnitsAndTime()" style="width:118px;font-size:9px;padding:2px 3px;" title="Watch 12H/24H & °C/°F Function Switch (0x02/0x18)">
+        <div class="field-row" style="gap:4px;">
+          <select id="watchTimeUnitSelect" onchange="applyWatchUnitsAndTime()" style="flex:1;min-width:0;width:auto;font-size:10px;padding:3px 4px;" title="Watch 12H/24H & °C/°F Function Switch (0x02/0x18)">
             <option value="24_C" selected>🕒 24H + °C (03 EB)</option>
             <option value="12_C">🕒 12H + °C (03 EF)</option>
             <option value="12_F">🕒 12H + °F (03 FF)</option>
             <option value="24_F">🕒 24H + °F (03 FB)</option>
           </select>
-          <select id="weatherFmtSelect" style="width:105px;font-size:9px;padding:2px 3px;" title="Verified HT37 Weather Key 0x02/0x36">
+          <select id="weatherFmtSelect" style="flex:1;min-width:0;width:auto;font-size:10px;padding:3px 4px;" title="Verified HT37 Weather Key 0x02/0x36">
             <option value="key_36_7b" selected>✅ 0x36 Weather (7B)</option>
             <option value="key_36_city">0x36 + City Name</option>
             <option value="key_36_b3">0x36 (Code in Byte3)</option>
             <option value="key_36_b4">0x36 (Code in Byte4)</option>
           </select>
-          <button class="primary" onclick="pushWeatherToWatch()" style="flex:1;justify-content:center;padding:4px 4px;font-size:10px;">🌤️ Push</button>
-          <button class="warn" onclick="cycleAllSkyCodes()" title="Cycles SkyCode 0x01..0x0C on 0x02/0x36 with Temp = Code (1°C..12°C)" style="padding:4px 5px;font-size:9px;">🎞️ Sky</button>
+        </div>
+        <div class="field-row" style="gap:4px;">
+          <button class="success" onclick="pullWatchDataToStudio()" style="flex:1;justify-content:center;padding:4px 6px;font-size:10px;" title="Queries Battery, Steps/Sport, Live PPG Heart Rate, Units & Config from Watch">📥 Get Data from Watch</button>
+          <button class="primary" onclick="pushWeatherToWatch()" style="flex:1;justify-content:center;padding:4px 6px;font-size:10px;">🌤️ Push Weather</button>
+          <button class="warn" onclick="cycleAllSkyCodes()" title="Cycles SkyCode 0x01..0x0C on 0x02/0x36" style="padding:4px 6px;font-size:10px;">🎞️ Sky</button>
         </div>
         <div class="alert-grid" style="grid-template-columns:repeat(4,1fr);gap:2px;margin-top:2px;">
           <button onclick="setAndPushSky('SUNNY', 0x01, 'Sunny')" style="font-size:9px;padding:3px 2px;">☀️ 01 Sunny</button>
@@ -1674,6 +1680,89 @@ async function checkReassemblyComplete() {
   }
 
   if (cmdId === 0x02 && keyId === 0x21) decodeDeviceConfigTlvs(valBytes);
+
+  if (cmdId === 0x02 && keyId === 0x61 && valBytes.length >= 10) {
+    decodeSportUiConfigTlvs(valBytes);
+  }
+
+  if (cmdId === 0x05) {
+    decodeCmd05SyncData(keyId, valBytes, valHex);
+  }
+}
+
+function decodeSportUiConfigTlvs(payload) {
+  let pos = 0;
+  const subSummary = [];
+  while (pos + 2 <= payload.length) {
+    const entryLen = payload[pos];
+    const subKey = payload[pos + 1];
+    if (entryLen < 1 || pos + 1 + entryLen > payload.length) break;
+    const subVal = payload.subarray(pos + 2, pos + 1 + entryLen);
+    const hex = Array.from(subVal).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+    subSummary.push(`0x${subKey.toString(16).padStart(2,'0')}(${subVal.length}B)=[${hex}]`);
+    pos += 1 + entryLen;
+  }
+  log(`📊 Parsed Watch Sport/UI Sub-TLVs (0x02/0x61): ${subSummary.slice(0, 8).join(' | ')}`, 'ok');
+  updateLiveSensorReadout();
+}
+
+function decodeCmd05SyncData(keyId, valBytes, valHex) {
+  // FitCloud Cmd=0x05 replies: 0x02/0x03/0x07 (Today Steps/Distance/Calories), 0x24 (Live PPG Heart Rate/SpO2)
+  if (valBytes.length >= 12 && (keyId === 0x02 || keyId === 0x03 || keyId === 0x07 || keyId === 0x08)) {
+    const stepsBE = (valBytes[0] << 24) | (valBytes[1] << 16) | (valBytes[2] << 8) | valBytes[3];
+    const stepsLE = valBytes[0] | (valBytes[1] << 8) | (valBytes[2] << 16) | (valBytes[3] << 24);
+    const candSteps = (stepsBE >= 0 && stepsBE < 100000) ? stepsBE : ((stepsLE >= 0 && stepsLE < 100000) ? stepsLE : null);
+    if (candSteps !== null && candSteps > 0) {
+      sensors.steps = candSteps;
+      document.getElementById('simSteps').value = Math.min(15000, candSteps);
+      document.getElementById('valSteps').textContent = candSteps;
+      updateLiveSensorReadout();
+      log(`👟 Watch Pedometer Sync (0x05/0x${keyId.toString(16).padStart(2,'0')}): Steps=${candSteps} | Raw=[${valHex}]`, 'ok');
+      return;
+    }
+  }
+  log(`📊 Watch Sensor/Health Reply (0x05/0x${keyId.toString(16).padStart(2,'0')}): Val=[${valHex}]`, 'ok');
+  updateLiveSensorReadout();
+}
+
+async function pullWatchDataToStudio() {
+  if (!cmdChar || !bleServer || !bleServer.connected) {
+    return log('ERROR: Pair & Bind to the watch first!', 'err');
+  }
+  abortBleOperation = false;
+  log('📥 Pulling Live Data from HT37 Watch (Battery, Config TLVs, Units, Dial Slots, Steps/Sport, & Live PPG Heart Rate)...', 'ok');
+
+  const queries = [
+    { cmd: 0x02, key: 0x1b, val: [],         name: 'QueryBattery(0x02/0x1B)' },
+    { cmd: 0x02, key: 0x20, val: [0x01],     name: 'QueryAllConfig(0x02/0x20)' },
+    { cmd: 0x02, key: 0x60, val: [],         name: 'QuerySportUiConfig(0x02/0x60)' },
+    { cmd: 0x02, key: 0x37, val: [],         name: 'QueryWeatherState(0x02/0x37)' },
+    { cmd: 0x02, key: 0xc8, val: [],         name: 'QueryDialSlots(0x02/0xC8)' },
+    { cmd: 0x02, key: 0x7d, val: [0x01],     name: 'QueryGuiInfo(0x02/0x7D)' },
+    { cmd: 0x02, key: 0xae, val: [0x01],     name: 'QueryFlashSpace(0x02/0xAE)' },
+    { cmd: 0x05, key: 0x01, val: [],         name: 'SyncSportData_01(0x05/0x01)' },
+    { cmd: 0x05, key: 0x06, val: [0x00],     name: 'SyncTodaySummary_06(0x05/0x06)' },
+    { cmd: 0x05, key: 0x23, val: [0x01,0x00],name: 'SampleLiveHeartRate_ON(0x05/0x23)' }
+  ];
+
+  for (const q of queries) {
+    if (abortBleOperation) break;
+    const { frame, seq } = buildFitCloudFrame(q.cmd, q.key, q.val, 0x00);
+    await enqueueBleWrite(cmdChar, frame, `${q.name} seq=${seq}`);
+    await waitForAck(seq, 320);
+    await new Promise(r => setTimeout(r, 120));
+  }
+
+  // Let optical HR sensor sample for 4 seconds if it streams, then turn off LEDs automatically
+  log('❤️ Sampling live Heart Rate optical sensor for 4 seconds (0x05/0x24)...', 'tx');
+  await new Promise(r => setTimeout(r, 4000));
+  if (!abortBleOperation && bleServer && bleServer.connected) {
+    const offFrame = buildFitCloudFrame(0x05, 0x23, [0x00, 0x00], 0x00);
+    await enqueueBleWrite(cmdChar, offFrame.frame, `SampleLiveHeartRate_OFF(0x05/0x23) seq=${offFrame.seq}`);
+    await waitForAck(offFrame.seq, 300);
+  }
+  updateLiveSensorReadout();
+  log('✅ Finished pulling watch data into Studio!', 'ok');
 }
 
 function decodeDeviceConfigTlvs(payload) {
@@ -1693,7 +1782,13 @@ function decodeDeviceConfigTlvs(payload) {
     } else if (subKey === 0x17) {
       log(`Parsed Watch Page/Screen Switch (0x17, Write=0x15): [${subHex}]`, 'ok');
     } else if (subKey === 0x1a) {
-      log(`Parsed Watch Function/Weather Switch (0x1A, Write=0x18): [${subHex}]`, 'ok');
+      const b1 = subVal.length >= 2 ? subVal[1] : 0;
+      const is12H = (b1 & 0x04) !== 0;
+      const isFah = (b1 & 0x10) !== 0;
+      const unitMode = `${is12H ? '12' : '24'}_${isFah ? 'F' : 'C'}`;
+      const unitSel = document.getElementById('watchTimeUnitSelect');
+      if (unitSel) unitSel.value = unitMode;
+      log(`Parsed Watch Function/Weather Switch (0x1A, Write=0x18): [${subHex}] -> ${is12H ? '12-Hour' : '24-Hour'}, ${isFah ? 'Fahrenheit (°F)' : 'Celsius (°C)'}`, 'ok');
     } else if (subKey === 0x2a) {
       log(`Parsed Watch TLV 0x2A (9B): [${subHex}]`, 'ok');
     } else if (subKey === 0x4e && subVal.length >= 4) {
@@ -1891,6 +1986,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
