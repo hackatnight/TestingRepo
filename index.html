@@ -461,10 +461,10 @@
       <div class="field-row">
         <label>FFB1 Data OpCode</label>
         <select id="ffb1DataOpcode" style="width:205px">
-          <option value="0x02" selected>Op 0x02 (Replies 0x82)</option>
-          <option value="0x03">Op 0x03 (Replies 0x83)</option>
-          <option value="0x04">Op 0x04 (Replies 0x84)</option>
-          <option value="0x05">Op 0x05 (Replies 0x85)</option>
+          <option value="0x04" selected>Op 0x04 (Verified 0x84=[00] OK!)</option>
+          <option value="0x05">Op 0x05 (Verified 0x85=[00] OK!)</option>
+          <option value="0x02">Op 0x02 (After 0x04/0x05 Init)</option>
+          <option value="0x03">Op 0x03 (After 0x04/0x05 Init)</option>
         </select>
       </div>
       <div class="field-row" style="display:none;">
@@ -2101,70 +2101,61 @@ async function probeFfb1SecondStep() {
   }
   abortBleOperation = false;
   const bin = compileWatchfaceBin();
+  const fSize = bin.byteLength;
+  const bodyCrc = computeCRC16(bin.subarray(1024), 0x0000);
+  const szLE = [fSize & 0xff, (fSize >> 8) & 0xff, (fSize >> 16) & 0xff, (fSize >> 24) & 0xff];
+  const crcLE = [bodyCrc & 0xff, (bodyCrc >> 8) & 0xff];
 
-  log('=== 🔬 Part 1: Probing Op=0x02 Exact Payload Lengths (Looking for Status != 0x04) ===', 'ok');
+  log('=== 🔬 Test A: Wake(0x01) -> Init(0x04 & 0x05) -> Check if Op=0x02 & Op=0x03 unlock! ===', 'ok');
   otaLastResponse = null;
-  await enqueueBleWrite(dfuPacketChar, buildFfb1Envelope(0x01, 0, [0x04]), 'FFB1_Wake_For_Op02(Op=0x01)');
+  await enqueueBleWrite(dfuPacketChar, buildFfb1Envelope(0x01, 0, [0x04]), '1_Wake(Op=0x01)');
   await waitForFfb2Reply(1800);
 
-  // Test Op=0x02 across candidate lengths (using actual TOPSTEP 01 header bytes!)
-  const op02Lengths = [0, 1, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48, 52, 53, 56, 60, 128, 240, 241];
-  for (let i = 0; i < op02Lengths.length; i++) {
+  // Send Op=0x04 and Op=0x05 with different payloads (Size4LE, 1024B header slice, etc.) and log their 0x84/0x85 replies
+  for (const step of [
+    { op: 0x04, off: 0, pl: [...szLE, ...crcLE],              lbl: '2_Op04_Size4LE_Crc2LE(6B)' },
+    { op: 0x04, off: 0, pl: Array.from(bin.subarray(0, 64)),  lbl: '3_Op04_TOPSTEP_Header(64B)' },
+    { op: 0x05, off: 0, pl: [...szLE, ...crcLE],              lbl: '4_Op05_Size4LE_Crc2LE(6B)' },
+    { op: 0x05, off: 0, pl: Array.from(bin.subarray(0, 64)),  lbl: '5_Op05_TOPSTEP_Header(64B)' },
+    { op: 0x02, off: 0, pl: Array.from(bin.subarray(0, 228)), lbl: '6_Op02_After_04_05(228B)' },
+    { op: 0x03, off: 0, pl: Array.from(bin.subarray(0, 228)), lbl: '7_Op03_After_04_05(228B)' }
+  ]) {
     if (abortBleOperation) break;
-    // Re-wake every 12 packets so the 10-second session never times out mid-scan!
-    if (i > 0 && i % 12 === 0) {
-      otaLastResponse = null;
-      await enqueueBleWrite(dfuPacketChar, buildFfb1Envelope(0x01, 0, [0x04]), 'FFB1_KeepAlive_Wake(Op=0x01)', true);
-      await waitForFfb2Reply(1500);
-    }
-    const len = op02Lengths[i];
-    const pl = Array.from(bin.subarray(0, len));
     otaLastResponse = null;
-    const pkt = buildFfb1Envelope(0x02, 0, pl);
-    await enqueueBleWrite(dfuPacketChar, pkt, `Op02_Len_${len}B`, true);
-    const r = await waitForFfb2Reply(500);
+    await enqueueBleWrite(dfuPacketChar, buildFfb1Envelope(step.op, step.off, step.pl), step.lbl);
+    const r = await waitForFfb2Reply(600);
     if (r) {
       const rxHex = Array.from(r).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
-      const st = r.length >= 13 ? r[12] : null;
-      if (st !== 0x04) {
-        log(`🎯 BINGO! Op=0x02 Len=${len}B CHANGED STATUS from 0x04 to 0x${st?.toString(16).padStart(2,'0')}! Raw=[${rxHex}]`, 'ok');
-      } else {
-        log(`  Op=0x02 Len=${len}B -> Status=0x04`, 'rx');
-      }
+      log(`  Reply to ${step.lbl}: Op=0x${r[0].toString(16).toUpperCase()}, Status=0x${r[12]?.toString(16).padStart(2,'0')}, Raw=[${rxHex}]`, r[12] === 0x00 ? 'ok' : 'rx');
     }
   }
 
-  log('=== 🔬 Part 2: Probing Op=0x03 Exact Payload Lengths (Looking for Status != 0x0C) ===', 'ok');
-  otaLastResponse = null;
-  await enqueueBleWrite(dfuPacketChar, buildFfb1Envelope(0x01, 0, [0x04]), 'FFB1_Wake_For_Op03(Op=0x01)');
-  await waitForFfb2Reply(1800);
-
-  const op03Lengths = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 12, 16, 20, 24, 32, 48, 128, 240, 241];
-  for (let i = 0; i < op03Lengths.length; i++) {
+  log('=== 🚀 Test B: Streaming 35 Chunks (~8KB = ~2.5%) on Op=0x04 then Op=0x05 (Watch the % on screen!) ===', 'ok');
+  for (const streamOp of [0x04, 0x05]) {
     if (abortBleOperation) break;
-    if (i > 0 && i % 10 === 0) {
-      otaLastResponse = null;
-      await enqueueBleWrite(dfuPacketChar, buildFfb1Envelope(0x01, 0, [0x04]), 'FFB1_KeepAlive_Wake(Op=0x01)', true);
-      await waitForFfb2Reply(1500);
-    }
-    const len = op03Lengths[i];
-    const pl = Array.from(bin.subarray(0, len));
     otaLastResponse = null;
-    const pkt = buildFfb1Envelope(0x03, 0, pl);
-    await enqueueBleWrite(dfuPacketChar, pkt, `Op03_Len_${len}B`, true);
-    const r = await waitForFfb2Reply(500);
-    if (r) {
-      const rxHex = Array.from(r).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
-      const st = r.length >= 13 ? r[12] : null;
-      if (st !== 0x0c) {
-        log(`🎯 BINGO! Op=0x03 Len=${len}B CHANGED STATUS from 0x0C to 0x${st?.toString(16).padStart(2,'0')}! Raw=[${rxHex}]`, 'ok');
-      } else {
-        log(`  Op=0x03 Len=${len}B -> Status=0x0C`, 'rx');
+    await enqueueBleWrite(dfuPacketChar, buildFfb1Envelope(0x01, 0, [0x04]), `Wake_For_Stream_Op0x0${streamOp}`);
+    await waitForFfb2Reply(1800);
+
+    let off = 0;
+    for (let blk = 0; blk < 35; blk++) {
+      if (abortBleOperation) break;
+      const chunk = bin.subarray(off, off + 228);
+      otaLastResponse = null;
+      await enqueueBleWrite(dfuPacketChar, buildFfb1Envelope(streamOp, off, chunk), `Stream_Op0${streamOp}_BLK#${blk}_off=${off}`, blk % 10 !== 0);
+      off += chunk.length;
+      const r = await waitForFfb2Reply(120);
+      if (r && r[12] !== 0x00) {
+        const rxHex = Array.from(r).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+        log(`  ⚠️ Stream Op=0x0${streamOp} stopped at BLK#${blk} with Status=0x${r[12]?.toString(16)}: [${rxHex}]`, 'err');
+        break;
       }
     }
+    log(`  ✓ Sent 35 chunks (${off} bytes) with Op=0x0${streamOp}! Did the watch % move above 0%?`, 'ok');
+    await new Promise(r => setTimeout(r, 800));
   }
 
-  log('✅ Finished Op=0x02 & Op=0x03 Length Scan! Copy and paste the logs here!', 'ok');
+  log('✅ Finished Test A & Test B! Copy and paste the logs here!', 'ok');
 }
 
 document.getElementById('btnFlashWatch').addEventListener('click', async () => {
@@ -2188,7 +2179,7 @@ document.getElementById('btnFlashWatch').addEventListener('click', async () => {
     otaLastResponse = null;
     const wake13B = buildFfb1Envelope(0x01, 0, [0x04]);
     await enqueueBleWrite(dfuPacketChar, wake13B, 'FFB1_WakeAndSlot(13B)');
-    await waitForL2Response(900);
+    await waitForFfb2Reply(1800);
 
     log(`Step 2: Streaming ${bin.byteLength.toLocaleString()}B TOPSTEP 01 Watchface over 0000ffb1 (Op=0x${dataOp.toString(16).toUpperCase()}, Payload=${chunkSize}B, TotalFrame=${chunkSize+12}B, Pacing=50ms)...`, 'ok');
     const total = bin.byteLength;
@@ -2239,6 +2230,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
