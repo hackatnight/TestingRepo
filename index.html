@@ -305,10 +305,25 @@
           </label>
         </div>
         <div class="raw-cmd-row">
-          <input type="text" id="rawCmd" class="hex-in" value="0x02" title="Command ID (Hex)" />
-          <input type="text" id="rawKey" class="hex-in" value="0x7c" title="Key ID (Hex)" />
-          <input type="text" id="rawPayload" class="payload-in" value="03 01 01 68 01 68 01" placeholder="Hex bytes or text" />
-          <button class="warn send-sm" onclick="sendCustomRawL2()">🚀 Send</button>
+          <select id="rawPresetSelect" onchange="const p=this.value.split('|');document.getElementById('rawCmd').value=p[0];document.getElementById('rawKey').value=p[1];document.getElementById('rawPayload').value=p[2];" style="width:100%;font-size:10px;padding:3px 5px;">
+            <option value="0x04|0x04|04 48 54 33 37 00 09 4C 32 20 57 6F 72 6B 73 21 00 00" selected>💬 Vibrate + SMS Popup: "HT37: L2 Works!" (0x04 / 0x04)</option>
+            <option value="0x04|0x0c|08 57 68 61 74 73 41 70 70 00 0B 48 54 33 37 20 52 65 61 64 79 21 00 00">📲 Vibrate + WhatsApp Popup: "HT37 Ready!" (0x04 / 0x0C)</option>
+            <option value="0x04|0x07|08 46 61 63 65 62 6F 6F 6B 00 09 50 69 6E 67 20 54 65 73 74 00 00">📘 Vibrate + Facebook Popup: "Ping Test" (0x04 / 0x07)</option>
+            <option value="0x04|0x08|04 58 2D 48 51 00 08 52 61 77 20 54 65 73 74 00 00">𝕏 Vibrate + X/Twitter Popup: "X-HQ: Raw Test" (0x04 / 0x08)</option>
+            <option value="0x04|0x01|08 43 41 4C 4C 20 4E 4F 57 00 00 00 00">📞 Vibrate Incoming Call: "CALL NOW" (0x04 / 0x01)</option>
+            <option value="0x04|0x02|00">☎️ Dismiss / End Incoming Call (0x04 / 0x02)</option>
+            <option value="0x02|0x1b|">🔋 Query Watch Battery % (0x02 / 0x1B -> Replies 0x1C)</option>
+            <option value="0x02|0x7e|">📐 Query Watch 360x360 GUI Info (0x02 / 0x7E -> Replies 0x7F)</option>
+            <option value="0x02|0xaf|">💾 Query Watch Flash Space (0x02 / 0xAF -> Replies 0xB0)</option>
+            <option value="0x02|0xc8|">🎨 Query Active Watchface Slots (0x02 / 0xC8 -> Replies 0xC9)</option>
+            <option value="0x02|0x20|01">📋 Query Full Watch DeviceInfo TLVs (0x02 / 0x20 -> Replies 0x21)</option>
+          </select>
+        </div>
+        <div class="raw-cmd-row">
+          <input type="text" id="rawCmd" class="hex-in" value="0x04" title="Command ID (Hex)" />
+          <input type="text" id="rawKey" class="hex-in" value="0x04" title="Key ID (Hex)" />
+          <input type="text" id="rawPayload" class="payload-in" value="04 48 54 33 37 00 09 4C 32 20 57 6F 72 6B 73 21 00 00" placeholder="Hex bytes or text" />
+          <button class="warn send-sm" onclick="sendCustomRawL2()" title="Send Custom L2 Command" style="background:rgba(255,171,0,0.22);border:1px solid var(--warn);color:var(--success);font-size:13px;padding:3px 9px;line-height:1;">▶</button>
         </div>
       </div>
     </div>
@@ -1627,6 +1642,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
