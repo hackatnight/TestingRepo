@@ -483,9 +483,9 @@
       <div class="field-row">
         <label>BLE Chunk Size</label>
         <select id="dfuChunkSize" style="width:205px">
-          <option value="180">180 Bytes / Packet (Safe BLE)</option>
-          <option value="240" selected>240 Bytes / Packet (Fast MTU)</option>
-          <option value="480">480 Bytes / Packet (High MTU)</option>
+          <option value="128">128B Payload (140B Frame - Ultra Safe)</option>
+          <option value="228" selected>228B Payload (240B Frame - Exact MTU)</option>
+          <option value="240">240B Payload (252B Frame - Max 253B)</option>
         </select>
       </div>
       <div class="field-row"><label>Base Template (.bin)</label><input type="file" id="templateBinInput" accept=".bin" style="width:205px;font-size:11px" /></div>
@@ -1355,7 +1355,7 @@ function enqueueBleWrite(ch, frame, label = 'CMD', silent = false) {
         : Array.from(frame).map((b) => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
       log(`TX [${label}]: ${preview}`, 'tx');
     }
-    const maxMtu = 240;
+    const maxMtu = 512;
     for (let off = 0; off < frame.length; off += maxMtu) {
       const slice = frame.subarray(off, Math.min(frame.length, off + maxMtu));
       if (ch.properties.writeWithoutResponse) {
@@ -2083,6 +2083,8 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
 /* ============================================================================
  * 7. FLASH TO WATCH
  * ============================================================================ */
+let ffb2ErrorAbort = false;
+
 async function probeFfb1SecondStep() {
   if (!bleServer || !bleServer.connected || !dfuPacketChar) {
     return log('ERROR: Pair & Bind to the watch first!', 'err');
@@ -2091,37 +2093,42 @@ async function probeFfb1SecondStep() {
   const bin = compileWatchfaceBin();
   const fSize = bin.byteLength;
   const fCrc = computeCRC16(bin.subarray(1024), 0x0000);
+  const fullCrc = computeCRC16(bin, 0x0000);
 
-  log('=== 🔬 Probing FFB1 Step 2 (After 0x81 Wake Reply) ===', 'ok');
-  otaLastResponse = null;
-  const wake13B = buildFfb1Envelope(0x01, 0, [0x04]);
-  await enqueueBleWrite(dfuPacketChar, wake13B, 'FFB1_Step1_Wake(Op=0x01)');
-  await waitForL2Response(800);
-
-  // Now send candidate Step-2 packets (File Size / Header / First Chunk with Op=0x02, 0x20, 0x03, 0x01) and watch FFB2 replies!
   const size4LE = [fSize & 0xff, (fSize >> 8) & 0xff, (fSize >> 16) & 0xff, (fSize >> 24) & 0xff];
   const crc2LE  = [fCrc & 0xff, (fCrc >> 8) & 0xff];
-  const first64 = Array.from(bin.subarray(0, 64));
+  const fullCrc2LE = [fullCrc & 0xff, (fullCrc >> 8) & 0xff];
+  const first128 = Array.from(bin.subarray(0, 128));
 
-  const step2Candidates = [
-    { op: 0x02, off: 0,      pl: [...size4LE, ...crc2LE], label: 'Step2_Op0x02_Size4LE_Crc2LE(6B)' },
-    { op: 0x02, off: fSize,  pl: [...crc2LE],             label: 'Step2_Op0x02_Offset=Size_Crc2LE(2B)' },
-    { op: 0x20, off: 0,      pl: first64,                 label: 'Step2_Op0x20_Offset0_First64B' },
-    { op: 0x02, off: 0,      pl: first64,                 label: 'Step2_Op0x02_Offset0_First64B' },
-    { op: 0x01, off: 0,      pl: first64,                 label: 'Step2_Op0x01_Offset0_First64B' },
-    { op: 0x03, off: 0,      pl: first64,                 label: 'Step2_Op0x03_Offset0_First64B' }
+  // Each candidate gets a FRESH 0x01 -> 0x81 Wake session so an error on one never invalidates the next!
+  const candidates = [
+    { op: 0x20, off: 0,     pl: first128,                           label: '1. Op0x20_Off0_First128B (Un-split!)' },
+    { op: 0x02, off: 0,     pl: first128,                           label: '2. Op0x02_Off0_First128B (Un-split!)' },
+    { op: 0x02, off: 0,     pl: [...size4LE, ...crc2LE],            label: '3. Op0x02_Off0_Size4LE+Crc2LE(6B)' },
+    { op: 0x02, off: 0,     pl: [...size4LE, ...fullCrc2LE, 0x00, 0x00], label: '4. Op0x02_Off0_Size4LE+FullCrc+00(8B)' },
+    { op: 0x02, off: fSize, pl: [],                                 label: '5. Op0x02_Offset=FileSize_0B' },
+    { op: 0x10, off: 0,     pl: [...size4LE, ...crc2LE],            label: '6. Op0x10_Off0_Size4LE+Crc2LE(6B)' }
   ];
 
-  for (const c of step2Candidates) {
+  for (const c of candidates) {
     if (abortBleOperation) break;
+    log(`--- Testing Fresh Session for: ${c.label} ---`, 'tx');
+    otaLastResponse = null;
+    const wake13B = buildFfb1Envelope(0x01, 0, [0x04]);
+    await enqueueBleWrite(dfuPacketChar, wake13B, 'FFB1_Wake(Op=0x01)');
+    await waitForL2Response(700);
+
     otaLastResponse = null;
     const pkt = buildFfb1Envelope(c.op, c.off, c.pl);
     await enqueueBleWrite(dfuPacketChar, pkt, c.label);
-    const r = await waitForL2Response(650);
+    const r = await waitForL2Response(800);
     if (r && r.raw) {
       const rxHex = Array.from(r.raw).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
       log(`🎯 FFB2 REPLIED to ${c.label}: [${rxHex}]`, 'ok');
+    } else {
+      log(`✨ NO ERROR REPLY on ${c.label} (Watch accepted packet silently or waiting for next chunk!)`, 'ok');
     }
+    await new Promise(r => setTimeout(r, 600));
   }
 }
 
@@ -2136,8 +2143,9 @@ document.getElementById('btnFlashWatch').addEventListener('click', async () => {
   abortBleOperation = false;
   isTransferRunning = true;
   otaAccepted = false;
+  ffb2ErrorAbort = false;
 
-  const chunkSize = Number(document.getElementById('dfuChunkSize').value) || 240;
+  const chunkSize = Number(document.getElementById('dfuChunkSize').value) || 228;
   const dataOp = parseInt(document.getElementById('ffb1DataOpcode')?.value || '0x20', 16);
 
   try {
@@ -2145,9 +2153,9 @@ document.getElementById('btnFlashWatch').addEventListener('click', async () => {
     otaLastResponse = null;
     const wake13B = buildFfb1Envelope(0x01, 0, [0x04]);
     await enqueueBleWrite(dfuPacketChar, wake13B, 'FFB1_WakeAndSlot(13B)');
-    await waitForL2Response(1000);
+    await waitForL2Response(900);
 
-    log(`Step 2: Streaming ${bin.byteLength.toLocaleString()}B TOPSTEP 01 Watchface over 0000ffb1 (Op=0x${dataOp.toString(16).toUpperCase()}, Chunk=${chunkSize}B, Pacing=50ms)...`, 'ok');
+    log(`Step 2: Streaming ${bin.byteLength.toLocaleString()}B TOPSTEP 01 Watchface over 0000ffb1 (Op=0x${dataOp.toString(16).toUpperCase()}, Payload=${chunkSize}B, TotalFrame=${chunkSize+12}B, Pacing=50ms)...`, 'ok');
     const total = bin.byteLength;
     let offset = 0, blockIdx = 0;
     setDfuProgress(0, 0, total);
@@ -2158,17 +2166,27 @@ document.getElementById('btnFlashWatch').addEventListener('click', async () => {
       const slice = bin.subarray(offset, end);
       const framedPkt = buildFfb1Envelope(dataOp, offset, slice);
 
-      const logEvery = blockIdx % 20 === 0 || end === total;
+      const logEvery = blockIdx < 5 || blockIdx % 25 === 0 || end === total;
+      otaLastResponse = null;
       await enqueueBleWrite(dfuPacketChar, framedPkt, `FFB1_BLK#${blockIdx} off=${offset} (${end}/${total}B)`, !logEvery);
 
       offset = end;
       blockIdx++;
       setDfuProgress((offset / total) * 100, offset, total);
-      // 50ms pacing from DfuBufferCheckConfig (packetInterval = 50L)
       await new Promise((r) => setTimeout(r, 50));
+
+      // Check if watch sent a 13-byte error reply (e.g. A0..[01] or A0..[04]) on FFB2
+      if (otaLastResponse && otaLastResponse.raw && otaLastResponse.raw.length === 13) {
+        const rx = otaLastResponse.raw;
+        const statusByte = rx[12];
+        if ((rx[0] === 0xa0 || rx[0] === 0x82) && (statusByte === 0x01 || statusByte === 0x04 || statusByte === 0x14)) {
+          log(`⚠️ Watch FFB2 reported status 0x${statusByte.toString(16).padStart(2,'0')} at BLK#${blockIdx-1} (off=${offset-slice.length}). Stopping stream automatically so it doesn't loop!`, 'err');
+          break;
+        }
+      }
     }
 
-    if (!abortBleOperation) {
+    if (!abortBleOperation && offset >= total) {
       const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
       log(`✅ Finished streaming ${total.toLocaleString()} bytes in ${elapsedSec}s!`, 'ok');
     }
@@ -2186,6 +2204,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
