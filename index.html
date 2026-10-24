@@ -1504,36 +1504,15 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
   const tests = [];
 
   if (scope === 'dial_write_and_ota' || scope === 'all_safe_new') {
-    const d = [...watchDeviceInfo53B];
-    const bumpPatch = [...d]; bumpPatch[9] = (d[9] + 1) & 0xff;
-    const bumpFlash = [...d]; bumpFlash[13] = (d[13] + 1) & 0xff;
-    const bumpUi    = [...d]; bumpUi[41] = (d[41] + 1) & 0xff; bumpUi[42] = 0x01;
-    const bumpGui   = [...d]; bumpGui[43] = (d[43] + 1) & 0xff; bumpGui[44] = (d[44] + 1) & 0xff;
-    const bumpAllVer = [...d];
-    bumpAllVer[6]=0x0c; bumpAllVer[8]=0x0c; bumpAllVer[12]=0x28; bumpAllVer[26]=0x02;
-    bumpAllVer[41]=0x47; bumpAllVer[43]=0x22; bumpAllVer[48]=0xc1;
-    const allFF = new Array(53).fill(0xff);
-
-    // 1. Test 0x01/0x01 with every internal version field bumped so 0x01/0x02 returns non-zero!
-    tests.push({ cmd: 0x01, key: 0x01, val: d, note: 'OTA_01_01_Exact53B' });
-    tests.push({ cmd: 0x01, key: 0x01, val: bumpPatch, note: 'OTA_01_01_BumpPatch(8..9)' });
-    tests.push({ cmd: 0x01, key: 0x01, val: bumpFlash, note: 'OTA_01_01_BumpFlash(12..13)' });
-    tests.push({ cmd: 0x01, key: 0x01, val: bumpUi, note: 'OTA_01_01_BumpUI(41..42)' });
-    tests.push({ cmd: 0x01, key: 0x01, val: bumpGui, note: 'OTA_01_01_BumpGUI(43..44)' });
-    tests.push({ cmd: 0x01, key: 0x01, val: bumpAllVer, note: 'OTA_01_01_BumpAllVersions53B' });
-    tests.push({ cmd: 0x01, key: 0x01, val: allFF, note: 'OTA_01_01_AllFF_53B' });
-    tests.push({ cmd: 0x01, key: 0x01, val: [0x11, 0x35, ...bumpAllVer], note: 'OTA_01_01_TLV55B_11_35' });
-
-    // 2. Test 2-Byte 0x01/0x03 (since we proved 0x01/0x03 strictly requires 2 bytes!)
-    const twoByteCandidates = [
-      [0x00, 0x01], [0x00, 0x02], [0x00, 0x03], [0x01, 0x01], [0x01, 0x02],
-      [0x02, 0x01], [0x02, 0x02], [0x03, 0x01], [0x10, 0x00], [0x20, 0x00],
-      [0xff, 0xff], [0x85, 0x45], [0x0b, 0x49], [0x0b, 0xd3], [0x27, 0xf3],
-      [0x01, 0x07], [0x46, 0x00], [0x21, 0x10], [0x77, 0x20], p.cLE, p.cBE
-    ];
-    for (const tb of twoByteCandidates) {
-      const hex = tb.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join('_');
-      tests.push({ cmd: 0x01, key: 0x03, val: tb, note: `OTA_01_03_2B_[${hex}]` });
+    // Sweep every payload length from 3B to 80B on 0x01/0x01 to find the exact expected struct size!
+    for (let len = 3; len <= 80; len++) {
+      const buf = new Array(len).fill(0x01);
+      // Copy watchDeviceInfo53B into the start if len >= 53
+      for (let j = 0; j < Math.min(len, watchDeviceInfo53B.length); j++) {
+        buf[j] = watchDeviceInfo53B[j];
+      }
+      if (len > 27) buf[26] = 0x02; // Bump FW major version
+      tests.push({ cmd: 0x01, key: 0x01, val: buf, note: `OTA_01_01_Len_${len}B` });
     }
   }
 
@@ -1656,6 +1635,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
