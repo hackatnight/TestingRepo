@@ -222,13 +222,12 @@
             <option value="12_F">🕒 12H + °F (03 FF)</option>
             <option value="24_F">🕒 24H + °F (03 FB)</option>
           </select>
-          <select id="weatherFmtSelect" style="width:105px;font-size:9px;padding:2px 3px;" title="Select FitCloud Weather Key / Format">
-            <option value="scan_weather_keys" selected>🔍 Auto-Find Key</option>
-            <option value="key_2e_10b">Key 0x2E (TLV 0x30 10B)</option>
-            <option value="key_4c_6b">Key 0x4C (TLV 0x4E 6B)</option>
-            <option value="key_57_10b">Key 0x57 (TLV 0x59 10B)</option>
+          <select id="weatherFmtSelect" style="width:105px;font-size:9px;padding:2px 3px;" title="Select HT37 Weather Key / Format">
+            <option value="key_4c_6b" selected>✅ 0x4C Weather (6B)</option>
+            <option value="scan_weather_keys">🔍 Scan Keys</option>
+            <option value="key_2e_10b">Key 0x2E (TLV 0x30)</option>
+            <option value="key_57_10b">Key 0x57 (TLV 0x59)</option>
             <option value="fc_city_7b">Key 0x35 (7B+City)</option>
-            <option value="fc_7b_only">Key 0x35 (7B Pure)</option>
           </select>
           <button class="primary" onclick="pushWeatherToWatch()" style="flex:1;justify-content:center;padding:4px 5px;font-size:10px;">🌤️ Push</button>
         </div>
@@ -355,6 +354,9 @@
             <option value="0x02|0x7d|01">📐 Query Watch 360x360 GUI Info (0x02 / 0x7D [01] -> Replies 0x7E)</option>
             <option value="0x02|0xae|01">💾 Query Watch Flash Space (0x02 / 0xAE [01] -> Replies 0xAF)</option>
             <option value="0x02|0xb0|01">🔍 Query Watch Key 0xB0 (0x02 / 0xB0 [01] -> Replies 0xB7)</option>
+            <option value="0x02|0x4c|16 10 1A 02 00 00">🌤️ Push Weather 22°C Cloudy (0x02 / 0x4C = [Cur Min Max Sky 00 00])</option>
+            <option value="0x02|0x18|03 EF">🕒 Set Watch 12-Hour + °C + Weather ON (0x02 / 0x18 = 03 EF)</option>
+            <option value="0x02|0x18|03 EB">🕒 Set Watch 24-Hour + °C + Weather ON (0x02 / 0x18 = 03 EB)</option>
             <option value="0x02|0xc8|">🎨 Query Active Watchface Slots (0x02 / 0xC8 -> Replies 0xC9)</option>
             <option value="0x02|0x20|01">📋 Query Full Watch DeviceInfo TLVs (0x02 / 0x20 -> Replies 0x21)</option>
           </select>
@@ -1487,8 +1489,8 @@ async function pushWeatherToWatch() {
     return;
   }
 
-  let targetKey = 0x35;
-  let payload = [cur, min, max, code, 0x00, 0x00, 0x00];
+  let targetKey = 0x4c;
+  let payload = [cur, min, max, code, 0x00, 0x00];
   if (fmt === 'key_2e_10b') {
     targetKey = 0x2e;
     payload = [cur, min, max, code, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
@@ -1507,9 +1509,9 @@ async function pushWeatherToWatch() {
   document.getElementById('rawKey').value = '0x' + targetKey.toString(16).padStart(2, '0');
   document.getElementById('rawPayload').value = payload.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
 
-  log(`🌤️ Pushing Weather [${fmt}] -> Cmd=0x02, Key=0x${targetKey.toString(16).toUpperCase()}...`, 'ok');
+  log(`🌤️ Pushing Live Weather to HT37 (Cmd=0x02, Key=0x${targetKey.toString(16).toUpperCase()}, Cur=${sensors.weatherTemp}°C, Min=${document.getElementById('liveTempMin').value}°C, Max=${document.getElementById('liveTempMax').value}°C, Sky=${sensors.weatherCond})...`, 'ok');
   const wf = buildFitCloudFrame(0x02, targetKey, payload, 0x00);
-  await enqueueBleWrite(cmdChar, wf.frame, `Weather_${fmt} seq=${wf.seq}`);
+  await enqueueBleWrite(cmdChar, wf.frame, `Weather_0x${targetKey.toString(16).toUpperCase()} seq=${wf.seq}`);
   await waitForAck(wf.seq, 350);
 }
 
@@ -1642,6 +1644,8 @@ function decodeDeviceConfigTlvs(payload) {
       log(`Parsed Watch Function/Weather Switch (0x1A, Write=0x18): [${subHex}]`, 'ok');
     } else if (subKey === 0x2a) {
       log(`Parsed Watch TLV 0x2A (9B): [${subHex}]`, 'ok');
+    } else if (subKey === 0x4e && subVal.length >= 4) {
+      log(`Parsed Watch Weather Register (0x4E, Write=0x4C): [${subHex}] -> Cur=${subVal[0]}°C, Min=${subVal[1]}°C, Max=${subVal[2]}°C, SkyCode=0x0${subVal[3]}`, 'ok');
     } else if (subKey === 0xc9) {
       log(`Parsed Watch Dial Slots (0xC9): ${subHex} (5 slots active)`, 'ok');
     } else {
@@ -1835,6 +1839,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
