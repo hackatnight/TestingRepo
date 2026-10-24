@@ -346,8 +346,8 @@
         <button onclick="sendWatchAlert(0x13, 'Viber')">💜 Viber (04/13)</button>
         <button onclick="sendWatchAlert(0x15, 'Snapchat')">👻 Snapchat (04/15)</button>
         <button class="danger" onclick="triggerFactoryResetPrompt()" title="Cmd=0x02, Key=0x40: Plays beep and factory resets watch">⚠️ Reset (02/40)</button>
-        <button class="warn" onclick="sendWatchChime(0x3b, 'Chime 1')" title="Cmd=0x02, Key=0x3B=[01]: Verified Watch Chime 1 & Alert" style="grid-column:span 1;">🔊 Chime 1 (02/3B)</button>
-        <button class="primary" onclick="sendWatchChime(0x3a, 'Chime 2')" title="Cmd=0x02, Key=0x3A=[01]: Watch Chime 2" style="grid-column:span 2;">🔉 Chime 2 (02/3A)</button>
+        <button class="warn" onclick="sendWatchChime(0x3b, 'Find Watch Chime')" title="Cmd=0x02, Key=0x3B=[01]: Verified Find Watch Chime & Screen Alert" style="grid-column:span 2;">🔊 Find Watch Chime (02/3B)</button>
+        <button class="success" onclick="setWatchEnglish()" title="Cmd=0x02, Key=0x3A=[00]: Sets Watch Language to English (01=Chinese)" style="grid-column:span 1;">🌐 English (02/3A)</button>
       </div>
       <div class="raw-cmd-Row" style="display:flex;gap:4px;align-items:center;margin-top:2px;">
         <select id="extraAlertKey" style="flex:1;width:auto;font-size:10px;padding:3px 5px;">
@@ -437,10 +437,8 @@
       <div class="field-row">
         <label>Probe / Flash Scope</label>
         <select id="probeScopeSelect" style="width:205px">
-          <option value="pinpoint_wf_66_to_70" selected>🎨 1. Pinpoint Watchface: 0x66..0x70 (Val=[02] 1.5s gap)</option>
-          <option value="pinpoint_wf_71_to_7b">🎨 2. Pinpoint Watchface: 0x71..0x7B (Val=[02] 1.5s gap)</option>
-          <option value="restore_english_02">🌐 3. Set Language English (Send [02] to Lang Keys)</option>
-          <option value="find_lang_in_1b_1d">🌐 4. Send [00] & [02] to 0x30..0x7B (If Lang is higher)</option>
+          <option value="wf_half1_66_to_6a" selected>🎨 1. Watchface 0x66..0x6A (Val=[03] - 2.5s gap)</option>
+          <option value="wf_half2_6b_to_70">🎨 2. Watchface 0x6B..0x70 (Val=[03] - 2.5s gap)</option>
         </select>
       </div>
       <div class="field-row">
@@ -1166,6 +1164,7 @@ function isDangerousResetFrame(frame) {
     const cmd = frame[8], key = frame[10];
     // Block Cmd 0x02 Key 0x40..0x45 (Factory Reset / Unbind / PowerOff) & Cmd 0x07 (System Reboot)
     if (cmd === 0x02 && ((key >= 0x40 && key <= 0x45) || key === 0x65 || key === 0x88)) return `Blocked Reset / PowerOff / Crash key (0x02/0x${key.toString(16)})`;
+    if (cmd === 0x02 && key === 0x3a && frame.length >= 14 && frame[13] === 0x01) return `Blocked Chinese Language switch (0x02/0x3A=[01]); use [00] for English`;
     if (cmd === 0x07) return `Blocked System Reboot command (0x07/0x${key.toString(16)})`;
   }
   return null;
@@ -1224,6 +1223,16 @@ async function sendWatchChime(keyId, label) {
   log(`🔊 Sending ${label} (Cmd=0x02, Key=0x${keyId.toString(16).toUpperCase()}, Val=[01])...`, 'ok');
   const { frame, seq } = buildFitCloudFrame(0x02, keyId, [0x01], 0x00);
   await enqueueBleWrite(cmdChar, frame, `${label.replace(/\s+/g,'_')}(0x02/0x${keyId.toString(16).toUpperCase()}) seq=${seq}`);
+}
+
+async function setWatchEnglish() {
+  if (!cmdChar || !bleServer || !bleServer.connected) {
+    return log('ERROR: Pair & Bind to the watch first!', 'err');
+  }
+  abortBleOperation = false;
+  log('🌐 Setting Watch Language to English (Cmd=0x02, Key=0x3A, Val=[00])...', 'ok');
+  const { frame, seq } = buildFitCloudFrame(0x02, 0x3a, [0x00], 0x00);
+  await enqueueBleWrite(cmdChar, frame, `SetLanguageEnglish(0x02/0x3A=[00]) seq=${seq}`);
 }
 
 async function enableAllWatchAlerts() {
@@ -1877,34 +1886,14 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
   otaAccepted = false;
 
   const scope = document.getElementById('probeScopeSelect').value;
-  log(`Starting Pinpoint Scan (Scope=${scope})...`, 'ok');
+  log(`Starting 5-Key Watchface Pinpoint (Scope=${scope}, 2.5s gap between keys)...`, 'ok');
 
   const tests = [];
-  let stepDelayMs = 1500;
+  const startK = scope === 'wf_half2_6b_to_70' ? 0x6b : 0x66;
+  const endK   = scope === 'wf_half2_6b_to_70' ? 0x70 : 0x6a;
 
-  if (scope === 'pinpoint_wf_66_to_70') {
-    // Send [02] (Slot 2) with 1.5s gap so you see the watchface visibly change from Slot 1 to Slot 2!
-    for (let k = 0x66; k <= 0x70; k++) {
-      tests.push({ cmd: 0x02, key: k, val: [0x02], note: `🎨 WF TEST -> Cmd=0x02 Key=0x${k.toString(16).toUpperCase()} Val=[02]` });
-    }
-  } else if (scope === 'pinpoint_wf_71_to_7b') {
-    for (let k = 0x71; k <= 0x7b; k++) {
-      tests.push({ cmd: 0x02, key: k, val: [0x02], note: `🎨 WF TEST -> Cmd=0x02 Key=0x${k.toString(16).toUpperCase()} Val=[02]` });
-    }
-  } else if (scope === 'restore_english_02') {
-    // Since [01] switched the watch to Chinese and [00] on 0x0A..0x1F didn't switch it back, test [02] (English in 1-based enum: 1=CN, 2=EN) on all candidate language keys!
-    stepDelayMs = 400;
-    for (const k of [0x02, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x14, 0x17, 0x1a, 0x1d, 0x1e, 0x1f]) {
-      tests.push({ cmd: 0x02, key: k, val: [0x02], note: `🌐 LangTry_[02]_Key0x${k.toString(16).padStart(2,'0').toUpperCase()}` });
-    }
-  } else if (scope === 'find_lang_in_1b_1d') {
-    // What if the Language key was actually in 0x30..0x7B when we ran Scan 1 (with [01]=Chinese)? Send [00] to 0x30..0x64 (excluding chime 0x3A/0x3B and config TLVs)
-    stepDelayMs = 350;
-    const skip = new Set([0x36, 0x37, 0x3a, 0x3b, 0x3e, 0x3f, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x4c, 0x4d, 0x52, 0x53, 0x55, 0x56, 0x57, 0x58, 0x60, 0x65]);
-    for (let k = 0x30; k <= 0x64; k++) {
-      if (skip.has(k)) continue;
-      tests.push({ cmd: 0x02, key: k, val: [0x00], note: `🌐 LangTry_[00]_Key0x${k.toString(16).toUpperCase()}` });
-    }
+  for (let k = startK; k <= endK; k++) {
+    tests.push({ cmd: 0x02, key: k, val: [0x03], note: `🎨 WF PINPOINT -> Key=0x${k.toString(16).toUpperCase()} Val=[03]` });
   }
 
   for (let i = 0; i < tests.length; i++) {
@@ -1918,11 +1907,11 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
     if (resp) {
       log(`🎯 L2 REPLY on ${t.note}: Cmd=0x${resp.cmdId?.toString(16).padStart(2,'0')}, Key=0x${resp.keyId?.toString(16).padStart(2,'0')}, Val=[${resp.valHex}]`, 'ok');
     }
-    await new Promise(r => setTimeout(r, stepDelayMs));
+    await new Promise(r => setTimeout(r, 2500));
   }
 
   isTransferRunning = false;
-  log(`✅ Finished ${scope} (${tests.length} tests)!`, 'ok');
+  log(`✅ Finished ${scope} (${tests.length} tests)! Tell me which key (0x66..0x6A or 0x6B..0x70) switched the watchface to Slot 3!`, 'ok');
 });
 
 /* ============================================================================
@@ -2010,6 +1999,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
