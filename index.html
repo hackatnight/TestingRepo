@@ -313,8 +313,9 @@
             <option value="0x04|0x01|08 43 41 4C 4C 20 4E 4F 57 00 00 00 00">📞 Vibrate Incoming Call: "CALL NOW" (0x04 / 0x01)</option>
             <option value="0x04|0x02|00">☎️ Dismiss / End Incoming Call (0x04 / 0x02)</option>
             <option value="0x02|0x1b|">🔋 Query Watch Battery % (0x02 / 0x1B -> Replies 0x1C)</option>
-            <option value="0x02|0x7e|01">📐 Query Watch 360x360 GUI Info (0x02 / 0x7E [01] -> Replies 0x7E)</option>
-            <option value="0x02|0xaf|01">💾 Query Watch Flash Space (0x02 / 0xAF [01] -> Replies 0xAF)</option>
+            <option value="0x02|0x7d|01">📐 Query Watch 360x360 GUI Info (0x02 / 0x7D [01] -> Replies 0x7E)</option>
+            <option value="0x02|0xae|01">💾 Query Watch Flash Space (0x02 / 0xAE [01] -> Replies 0xAF)</option>
+            <option value="0x02|0xb0|01">🔍 Query Watch Key 0xB0 (0x02 / 0xB0 [01] -> Replies 0xB7)</option>
             <option value="0x02|0xc8|">🎨 Query Active Watchface Slots (0x02 / 0xC8 -> Replies 0xC9)</option>
             <option value="0x02|0x20|01">📋 Query Full Watch DeviceInfo TLVs (0x02 / 0x20 -> Replies 0x21)</option>
           </select>
@@ -1053,7 +1054,7 @@ function isDangerousResetFrame(frame) {
   if (frame.length >= 13 && frame[0] === 0xab && frame[1] === 0x00) {
     const cmd = frame[8], key = frame[10];
     // Block Cmd 0x02 Key 0x40..0x45 (Factory Reset / Unbind / PowerOff) & Cmd 0x07 (System Reboot)
-    if (cmd === 0x02 && key >= 0x40 && key <= 0x45) return `Blocked Factory Reset / Power key (0x02/0x${key.toString(16)})`;
+    if (cmd === 0x02 && ((key >= 0x40 && key <= 0x45) || key === 0x65 || key === 0x88)) return `Blocked Reset / Crash key (0x02/0x${key.toString(16)})`;
     if (cmd === 0x07) return `Blocked System Reboot command (0x07/0x${key.toString(16)})`;
   }
   return null;
@@ -1496,20 +1497,10 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
     // 2. Test newly discovered Cmd=0x02 Dial/GUI & Flash Write Keys with non-empty payloads
     const targetWriteKeys = [
       { k: 0x7c, name: 'GUI_Write_0x7C' },
-      { k: 0x7d, name: 'GUI_ReadWrite_0x7D' },
+      { k: 0x7d, name: 'GUI_ReadReq_0x7D' },
       { k: 0xad, name: 'Flash_Write_0xAD' },
-      { k: 0xae, name: 'Flash_ReadWrite_0xAE' },
-      { k: 0xb0, name: 'Key0xB0_To_0xB7' },
-      { k: 0xb5, name: 'Key0xB5_Write' },
-      { k: 0xb6, name: 'Key0xB6_Write' },
-      { k: 0x88, name: 'Key0x88_To_0x66' },
-      { k: 0x65, name: 'Key0x65_Write' },
-      { k: 0x54, name: 'Key0x54_Write' },
-      { k: 0xa4, name: 'Key0xA4_Write' },
-      { k: 0xe0, name: 'Key0xE0_Write' },
-      { k: 0xe1, name: 'Key0xE1_ReadWrite' },
-      { k: 0xe8, name: 'Key0xE8_Write' },
-      { k: 0xe9, name: 'Key0xE9_ReadWrite' }
+      { k: 0xae, name: 'Flash_ReadReq_0xAE' },
+      { k: 0xb0, name: 'Key0xB0_To_0xB7' }
     ];
     for (const tk of targetWriteKeys) {
       tests.push({ cmd: 0x02, key: tk.k, val: [0x01], note: `${tk.name}_[01]` });
@@ -1642,6 +1633,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
