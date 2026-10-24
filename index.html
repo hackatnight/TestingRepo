@@ -461,10 +461,10 @@
       <div class="field-row">
         <label>FFB1 Data OpCode</label>
         <select id="ffb1DataOpcode" style="width:205px">
-          <option value="0x20" selected>Op 0x20 (Matches 0xA0 = 0x80|0x20!)</option>
-          <option value="0x02">Op 0x02 (Cmd 0x02 Data Block)</option>
-          <option value="0x03">Op 0x03 (Cmd 0x03 Data Block)</option>
-          <option value="0x01">Op 0x01 (Cmd 0x01 with Offset)</option>
+          <option value="0x02" selected>Op 0x02 (Replies 0x82)</option>
+          <option value="0x03">Op 0x03 (Replies 0x83)</option>
+          <option value="0x04">Op 0x04 (Replies 0x84)</option>
+          <option value="0x05">Op 0x05 (Replies 0x85)</option>
         </select>
       </div>
       <div class="field-row" style="display:none;">
@@ -2085,6 +2085,16 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
  * ============================================================================ */
 let ffb2ErrorAbort = false;
 
+async function waitForFfb2Reply(timeoutMs = 1500) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (abortBleOperation) return null;
+    if (otaLastResponse && otaLastResponse.raw) return otaLastResponse.raw;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  return null;
+}
+
 async function probeFfb1SecondStep() {
   if (!bleServer || !bleServer.connected || !dfuPacketChar) {
     return log('ERROR: Pair & Bind to the watch first!', 'err');
@@ -2092,44 +2102,66 @@ async function probeFfb1SecondStep() {
   abortBleOperation = false;
   const bin = compileWatchfaceBin();
   const fSize = bin.byteLength;
-  const fCrc = computeCRC16(bin.subarray(1024), 0x0000);
+  const bodyLen = fSize - 1024;
+  const bodyCrc = computeCRC16(bin.subarray(1024), 0x0000);
   const fullCrc = computeCRC16(bin, 0x0000);
 
-  const size4LE = [fSize & 0xff, (fSize >> 8) & 0xff, (fSize >> 16) & 0xff, (fSize >> 24) & 0xff];
-  const crc2LE  = [fCrc & 0xff, (fCrc >> 8) & 0xff];
-  const fullCrc2LE = [fullCrc & 0xff, (fullCrc >> 8) & 0xff];
-  const first128 = Array.from(bin.subarray(0, 128));
+  const szLE = [fSize & 0xff, (fSize >> 8) & 0xff, (fSize >> 16) & 0xff, (fSize >> 24) & 0xff];
+  const bodySzLE = [bodyLen & 0xff, (bodyLen >> 8) & 0xff, (bodyLen >> 16) & 0xff, (bodyLen >> 24) & 0xff];
+  const crcLE = [bodyCrc & 0xff, (bodyCrc >> 8) & 0xff];
+  const fullCrcLE = [fullCrc & 0xff, (fullCrc >> 8) & 0xff];
+  const hdr64 = Array.from(bin.subarray(0, 64));
+  const tbui64 = Array.from(bin.subarray(1024, 1088));
 
-  // Each candidate gets a FRESH 0x01 -> 0x81 Wake session so an error on one never invalidates the next!
+  log('=== 🔬 Opening SINGLE White-Arrow Session (Op=0x01) & Probing Op=0x02..0x0F ===', 'ok');
+  otaLastResponse = null;
+  const wake13B = buildFfb1Envelope(0x01, 0, [0x04]);
+  await enqueueBleWrite(dfuPacketChar, wake13B, 'FFB1_Wake(Op=0x01)');
+  const wakeReply = await waitForFfb2Reply(1800);
+  if (!wakeReply || wakeReply[0] !== 0x81) {
+    return log('⚠️ Did not receive 0x81 Wake reply on FFB2!', 'err');
+  }
+
+  // Now we are inside the active 10-second White Arrow session!
+  // Test OpCodes 0x02..0x0F and key payload structures for 0x02 & 0x03 (200ms per test so all fit inside the 10s window!)
   const candidates = [
-    { op: 0x20, off: 0,     pl: first128,                           label: '1. Op0x20_Off0_First128B (Un-split!)' },
-    { op: 0x02, off: 0,     pl: first128,                           label: '2. Op0x02_Off0_First128B (Un-split!)' },
-    { op: 0x02, off: 0,     pl: [...size4LE, ...crc2LE],            label: '3. Op0x02_Off0_Size4LE+Crc2LE(6B)' },
-    { op: 0x02, off: 0,     pl: [...size4LE, ...fullCrc2LE, 0x00, 0x00], label: '4. Op0x02_Off0_Size4LE+FullCrc+00(8B)' },
-    { op: 0x02, off: fSize, pl: [],                                 label: '5. Op0x02_Offset=FileSize_0B' },
-    { op: 0x10, off: 0,     pl: [...size4LE, ...crc2LE],            label: '6. Op0x10_Off0_Size4LE+Crc2LE(6B)' }
+    // Scan OpCodes 0x02..0x0F with 64B header or 4B size to see every valid OpCode (where reply[12] != 0x01)!
+    { op: 0x02, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x02_Off0_TOPSTEP64B' },
+    { op: 0x02, f24: 0, off: 0,     pl: tbui64,                   label: 'Op0x02_Off0_TBUI64B' },
+    { op: 0x02, f24: 0, off: 0,     pl: [...szLE],                label: 'Op0x02_Off0_Size4LE(4B)' },
+    { op: 0x02, f24: 0, off: 0,     pl: [...bodySzLE, ...crcLE],  label: 'Op0x02_Off0_BodySize4LE_Crc2LE(6B)' },
+    { op: 0x02, f24: 0, off: fSize, pl: [...fullCrcLE],           label: 'Op0x02_Off=Size_FullCrc2LE(2B)' },
+    { op: 0x02, f24: 1, off: 0,     pl: hdr64,                    label: 'Op0x02_Flags1_Off0_TOPSTEP64B' },
+    { op: 0x03, f24: 0, off: 0,     pl: [...szLE, ...crcLE],      label: 'Op0x03_Off0_Size4LE_Crc2LE(6B)' },
+    { op: 0x03, f24: 0, off: 0,     pl: tbui64,                   label: 'Op0x03_Off0_TBUI64B' },
+    { op: 0x04, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x04_Off0_TOPSTEP64B' },
+    { op: 0x05, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x05_Off0_TOPSTEP64B' },
+    { op: 0x06, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x06_Off0_TOPSTEP64B' },
+    { op: 0x07, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x07_Off0_TOPSTEP64B' },
+    { op: 0x08, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x08_Off0_TOPSTEP64B' },
+    { op: 0x09, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x09_Off0_TOPSTEP64B' },
+    { op: 0x0a, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x0A_Off0_TOPSTEP64B' },
+    { op: 0x0b, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x0B_Off0_TOPSTEP64B' },
+    { op: 0x0c, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x0C_Off0_TOPSTEP64B' },
+    { op: 0x0d, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x0D_Off0_TOPSTEP64B' },
+    { op: 0x0e, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x0E_Off0_TOPSTEP64B' },
+    { op: 0x0f, f24: 0, off: 0,     pl: hdr64,                    label: 'Op0x0F_Off0_TOPSTEP64B' }
   ];
 
   for (const c of candidates) {
     if (abortBleOperation) break;
-    log(`--- Testing Fresh Session for: ${c.label} ---`, 'tx');
     otaLastResponse = null;
-    const wake13B = buildFfb1Envelope(0x01, 0, [0x04]);
-    await enqueueBleWrite(dfuPacketChar, wake13B, 'FFB1_Wake(Op=0x01)');
-    await waitForL2Response(700);
-
-    otaLastResponse = null;
-    const pkt = buildFfb1Envelope(c.op, c.off, c.pl);
+    const pkt = buildFfb1Envelope(c.op, c.off, c.pl, c.f24);
     await enqueueBleWrite(dfuPacketChar, pkt, c.label);
-    const r = await waitForL2Response(800);
-    if (r && r.raw) {
-      const rxHex = Array.from(r.raw).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
-      log(`🎯 FFB2 REPLIED to ${c.label}: [${rxHex}]`, 'ok');
-    } else {
-      log(`✨ NO ERROR REPLY on ${c.label} (Watch accepted packet silently or waiting for next chunk!)`, 'ok');
+    const r = await waitForFfb2Reply(240);
+    if (r) {
+      const rxHex = Array.from(r).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+      const status = r.length >= 13 ? r[12] : null;
+      const tag = (status !== 0x01) ? '🔥 VALID OPCODE' : 'ℹ️ Unrecognized(0x01)';
+      log(`${tag} on ${c.label} -> Reply Op=0x${r[0].toString(16).toUpperCase()}, Status=0x${status?.toString(16).padStart(2,'0')}, Raw=[${rxHex}]`, status !== 0x01 ? 'ok' : 'rx');
     }
-    await new Promise(r => setTimeout(r, 600));
   }
+  log('✅ Finished single-session FFB1 OpCode & Header probe! Copy and paste the logs here!', 'ok');
 }
 
 document.getElementById('btnFlashWatch').addEventListener('click', async () => {
@@ -2204,6 +2236,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
