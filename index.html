@@ -387,21 +387,6 @@
         <button class="danger" onclick="triggerFactoryResetPrompt()" title="Cmd=0x02, Key=0x40: Plays beep and factory resets watch">⚠️ Reset (02/40)</button>
         <button class="warn" onclick="sendWatchChime('FIND_WATCH_CHIME')" title="Cmd=0x02, Key=0x3B=[01]: Verified Find Watch Chime & Screen Alert" style="grid-column:span 3;">🔊 Find Watch Chime (02/3B)</button>
       </div>
-        <!-- 🎵 Verified Media Controls (Cmd=0x07, Key=0x03) -->
-        <div style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px;">
-          <div style="font-size:10px;font-weight:600;color:var(--accent,#00e5ff);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>🎵 Media Controls (07/03)</span>
-            <span style="font-size:9px;color:var(--text-dim,#888);font-family:var(--font-mono)">Verified Topstep mediaControl</span>
-          </div>
-          <div class="alert-grid" style="grid-template-columns:repeat(6, 1fr);gap:3px;">
-            <button onclick="sendMediaControl(0x04, 'Prev Track')" title="Cmd=0x07, Key=0x03=[04]: Previous Track" style="padding:4px 2px;font-size:10px;">⏮️ Prev</button>
-            <button class="primary" onclick="sendMediaControl(0x02, 'Play')" title="Cmd=0x07, Key=0x03=[02]: Play" style="padding:4px 2px;font-size:10px;">▶️ Play</button>
-            <button onclick="sendMediaControl(0x01, 'Pause')" title="Cmd=0x07, Key=0x03=[01]: Pause" style="padding:4px 2px;font-size:10px;">⏸️ Pause</button>
-            <button onclick="sendMediaControl(0x03, 'Next Track')" title="Cmd=0x07, Key=0x03=[03]: Next Track" style="padding:4px 2px;font-size:10px;">⏭️ Next</button>
-            <button onclick="sendMediaControl(0x06, 'Vol Down')" title="Cmd=0x07, Key=0x03=[06]: Volume Down" style="padding:4px 2px;font-size:10px;">🔉 Vol-</button>
-            <button onclick="sendMediaControl(0x05, 'Vol Up')" title="Cmd=0x07, Key=0x03=[05]: Volume Up" style="padding:4px 2px;font-size:10px;">🔊 Vol+</button>
-          </div>
-        </div>
       <div class="raw-cmd-Row" style="display:flex;gap:4px;align-items:center;margin-top:2px;">
         <select id="extraAlertKey" style="flex:1;width:auto;font-size:10px;padding:3px 5px;">
           <option value="0x01">📞 04/01 - Incoming Call</option>
