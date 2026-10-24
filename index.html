@@ -215,15 +215,22 @@
           <label>📡 Weather Hex</label>
           <input type="text" id="liveSensorHex" value="16 10 1A 02 | 1013hPa 50%" readonly style="width:150px;font-size:9px;padding:2px 5px;color:var(--accent);" />
         </div>
-        <div class="field-row" style="gap:4px;">
-          <select id="weatherFmtSelect" style="width:135px;font-size:9px;padding:2px 4px;" title="Select FitCloud Weather Payload Structure">
-            <option value="fc_city_7b" selected>1. 7B + CityLen + City (0x35)</option>
-            <option value="fc_7b_only">2. Pure 7B Today (0x35)</option>
-            <option value="fc_time_11b">3. 4B Time + 7B Today (0x35)</option>
-            <option value="fc_13b_ext">4. 13B Ext + City + Forecast (0x35+0x43)</option>
-            <option value="fc_topstep">5. TopStep Full Weather Struct</option>
+        <div class="field-row" style="gap:3px;">
+          <select id="watchTimeUnitSelect" onchange="applyWatchUnitsAndTime()" style="width:118px;font-size:9px;padding:2px 3px;" title="Watch 12H/24H & °C/°F Function Switch (0x02/0x18)">
+            <option value="24_C" selected>🕒 24H + °C (03 EB)</option>
+            <option value="12_C">🕒 12H + °C (03 EF)</option>
+            <option value="12_F">🕒 12H + °F (03 FF)</option>
+            <option value="24_F">🕒 24H + °F (03 FB)</option>
           </select>
-          <button class="primary" onclick="pushWeatherToWatch()" style="flex:1;justify-content:center;padding:4px 6px;font-size:10px;">🌤️ Push Weather</button>
+          <select id="weatherFmtSelect" style="width:105px;font-size:9px;padding:2px 3px;" title="Select FitCloud Weather Key / Format">
+            <option value="scan_weather_keys" selected>🔍 Auto-Find Key</option>
+            <option value="key_2e_10b">Key 0x2E (TLV 0x30 10B)</option>
+            <option value="key_4c_6b">Key 0x4C (TLV 0x4E 6B)</option>
+            <option value="key_57_10b">Key 0x57 (TLV 0x59 10B)</option>
+            <option value="fc_city_7b">Key 0x35 (7B+City)</option>
+            <option value="fc_7b_only">Key 0x35 (7B Pure)</option>
+          </select>
+          <button class="primary" onclick="pushWeatherToWatch()" style="flex:1;justify-content:center;padding:4px 5px;font-size:10px;">🌤️ Push</button>
         </div>
       </div>
     </div>
@@ -1392,21 +1399,39 @@ function updateLiveSensorReadout() {
   }
 }
 
-function buildFitCloudPackedTime4B() {
+function buildFitCloudTime6B() {
   const now = new Date();
-  const yr = Math.max(0, now.getFullYear() - 2000) & 0x3f;
-  const mo = (now.getMonth() + 1) & 0x0f;
-  const da = now.getDate() & 0x1f;
-  const hr = now.getHours() & 0x1f;
-  const mi = now.getMinutes() & 0x3f;
-  const se = now.getSeconds() & 0x3f;
-  const packed = ((yr << 26) >>> 0) | (mo << 22) | (da << 17) | (hr << 12) | (mi << 6) | se;
   return [
-    (packed >>> 24) & 0xff,
-    (packed >>> 16) & 0xff,
-    (packed >>> 8) & 0xff,
-    packed & 0xff
+    Math.max(0, now.getFullYear() - 2000) & 0xff,
+    (now.getMonth() + 1) & 0xff,
+    now.getDate() & 0xff,
+    now.getHours() & 0xff,
+    now.getMinutes() & 0xff,
+    now.getSeconds() & 0xff
   ];
+}
+
+function getWatchUnitSwitchBytes() {
+  const mode = document.getElementById('watchTimeUnitSelect')?.value || '24_C';
+  // Byte1 bits: 0x04 = 12-Hour mode (0=24H, 1=12H), 0x10 = Fahrenheit (0=°C, 1=°F)
+  if (mode === '24_C') return [0x03, 0xeb]; // 24H + Celsius + Weather Push ON
+  if (mode === '12_C') return [0x03, 0xef]; // 12H + Celsius + Weather Push ON
+  if (mode === '12_F') return [0x03, 0xff]; // 12H + Fahrenheit + Weather Push ON
+  return [0x03, 0xfb];                      // 24H + Fahrenheit + Weather Push ON
+}
+
+async function applyWatchUnitsAndTime() {
+  if (!cmdChar || !bleServer || !bleServer.connected) return;
+  abortBleOperation = false;
+  const time6B = buildFitCloudTime6B();
+  const swBytes = getWatchUnitSwitchBytes();
+  log(`🕒 Syncing Watch 6B Time (0x02/0x01) + Units/Format (0x02/0x18 = [${swBytes.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ')}])...`, 'ok');
+  const tf = buildFitCloudFrame(0x02, 0x01, time6B, 0x00);
+  await enqueueBleWrite(cmdChar, tf.frame, `SyncTime6B_0x01 seq=${tf.seq}`);
+  await waitForAck(tf.seq, 300);
+  const sf = buildFitCloudFrame(0x02, 0x18, swBytes, 0x00);
+  await enqueueBleWrite(cmdChar, sf.frame, `SetUnits_0x18 seq=${sf.seq}`);
+  await waitForAck(sf.seq, 300);
 }
 
 async function pushWeatherToWatch() {
@@ -1420,63 +1445,72 @@ async function pushWeatherToWatch() {
   const cur = encodeFitCloudTemp(document.getElementById('liveTempCur').value);
   const min = encodeFitCloudTemp(document.getElementById('liveTempMin').value);
   const max = encodeFitCloudTemp(document.getElementById('liveTempMax').value);
-  const fmt = document.getElementById('weatherFmtSelect')?.value || 'fc_city_7b';
+  const fmt = document.getElementById('weatherFmtSelect')?.value || 'scan_weather_keys';
   const cityBytes = Array.from(new TextEncoder().encode('HT37'));
 
-  // 1. Sync Watch Time using FitCloud 4-byte bit-packed timestamp (0x02/0x01)
-  const time4B = buildFitCloudPackedTime4B();
-  log(`🕒 Step 1/3: Syncing FitCloud 4B Packed Time (0x02/0x01 = [${time4B.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ')}])...`, 'tx');
-  const tFrame = buildFitCloudFrame(0x02, 0x01, time4B, 0x00);
-  await enqueueBleWrite(cmdChar, tFrame.frame, `SyncTime4B_0x01 seq=${tFrame.seq}`);
-  await waitForAck(tFrame.seq, 350);
+  // 1. Sync 6B Time + Selected 12H/24H & °C/°F Units (Default: 24H + °C = [03 EB])
+  await applyWatchUnitsAndTime();
 
-  // 2. Enable Function Switch (0x02/0x18): Keep Weather Push ON (0x0220 / 0x03EB) with Celsius (clear Fahrenheit bit 0x04)
-  // Note: 0x03FF had bit 2 (0x04 = Fahrenheit) set, which converted 0C -> 32F! Clearing 0x04 -> [03 FB] keeps Celsius + Weather Push ON!
-  const swBytes = [0x03, 0xfb];
-  log(`🔓 Step 2/3: Setting Function/Weather Switch (0x02/0x18 = [03 FB] -> Weather ON + Celsius)...`, 'ok');
-  const sw = buildFitCloudFrame(0x02, 0x18, swBytes, 0x00);
-  await enqueueBleWrite(cmdChar, sw.frame, `EnableWeatherSwitch(0x02/0x18) seq=${sw.seq}`);
-  await waitForAck(sw.seq, 300);
+  // 2. Send Weather Payload according to selected mode
+  if (fmt === 'scan_weather_keys') {
+    log(`🔍 Probing candidate Weather Keys in Cmd=0x02 with Cur=${sensors.weatherTemp}°C (0x${cur.toString(16).toUpperCase()}), Min=${min}°C, Max=${max}°C...`, 'ok');
+    const candidates = [
+      // All-zero config TLVs from 0x02/0x21:
+      { key: 0x2e, val: [cur, min, max, code, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], name: 'Key0x2E_TLV0x30_10B' },
+      { key: 0x4c, val: [cur, min, max, code, 0x00, 0x00], name: 'Key0x4C_TLV0x4E_6B' },
+      { key: 0x57, val: [cur, min, max, code, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], name: 'Key0x57_TLV0x59_10B' },
+      // Standard FitCloud / TopStep Weather keys around 0x31..0x39 & 0x42..0x45:
+      { key: 0x31, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x31_7B' },
+      { key: 0x32, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x32_7B' },
+      { key: 0x33, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x33_7B' },
+      { key: 0x34, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x34_7B' },
+      { key: 0x35, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x35_7B' },
+      { key: 0x36, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x36_7B' },
+      { key: 0x37, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x37_7B' },
+      { key: 0x38, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x38_7B' },
+      { key: 0x39, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x39_7B' },
+      { key: 0x42, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x42_7B' },
+      { key: 0x43, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x43_7B' },
+      { key: 0x44, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x44_7B' },
+      { key: 0x45, val: [cur, min, max, code, 0x00, 0x00, 0x00], name: 'Key0x45_7B' }
+    ];
+    for (const c of candidates) {
+      if (abortBleOperation) break;
+      const wf = buildFitCloudFrame(0x02, c.key, c.val, 0x00);
+      await enqueueBleWrite(cmdChar, wf.frame, `${c.name} seq=${wf.seq}`);
+      await waitForAck(wf.seq, 280);
+    }
+    // Read back 0x02/0x20 to see if 0x1A, 0x30, 0x4E, or 0x59 changed!
+    const rb = buildFitCloudFrame(0x02, 0x20, [0x01], 0x00);
+    await enqueueBleWrite(cmdChar, rb.frame, `ReadBackAllConfig(0x02/0x20) seq=${rb.seq}`);
+    await waitForAck(rb.seq, 400);
+    return;
+  }
 
-  // 3. Build the selected Weather Payload so packets don't overwrite each other!
-  let payload = [];
-  if (fmt === 'fc_city_7b') {
-    // FitCloud Standard: [CurTemp, MinTemp, MaxTemp, WeatherCode, PressureH, PressureL, WindScale, CityLen, ...CityUTF8]
+  let targetKey = 0x35;
+  let payload = [cur, min, max, code, 0x00, 0x00, 0x00];
+  if (fmt === 'key_2e_10b') {
+    targetKey = 0x2e;
+    payload = [cur, min, max, code, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+  } else if (fmt === 'key_4c_6b') {
+    targetKey = 0x4c;
+    payload = [cur, min, max, code, 0x00, 0x00];
+  } else if (fmt === 'key_57_10b') {
+    targetKey = 0x57;
+    payload = [cur, min, max, code, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+  } else if (fmt === 'fc_city_7b') {
+    targetKey = 0x35;
     payload = [cur, min, max, code, (sensors.baro >> 8) & 0xff, sensors.baro & 0xff, 0x02, cityBytes.length, ...cityBytes];
-  } else if (fmt === 'fc_7b_only') {
-    // Pure 7B Today: [CurTemp, MinTemp, MaxTemp, WeatherCode, AirQuality, WindScale, UV]
-    payload = [cur, min, max, code, 0x01, 0x02, 0x03];
-  } else if (fmt === 'fc_time_11b') {
-    // 4B Packed Timestamp + [CurTemp, MinTemp, MaxTemp, WeatherCode, CityLen, ...CityUTF8]
-    payload = [...time4B, cur, min, max, code, cityBytes.length, ...cityBytes];
-  } else if (fmt === 'fc_13b_ext') {
-    // 7B + City on 0x35, PLUS 7-day forecast on 0x43
-    payload = [cur, min, max, code, 0x01, 0x02, 0x03, cityBytes.length, ...cityBytes];
-  } else {
-    // TopStep / Extended 20B with 4B timestamp + Today + 3-day Forecast + City
-    payload = [...time4B, cur, min, max, code, min, max, code, min, max, code, min, max, code, cityBytes.length, ...cityBytes];
   }
 
   document.getElementById('rawCmd').value = '0x02';
-  document.getElementById('rawKey').value = '0x35';
+  document.getElementById('rawKey').value = '0x' + targetKey.toString(16).padStart(2, '0');
   document.getElementById('rawPayload').value = payload.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
 
-  log(`🌤️ Step 3/3: Pushing Weather [${fmt}] (Cur=${sensors.weatherTemp}°C, Min=${document.getElementById('liveTempMin').value}°C, Max=${document.getElementById('liveTempMax').value}°C, Sky=${sensors.weatherCond})...`, 'ok');
-  const wf = buildFitCloudFrame(0x02, 0x35, payload, 0x00);
-  await enqueueBleWrite(cmdChar, wf.frame, `Weather_${fmt}(0x02/0x35) seq=${wf.seq}`);
+  log(`🌤️ Pushing Weather [${fmt}] -> Cmd=0x02, Key=0x${targetKey.toString(16).toUpperCase()}...`, 'ok');
+  const wf = buildFitCloudFrame(0x02, targetKey, payload, 0x00);
+  await enqueueBleWrite(cmdChar, wf.frame, `Weather_${fmt} seq=${wf.seq}`);
   await waitForAck(wf.seq, 350);
-
-  if (fmt === 'fc_13b_ext') {
-    const forecast = [
-      0x03, // 3 days forecast
-      min, max, code,
-      min, max, code,
-      min, max, code
-    ];
-    const ff = buildFitCloudFrame(0x02, 0x43, forecast, 0x00);
-    await enqueueBleWrite(cmdChar, ff.frame, `WeatherForecast(0x02/0x43) seq=${ff.seq}`);
-    await waitForAck(ff.seq, 350);
-  }
 }
 
 async function activateWatchDialSlot() {
@@ -1801,6 +1835,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
