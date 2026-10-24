@@ -1504,43 +1504,37 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
   const tests = [];
 
   if (scope === 'dial_write_and_ota' || scope === 'all_safe_new') {
-    const strUid = Array.from(new TextEncoder().encode('probe-user-01'));
-    const padded32Uid = [...strUid, ...new Array(32 - strUid.length).fill(0)];
-    // 1. Authenticate session with 0x03/0x15 (UserLogin) in case OTA requires Login state
-    tests.push({ cmd: 0x03, key: 0x15, val: padded32Uid, note: 'Auth_Login_32B(0x03/0x15)' });
-    tests.push({ cmd: 0x03, key: 0x15, val: [0x00], note: 'Auth_Login_1B(0x03/0x15)' });
+    const d = [...watchDeviceInfo53B];
+    const bumpPatch = [...d]; bumpPatch[9] = (d[9] + 1) & 0xff;
+    const bumpFlash = [...d]; bumpFlash[13] = (d[13] + 1) & 0xff;
+    const bumpUi    = [...d]; bumpUi[41] = (d[41] + 1) & 0xff; bumpUi[42] = 0x01;
+    const bumpGui   = [...d]; bumpGui[43] = (d[43] + 1) & 0xff; bumpGui[44] = (d[44] + 1) & 0xff;
+    const bumpAllVer = [...d];
+    bumpAllVer[6]=0x0c; bumpAllVer[8]=0x0c; bumpAllVer[12]=0x28; bumpAllVer[26]=0x02;
+    bumpAllVer[41]=0x47; bumpAllVer[43]=0x22; bumpAllVer[48]=0xc1;
+    const allFF = new Array(53).fill(0xff);
 
-    // 2. Test 0x01/0x01 (OTA PreCheck) with varying payload formats & lengths
-    tests.push({ cmd: 0x01, key: 0x01, val: [], note: 'OTA_01_01_Empty0B' });
-    tests.push({ cmd: 0x01, key: 0x01, val: [0x01], note: 'OTA_01_01_1B_[01]' });
-    tests.push({ cmd: 0x01, key: 0x01, val: [0x02], note: 'OTA_01_01_1B_[02_Dial]' });
-    tests.push({ cmd: 0x01, key: 0x01, val: [0x01, 0x00], note: 'OTA_01_01_2B_[01,00]' });
-    tests.push({ cmd: 0x01, key: 0x01, val: p.sLE, note: 'OTA_01_01_4B_SizeLE' });
-    tests.push({ cmd: 0x01, key: 0x01, val: p.sBE, note: 'OTA_01_01_4B_SizeBE' });
-    tests.push({ cmd: 0x01, key: 0x01, val: [...p.sLE, ...p.cLE], note: 'OTA_01_01_6B_SizeCRC_LE' });
-    tests.push({ cmd: 0x01, key: 0x01, val: [...p.sBE, ...p.cBE], note: 'OTA_01_01_6B_SizeCRC_BE' });
-    tests.push({ cmd: 0x01, key: 0x01, val: p.desc8LE, note: 'OTA_01_01_8B_DescLE' });
-    tests.push({ cmd: 0x01, key: 0x01, val: p.desc8BE, note: 'OTA_01_01_8B_DescBE' });
-    tests.push({ cmd: 0x01, key: 0x01, val: p.flash8B, note: 'OTA_01_01_8B_FlashAddrSize' });
-    tests.push({ cmd: 0x01, key: 0x01, val: [...p.bumped53B, ...p.sLE, ...p.cLE], note: 'OTA_01_01_59B_DevInfoPlusSizeCRC' });
+    // 1. Test 0x01/0x01 with every internal version field bumped so 0x01/0x02 returns non-zero!
+    tests.push({ cmd: 0x01, key: 0x01, val: d, note: 'OTA_01_01_Exact53B' });
+    tests.push({ cmd: 0x01, key: 0x01, val: bumpPatch, note: 'OTA_01_01_BumpPatch(8..9)' });
+    tests.push({ cmd: 0x01, key: 0x01, val: bumpFlash, note: 'OTA_01_01_BumpFlash(12..13)' });
+    tests.push({ cmd: 0x01, key: 0x01, val: bumpUi, note: 'OTA_01_01_BumpUI(41..42)' });
+    tests.push({ cmd: 0x01, key: 0x01, val: bumpGui, note: 'OTA_01_01_BumpGUI(43..44)' });
+    tests.push({ cmd: 0x01, key: 0x01, val: bumpAllVer, note: 'OTA_01_01_BumpAllVersions53B' });
+    tests.push({ cmd: 0x01, key: 0x01, val: allFF, note: 'OTA_01_01_AllFF_53B' });
+    tests.push({ cmd: 0x01, key: 0x01, val: [0x11, 0x35, ...bumpAllVer], note: 'OTA_01_01_TLV55B_11_35' });
 
-    // 3. Test 0x01/0x03 (OTA Start) with varying payload lengths (0B, 1B, 2B, 4B, 6B, 8B, 53B)
-    tests.push({ cmd: 0x01, key: 0x03, val: [], note: 'OTA_01_03_Empty0B' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x00], note: 'OTA_01_03_1B_[00]' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x01], note: 'OTA_01_03_1B_[01]' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x02], note: 'OTA_01_03_1B_[02_Dial]' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x03], note: 'OTA_01_03_1B_[03_GUI]' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x01, 0x00], note: 'OTA_01_03_2B_[01,00]' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x02, 0x00], note: 'OTA_01_03_2B_[02,00]' });
-    tests.push({ cmd: 0x01, key: 0x03, val: p.sLE, note: 'OTA_01_03_4B_SizeLE' });
-    tests.push({ cmd: 0x01, key: 0x03, val: p.sBE, note: 'OTA_01_03_4B_SizeBE' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [...p.sLE, ...p.cLE], note: 'OTA_01_03_6B_SizeCRC_LE' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [...p.sBE, ...p.cBE], note: 'OTA_01_03_6B_SizeCRC_BE' });
-    tests.push({ cmd: 0x01, key: 0x03, val: p.desc8LE, note: 'OTA_01_03_8B_DescLE' });
-    tests.push({ cmd: 0x01, key: 0x03, val: p.desc8BE, note: 'OTA_01_03_8B_DescBE' });
-    tests.push({ cmd: 0x01, key: 0x03, val: p.flash8B, note: 'OTA_01_03_8B_FlashAddrSize' });
-    tests.push({ cmd: 0x01, key: 0x03, val: p.bumped53B, note: 'OTA_01_03_53B_BumpedDevInfo' });
-    tests.push({ cmd: 0x01, key: 0x03, val: Array.from(bin.slice(0, 64)), note: 'OTA_01_03_64B_BinHeader' });
+    // 2. Test 2-Byte 0x01/0x03 (since we proved 0x01/0x03 strictly requires 2 bytes!)
+    const twoByteCandidates = [
+      [0x00, 0x01], [0x00, 0x02], [0x00, 0x03], [0x01, 0x01], [0x01, 0x02],
+      [0x02, 0x01], [0x02, 0x02], [0x03, 0x01], [0x10, 0x00], [0x20, 0x00],
+      [0xff, 0xff], [0x85, 0x45], [0x0b, 0x49], [0x0b, 0xd3], [0x27, 0xf3],
+      [0x01, 0x07], [0x46, 0x00], [0x21, 0x10], [0x77, 0x20], p.cLE, p.cBE
+    ];
+    for (const tb of twoByteCandidates) {
+      const hex = tb.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join('_');
+      tests.push({ cmd: 0x01, key: 0x03, val: tb, note: `OTA_01_03_2B_[${hex}]` });
+    }
   }
 
   if (scope === 'cmd03_05_scan' || scope === 'all_safe_new') {
@@ -1662,6 +1656,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
