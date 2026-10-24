@@ -386,6 +386,21 @@
         <button class="danger" onclick="triggerFactoryResetPrompt()" title="Cmd=0x02, Key=0x40: Plays beep and factory resets watch">⚠️ Reset (02/40)</button>
         <button class="warn" onclick="sendWatchChime(0x3b, 'Find Watch Chime')" title="Cmd=0x02, Key=0x3B=[01]: Verified Find Watch Chime & Screen Alert" style="grid-column:span 3;">🔊 Find Watch Chime (02/3B)</button>
       </div>
+        <!-- 🎵 Verified Media Controls (Cmd=0x07, Key=0x03) -->
+        <div style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px;">
+          <div style="font-size:10px;font-weight:600;color:var(--accent,#00e5ff);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>🎵 Media Controls (07/03)</span>
+            <span style="font-size:9px;color:var(--text-dim,#888);font-family:var(--font-mono)">Verified Topstep mediaControl</span>
+          </div>
+          <div class="alert-grid" style="grid-template-columns:repeat(6, 1fr);gap:3px;">
+            <button onclick="sendMediaControl(0x04, 'Prev Track')" title="Cmd=0x07, Key=0x03=[04]: Previous Track" style="padding:4px 2px;font-size:10px;">⏮️ Prev</button>
+            <button class="primary" onclick="sendMediaControl(0x02, 'Play')" title="Cmd=0x07, Key=0x03=[02]: Play" style="padding:4px 2px;font-size:10px;">▶️ Play</button>
+            <button onclick="sendMediaControl(0x01, 'Pause')" title="Cmd=0x07, Key=0x03=[01]: Pause" style="padding:4px 2px;font-size:10px;">⏸️ Pause</button>
+            <button onclick="sendMediaControl(0x03, 'Next Track')" title="Cmd=0x07, Key=0x03=[03]: Next Track" style="padding:4px 2px;font-size:10px;">⏭️ Next</button>
+            <button onclick="sendMediaControl(0x06, 'Vol Down')" title="Cmd=0x07, Key=0x03=[06]: Volume Down" style="padding:4px 2px;font-size:10px;">🔉 Vol-</button>
+            <button onclick="sendMediaControl(0x05, 'Vol Up')" title="Cmd=0x07, Key=0x03=[05]: Volume Up" style="padding:4px 2px;font-size:10px;">🔊 Vol+</button>
+          </div>
+        </div>
       <div class="raw-cmd-Row" style="display:flex;gap:4px;align-items:center;margin-top:2px;">
         <select id="extraAlertKey" style="flex:1;width:auto;font-size:10px;padding:3px 5px;">
           <option value="0x01">📞 04/01 - Incoming Call</option>
@@ -430,6 +445,11 @@
         </div>
         <div class="raw-cmd-row">
           <select id="rawPresetSelect" onchange="const p=this.value.split('|');document.getElementById('rawCmd').value=p[0];document.getElementById('rawKey').value=p[1];document.getElementById('rawPayload').value=p[2];" style="width:100%;font-size:10px;padding:3px 5px;">
+              <option value="0x07|0x03|02">▶️ Media: Play (0x07 / 0x03=[02])</option>
+              <option value="0x07|0x03|03">⏭️ Media: Next Track (0x07 / 0x03=[03])</option>
+              <option value="0x07|0x03|04">⏮️ Media: Prev Track (0x07 / 0x03=[04])</option>
+              <option value="0x07|0x03|05">🔊 Media: Volume Up (0x07 / 0x03=[05])</option>
+              <option value="0x07|0x03|06">🔉 Media: Volume Down (0x07 / 0x03=[06])</option>
             <option value="0x04|0x04|04 48 54 33 37 00 09 4C 32 20 57 6F 72 6B 73 21 00 00" selected>💬 Vibrate + SMS Popup: "HT37: L2 Works!" (0x04 / 0x04)</option>
             <option value="0x04|0x0c|08 57 68 61 74 73 41 70 70 00 0B 48 54 33 37 20 52 65 61 64 79 21 00 00">📲 Vibrate + WhatsApp Popup: "HT37 Ready!" (0x04 / 0x0C)</option>
             <option value="0x04|0x07|08 46 61 63 65 62 6F 6F 6B 00 09 50 69 6E 67 20 54 65 73 74 00 00">📘 Vibrate + Facebook Popup: "Ping Test" (0x04 / 0x07)</option>
@@ -1435,7 +1455,19 @@ async function enableAllWatchAlerts() {
   await enqueueBleWrite(cmdChar, r.frame, `VerifyConfig(0x02/0x20) seq=${r.seq}`);
 }
 
-async function sendWatchAlert(keyId, label) {
+  // --- VERIFIED MEDIA CONTROLS (Cmd=0x07, Key=0x03) ---
+  async function sendMediaControl(actionByte, label) {
+    if (!cmdChar || !bleServer || !bleServer.connected) {
+      return log('ERROR: Connect & Bind to the watch first.', 'err');
+    }
+    abortBleOperation = false;
+    const actHex = '0x' + actionByte.toString(16).padStart(2, '0').toUpperCase();
+    log(`🎵 Sending Media Control [${label}] (Cmd=0x07, Key=0x03, Val=[${actHex}])...`, 'ok');
+    const { frame, seq } = buildFitCloudFrame(0x07, 0x03, [actionByte & 0xff], 0x00);
+    await enqueueBleWrite(cmdChar, frame, `Media_${label}(0x07/0x03=[${actHex}]) seq=${seq}`);
+  }
+
+  async function sendWatchAlert(keyId, label) {
   if (!cmdChar || !bleServer || !bleServer.connected) {
     return log('ERROR: Pair & Bind to the watch first!', 'err');
   }
