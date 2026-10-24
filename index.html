@@ -586,10 +586,75 @@
     </div>
     <div class="terminal" id="logTerminal"></div>
   </div>
-  <div class="hex-inspector" id="hexInspector">
-    <strong>[FitCloud Binary Struct & Offset Inspector]</strong><br/>
-    Discovered <code>0x02/0x7E</code> = <code>[03 01 01 68 01 68 00]</code> (LCD=3, 360×360 GUI Info) & <code>0x02/0xAF</code> = <code>[00 00 08 26 00 08 2F 50]</code> (Flash Space)! Click "🔬 2. Discover Trigger (Safe)" to test their Write keys!
-  </div>
+  <div class="inspector-explorer-row" style="display:flex;gap:8px;align-items:stretch;margin-top:8px;flex-wrap:wrap;">
+      <!-- Left: FitCloud Binary Struct & Offset Inspector -->
+      <div class="hex-inspector" id="hexInspector" style="flex:1;min-width:280px;margin:0;">
+        <strong>[FitCloud Binary Struct & Offset Inspector]</strong><br/>
+        Discovered <code>0x02/0x7E</code> = <code>[03 01 01 68 01 68 00]</code> (LCD=3, 360×360 GUI Info) &
+<code>0x02/0xAF</code> = <code>[00 00 08 26 00 08 2F 50]</code> (Flash Space)! Click "🔬 2. Discover Trigger (Safe)" to
+test their Write keys!
+      </div>
+
+      <!-- Right: HT37 Command Explorer -->
+      <div class="hex-inspector" id="commandExplorer" style="flex:1;min-width:280px;margin:0;background:rgba(10,18,30,0.88);border:1px solid rgba(0,229,255,0.3);box-shadow:0 0 10px rgba(0,229,255,0.06);padding:8px;font-family:inherit;">
+        <div style="font-weight:bold;color:var(--accent,#00e5ff);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+          <span>🧪 [HT37 Command Explorer]</span>
+          <span style="font-size:9px;background:rgba(0,229,255,0.15);color:var(--accent,#00e5ff);padding:1px 6px;border-radius:3px;font-family:var(--font-mono);">1-BY-1 PROBE</span>
+        </div>
+
+        <!-- Predicted Presets Dropdown -->
+        <div style="margin-bottom:5px;">
+          <select id="explorerPresetSelect" onchange="loadExplorerPreset(this.value)" style="width:100%;font-size:10px;padding:3px 5px;background:#151b26;color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:3px;outline:none;">
+            <optgroup label="🔬 Biometrics & Health Sensors">
+              <option value="0x02|0x15|01|💚 Start PPG Heart Rate Reading|Turns on green optical LEDs on back of watch; watch emits live BPM packets." selected>💚 02/15=[01] Start Heart Rate PPG (Green LEDs)</option>
+              <option value="0x02|0x15|00|🛑 Stop PPG Heart Rate Reading|Turns off optical green LEDs on back of watch.">🛑 02/15=[00] Stop Heart Rate PPG</option>
+              <option value="0x02|0x16|01|🩸 Start SpO2 Blood Oxygen Reading|Fires red & infrared optical LEDs for single oxygen spot check.">🩸 02/16=[01] Start SpO2 Blood Oxygen</option>
+              <option value="0x02|0x14|01|🩺 Start Blood Pressure Reading|Triggers systolic/diastolic calculation on watch.">🩺 02/14=[01] Start Blood Pressure Test</option>
+              <option value="0x02|0x17|01|🫁 Start Respiration Rate Reading|Measures breaths per minute algorithm.">🫁 02/17=[01] Start Respiration Rate</option>
+              <option value="0x02|0x1E|01|⚡ Start Stress / HRV Reading|Runs Heart Rate Variability / stress check.">⚡ 02/1E=[01] Start Stress / HRV Test</option>
+            </optgroup>
+            <optgroup label="📊 Queries & Device Telemetry (Cmd=0x01)">
+              <option value="0x01|0x30||🔋 Query Battery Level & Charge State|Prompts watch to report battery percent and charging flag.">🔋 01/30 Query Battery Level</option>
+              <option value="0x01|0x03||🎯 Query Daily Step Target|Reads 4-byte daily step goal from watch flash.">🎯 01/03 Query Step Target</option>
+              <option value="0x01|0x02||⏰ Query Stored Hardware Alarms|Reads scheduled alarm clock slots.">⏰ 01/02 Query Stored Alarms</option>
+              <option value="0x01|0x01||📱 Query Device Specs & Version|Reads hardware model, screen resolution, firmware version.">📱 01/01 Query Device Specs</option>
+              <option value="0x01|0x18||⚙️ Query Function Switch Bank|Reads active unit switches (12/24h, metric/imperial, DND).">⚙️ 01/18 Query Unit Switches</option>
+              <option value="0x01|0x24||🌙 Query Scheduled DND Window|Reads start/stop hours for Do Not Disturb.">🌙 01/24 Query DND Window</option>
+              <option value="0x01|0x05||🪑 Query Sedentary Reminder|Reads sedentary alert schedule.">🪑 01/05 Query Sedentary Alert</option>
+              <option value="0x01|0x06||💧 Query Drink Water Reminder|Reads hydration alert schedule.">💧 01/06 Query Water Alert</option>
+            </optgroup>
+            <optgroup label="⚙️ Device Settings & Gestures (Cmd=0x02)">
+              <option value="0x02|0x21|01|👋 Enable Raise-to-Wake Gesture|Screen wakes automatically on wrist turn.">👋 02/21=[01] Enable Raise-to-Wake</option>
+              <option value="0x02|0x21|00|🚫 Disable Raise-to-Wake Gesture|Screen only wakes on physical button click.">🚫 02/21=[00] Disable Raise-to-Wake</option>
+              <option value="0x02|0x25|05|⏱️ Display Timeout: 5 Seconds|Sets LCD backlight duration to 5s.">⏱️ 02/25=[05] Display Timeout: 5s</option>
+              <option value="0x02|0x25|0A|⏱️ Display Timeout: 10 Seconds|Sets LCD backlight duration to 10s.">⏱️ 02/25=[0A] Display Timeout: 10s</option>
+              <option value="0x02|0x25|0F|⏱️ Display Timeout: 15 Seconds|Sets LCD backlight duration to 15s.">⏱️ 02/25=[0F] Display Timeout: 15s</option>
+              <option value="0x02|0x03|10 27 00 00|🎯 Set Step Goal: 10,000 Steps|Writes 10,000 steps little-endian (0x2710).">🎯 02/03 Set Step Goal (10k)</option>
+            </optgroup>
+            <optgroup label="📱 Peripheral & State Triggers">
+              <option value="0x02|0x20|01|📷 Enter Camera Remote Mode (App -> Watch)|Instructs watch to display camera shutter screen.">📷 02/20=[01] Launch Camera Mode</option>
+              <option value="0x02|0x20|00|📷 Exit Camera Remote Mode|Dismisses camera shutter screen on watch.">📷 02/20=[00] Close Camera Mode</option>
+              <option value="0x02|0x7E||🖥️ Query LCD GUI Spec (0x7E)|Reads 360x360 GUI layout info.">🖥️ 02/7E Query LCD GUI Spec</option>
+              <option value="0x02|0xAF||💾 Query Flash Space Spec (0xAF)|Reads available dial flash boundaries.">💾 02/AF Query Flash Space</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Editable Inputs & Send Bar -->
+        <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+          <input type="text" id="explorerCmd" value="0x02" placeholder="Cmd" style="width:44px;font-size:10px;font-family:var(--font-mono);padding:2px 4px;background:#151b26;color:#00e5ff;border:1px solid rgba(255,255,255,0.18);border-radius:3px;" />
+          <input type="text" id="explorerKey" value="0x15" placeholder="Key" style="width:44px;font-size:10px;font-family:var(--font-mono);padding:2px 4px;background:#151b26;color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:3px;" />
+          <input type="text" id="explorerPayload" value="01" placeholder="Payload hex (e.g. 01)" style="flex:1;min-width:60px;font-size:10px;font-family:var(--font-mono);padding:2px 4px;background:#151b26;color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:3px;" />
+          <button class="primary" onclick="sendExplorerCommand()" style="padding:3px 8px;font-size:10px;white-space:nowrap;">⚡ Send</button>
+          <button onclick="advanceExplorerNext()" title="Advance to next predicted command" style="padding:3px 6px;font-size:10px;">⏭️</button>
+        </div>
+
+        <!-- Dynamic Prediction Callout -->
+        <div id="explorerPrediction" style="font-size:9px;color:var(--text-dim,#aaa);line-height:1.3;padding:3px 4px;background:rgba(0,0,0,0.3);border-radius:3px;border:1px solid rgba(255,255,255,0.06);">
+          💡 <b>Prediction:</b> Turns on green optical LEDs on back of watch; watch emits live BPM packets.
+        </div>
+      </div>
+    </div>
 </div>
 
 <script>
