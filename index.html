@@ -1504,16 +1504,25 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
   const tests = [];
 
   if (scope === 'dial_write_and_ota' || scope === 'all_safe_new') {
-    // 1. Scan unexplored Top-Level Command IDs: Cmd = 0x06, 0x08, 0x09, 0x0A, 0x0B, 0x0C (Keys 0x01..0x10)
-    for (const cmdId of [0x06, 0x08, 0x09, 0x0a, 0x0b, 0x0c]) {
-      for (let k = 0x01; k <= 0x10; k++) {
-        tests.push({ cmd: cmdId, key: k, val: [0x01], note: `Cmd0x${cmdId.toString(16).padStart(2,'0')}_Key0x${k.toString(16).padStart(2,'0')}_[01]` });
-      }
+    // 1. Probe the 0x02 / 0xB0..0xBA family (right after 0xAF Flash Space, responds on 0xB7!)
+    tests.push({ cmd: 0x02, key: 0xb0, val: [], note: 'Key0xB0_Empty0B' });
+    tests.push({ cmd: 0x02, key: 0xb0, val: [0x00], note: 'Key0xB0_[00]' });
+    tests.push({ cmd: 0x02, key: 0xb0, val: [0x02], note: 'Key0xB0_[02]' });
+    tests.push({ cmd: 0x02, key: 0xb0, val: [0x00, 0x00], note: 'Key0xB0_[00,00]' });
+    tests.push({ cmd: 0x02, key: 0xb0, val: p.sLE, note: 'Key0xB0_4B_SizeLE' });
+    tests.push({ cmd: 0x02, key: 0xb0, val: p.sBE, note: 'Key0xB0_4B_SizeBE' });
+    tests.push({ cmd: 0x02, key: 0xb0, val: [0x00, 0x00, 0x08, 0x26, 0x00, 0x08, 0x2f, 0x50], note: 'Key0xB0_Exact0xAF_8B' });
+
+    for (const k of [0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba]) {
+      tests.push({ cmd: 0x02, key: k, val: [0x01], note: `Key0x${k.toString(16).toUpperCase()}_[01]` });
+      tests.push({ cmd: 0x02, key: k, val: [0x01, 0x00], note: `Key0x${k.toString(16).toUpperCase()}_[01,00]` });
+      tests.push({ cmd: 0x02, key: k, val: p.desc8LE, note: `Key0x${k.toString(16).toUpperCase()}_Desc8LE` });
     }
-    // 2. Also test 2-byte 0x01/0x03 with first byte 0x04..0x0F
-    for (let m = 0x04; m <= 0x0f; m++) {
-      tests.push({ cmd: 0x01, key: 0x03, val: [m, 0x00], note: `OTA_01_03_2B_[${m.toString(16).padStart(2,'0')}_00]` });
-      tests.push({ cmd: 0x01, key: 0x03, val: [0x00, m], note: `OTA_01_03_2B_[00_${m.toString(16).padStart(2,'0')}]` });
+
+    // 2. Probe the 0x02 / 0xE0..0xEF family (which was never reached before 0x65 interrupted!)
+    for (let k = 0xe0; k <= 0xef; k++) {
+      tests.push({ cmd: 0x02, key: k, val: [0x01], note: `Key0x${k.toString(16).toUpperCase()}_[01]` });
+      tests.push({ cmd: 0x02, key: k, val: [0x01, 0x00], note: `Key0x${k.toString(16).toUpperCase()}_[01,00]` });
     }
   }
 
@@ -1636,6 +1645,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
