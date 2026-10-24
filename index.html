@@ -179,17 +179,26 @@
       <div class="field-row"><label>Upload BG Image</label><input type="file" id="bgFileInput" accept="image/*" style="width:155px;font-size:11px" /></div>
       <div class="field-row"><label>BG Image Control</label><button id="btnDeleteBg" class="danger" onclick="deleteBackgroundImage()" disabled style="width:155px;justify-content:center;">🗑️ Delete BG Image</button></div>
       <div class="field-row">
-        <label>Target Dial Slot</label>
+        <label>Watchface (02/70)</label>
         <div style="display:flex;gap:4px">
-          <select id="dialSlotSelect" style="width:95px">
-            <option value="1" selected>Slot 1 (Custom)</option>
-            <option value="2">Slot 2 (ID 5)</option>
-            <option value="3">Slot 3 (ID 0)</option>
-            <option value="4">Slot 4 (ID 10)</option>
-            <option value="5">Slot 5 (ID 13)</option>
+          <select id="dialSlotSelect" onchange="activateWatchDialSlot()" style="width:105px">
+            <option value="0">Watchface 0</option>
+            <option value="1" selected>Watchface 1</option>
+            <option value="2">Watchface 2</option>
+            <option value="3">Watchface 3</option>
+            <option value="4">Watchface 4</option>
+            <option value="5">Watchface 5</option>
           </select>
-          <button onclick="activateWatchDialSlot()" title="Switch active dial slot on watch">🎨 Activate</button>
+          <button class="primary" onclick="activateWatchDialSlot()" title="Verified Cmd=0x02, Key=0x70: Switch active watchface on watch">🎨 Switch</button>
         </div>
+      </div>
+      <div class="alert-grid" style="grid-template-columns:repeat(6,1fr);gap:2px;">
+        <button onclick="switchWatchfaceByIndex(0)" style="font-size:9px;padding:3px 2px;">⌚ WF 0</button>
+        <button onclick="switchWatchfaceByIndex(1)" style="font-size:9px;padding:3px 2px;">⌚ WF 1</button>
+        <button onclick="switchWatchfaceByIndex(2)" style="font-size:9px;padding:3px 2px;">⌚ WF 2</button>
+        <button onclick="switchWatchfaceByIndex(3)" style="font-size:9px;padding:3px 2px;">⌚ WF 3</button>
+        <button onclick="switchWatchfaceByIndex(4)" style="font-size:9px;padding:3px 2px;">⌚ WF 4</button>
+        <button onclick="switchWatchfaceByIndex(5)" style="font-size:9px;padding:3px 2px;">⌚ WF 5</button>
       </div>
     </div>
 
@@ -347,7 +356,7 @@
         <button onclick="sendWatchAlert(0x15, 'Snapchat')">👻 Snapchat (04/15)</button>
         <button class="danger" onclick="triggerFactoryResetPrompt()" title="Cmd=0x02, Key=0x40: Plays beep and factory resets watch">⚠️ Reset (02/40)</button>
         <button class="warn" onclick="sendWatchChime(0x3b, 'Find Watch Chime')" title="Cmd=0x02, Key=0x3B=[01]: Verified Find Watch Chime & Screen Alert" style="grid-column:span 2;">🔊 Find Watch Chime (02/3B)</button>
-        <button class="success" onclick="setWatchEnglish()" title="Cmd=0x02, Key=0x3A=[00]: Sets Watch Language to English (01=Chinese)" style="grid-column:span 1;">🌐 English (02/3A)</button>
+        <button class="success" onclick="activateWatchDialSlot()" title="Verified Cmd=0x02, Key=0x70: Switch Active Watchface" style="grid-column:span 1;">⌚ Dial (02/70)</button>
       </div>
       <div class="raw-cmd-Row" style="display:flex;gap:4px;align-items:center;margin-top:2px;">
         <select id="extraAlertKey" style="flex:1;width:auto;font-size:10px;padding:3px 5px;">
@@ -407,12 +416,10 @@
             <option value="0x02|0x7d|01">📐 Query Watch 360x360 GUI Info (0x02 / 0x7D [01] -> Replies 0x7E)</option>
             <option value="0x02|0xae|01">💾 Query Watch Flash Space (0x02 / 0xAE [01] -> Replies 0xAF)</option>
             <option value="0x02|0xb0|01">🔍 Query Watch Key 0xB0 (0x02 / 0xB0 [01] -> Replies 0xB7)</option>
-            <option value="0x02|0x0e|00">🌐 Set Watch Language: English [00] (0x02 / 0x0E = 00)</option>
-            <option value="0x02|0x0e|02">🌐 Set Watch Language: English [02] (0x02 / 0x0E = 02)</option>
-            <option value="0x02|0x0e|01">🇨🇳 Set Watch Language: Chinese [01] (0x02 / 0x0E = 01)</option>
-            <option value="0x02|0x39|01">🔊 Test Chime Alert Key 0x39 (0x02 / 0x39 = 01)</option>
-            <option value="0x02|0x3a|01">🔊 Test Chime Alert Key 0x3A (0x02 / 0x3A = 01)</option>
-            <option value="0x02|0x3b|01">🔊 Test Chime Alert Key 0x3B (0x02 / 0x3B = 01)</option>
+            <option value="0x02|0x3b|01">🔊 Find Watch Chime + Screen Alert (Verified 0x02 / 0x3B = 01)</option>
+            <option value="0x02|0x70|01">⌚ Switch Watchface to Slot 1 (Verified 0x02 / 0x70 = 01)</option>
+            <option value="0x02|0x70|02">⌚ Switch Watchface to Slot 2 (Verified 0x02 / 0x70 = 02)</option>
+            <option value="0x02|0x70|03">⌚ Switch Watchface to Slot 3 (Verified 0x02 / 0x70 = 03)</option>
             <option value="0x02|0x36|16 10 1A 01 01 01 01">🌤️ Push Weather 22°C Sunny (0x02 / 0x36 = [Cur Min Max Sky ...])</option>
             <option value="0x02|0x18|03 EF">🕒 Set Watch 12-Hour + °C + Weather ON (0x02 / 0x18 = 03 EF)</option>
             <option value="0x02|0x18|03 EB">🕒 Set Watch 24-Hour + °C + Weather ON (0x02 / 0x18 = 03 EB)</option>
@@ -437,8 +444,8 @@
       <div class="field-row">
         <label>Probe / Flash Scope</label>
         <select id="probeScopeSelect" style="width:205px">
-          <option value="wf_half1_66_to_6a" selected>🎨 1. Watchface 0x66..0x6A (Val=[03] - 2.5s gap)</option>
-          <option value="wf_half2_6b_to_70">🎨 2. Watchface 0x6B..0x70 (Val=[03] - 2.5s gap)</option>
+          <option value="probe_71_to_7c_headers" selected>1. Probe 0x71..0x7C (Between 0x70 WF & 0x7D GUI)</option>
+          <option value="probe_70_multi_byte">2. Probe 0x70 Multi-Byte (Slot + Size/CRC Headers)</option>
         </select>
       </div>
       <div class="field-row">
@@ -1164,7 +1171,7 @@ function isDangerousResetFrame(frame) {
     const cmd = frame[8], key = frame[10];
     // Block Cmd 0x02 Key 0x40..0x45 (Factory Reset / Unbind / PowerOff) & Cmd 0x07 (System Reboot)
     if (cmd === 0x02 && ((key >= 0x40 && key <= 0x45) || key === 0x65 || key === 0x88)) return `Blocked Reset / PowerOff / Crash key (0x02/0x${key.toString(16)})`;
-    if (cmd === 0x02 && key === 0x3a && frame.length >= 14 && frame[13] === 0x01) return `Blocked Chinese Language switch (0x02/0x3A=[01]); use [00] for English`;
+    if (cmd === 0x02 && key === 0x3a) return `Blocked Language key (0x02/0x3A) to keep watch in English`;
     if (cmd === 0x07) return `Blocked System Reboot command (0x07/0x${key.toString(16)})`;
   }
   return null;
@@ -1623,13 +1630,19 @@ async function cycleAllSkyCodes() {
   log('✅ Finished Sky Code cycle (0x01..0x0C)!', 'ok');
 }
 
+async function switchWatchfaceByIndex(slotIdx) {
+  const sel = document.getElementById('dialSlotSelect');
+  if (sel) sel.value = String(slotIdx);
+  await activateWatchDialSlot();
+}
+
 async function activateWatchDialSlot() {
-  if (!cmdChar) return log('ERROR: Connect & Bind to the watch first.', 'err');
+  if (!cmdChar || !bleServer || !bleServer.connected) return log('ERROR: Connect & Bind to the watch first.', 'err');
   abortBleOperation = false;
   const slot = Number(document.getElementById('dialSlotSelect').value);
-  log(`Switching active watch dial to Slot ${slot} (Cmd=0x02, Key=0xC7)...`, 'tx');
-  const { frame, seq } = buildFitCloudFrame(0x02, 0xc7, [slot, 0x00], 0x00);
-  await enqueueBleWrite(cmdChar, frame, `SetDialSlot(0x02/0xC7 slot=${slot}) seq=${seq}`);
+  log(`🎨 Switching Active Watchface on HT37 to Watchface #${slot} (Verified Cmd=0x02, Key=0x70, Val=[0${slot}])...`, 'ok');
+  const { frame, seq } = buildFitCloudFrame(0x02, 0x70, [slot & 0xff], 0x00);
+  await enqueueBleWrite(cmdChar, frame, `SwitchWatchface(0x02/0x70=[0${slot}]) seq=${seq}`);
 }
 
 async function handleBleNotification(event) {
@@ -1885,15 +1898,33 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
   isTransferRunning = true;
   otaAccepted = false;
 
+  const bin = compileWatchfaceBin();
+  const slot = Number(document.getElementById('dialSlotSelect').value) || 1;
   const scope = document.getElementById('probeScopeSelect').value;
-  log(`Starting 5-Key Watchface Pinpoint (Scope=${scope}, 2.5s gap between keys)...`, 'ok');
+  const p = buildCandidatePayloads(bin, slot);
+  const sz120kLE = [0xc0, 0xd4, 0x01, 0x00];
+  const sz120kBE = [0x00, 0x01, 0xd4, 0xc0];
 
+  log(`Starting Dial Upload Neighborhood Probe (Scope=${scope})...`, 'ok');
   const tests = [];
-  const startK = scope === 'wf_half2_6b_to_70' ? 0x6b : 0x66;
-  const endK   = scope === 'wf_half2_6b_to_70' ? 0x70 : 0x6a;
 
-  for (let k = startK; k <= endK; k++) {
-    tests.push({ cmd: 0x02, key: k, val: [0x03], note: `🎨 WF PINPOINT -> Key=0x${k.toString(16).toUpperCase()} Val=[03]` });
+  if (scope === 'probe_71_to_7c_headers') {
+    // 0x70 = Switch Watchface, 0x7D->0x7E = Read 360x360 GUI Info [03 01 01 68 01 68 00].
+    // Test 0x71..0x7C with 2B, 4B, 7B, and 8B Dial Upload headers!
+    for (let k = 0x71; k <= 0x7c; k++) {
+      tests.push({ cmd: 0x02, key: k, val: [0x01, 0x00],                              note: `Try_02/0x${k.toString(16).toUpperCase()}_2B_[01,00]` });
+      tests.push({ cmd: 0x02, key: k, val: sz120kBE,                                  note: `Try_02/0x${k.toString(16).toUpperCase()}_4B_SizeBE` });
+      tests.push({ cmd: 0x02, key: k, val: [0x03, 0x01, 0x01, 0x68, 0x01, 0x68, 0x00],note: `Try_02/0x${k.toString(16).toUpperCase()}_7B_Gui7E` });
+      tests.push({ cmd: 0x02, key: k, val: p.desc8BE,                                 note: `Try_02/0x${k.toString(16).toUpperCase()}_8B_DescBE` });
+      tests.push({ cmd: 0x02, key: k, val: p.desc8LE,                                 note: `Try_02/0x${k.toString(16).toUpperCase()}_8B_DescLE` });
+    }
+  } else if (scope === 'probe_70_multi_byte') {
+    // What if 0x70 with 1 byte switches watchface, and 0x70 with >1 byte starts custom watchface upload?
+    tests.push({ cmd: 0x02, key: 0x70, val: [0x01, 0x02, 0x00],         note: 'Try_02/70_3B_Slot1_ID512' });
+    tests.push({ cmd: 0x02, key: 0x70, val: [0x01, ...sz120kBE],        note: 'Try_02/70_5B_Slot1_SizeBE' });
+    tests.push({ cmd: 0x02, key: 0x70, val: [0x01, ...sz120kLE],        note: 'Try_02/70_5B_Slot1_SizeLE' });
+    tests.push({ cmd: 0x02, key: 0x70, val: p.desc8BE,                  note: 'Try_02/70_8B_DescBE' });
+    tests.push({ cmd: 0x02, key: 0x70, val: p.desc8LE,                  note: 'Try_02/70_8B_DescLE' });
   }
 
   for (let i = 0; i < tests.length; i++) {
@@ -1903,15 +1934,15 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
     const { frame, seq } = buildFitCloudFrame(t.cmd, t.key, t.val, 0x00);
     await enqueueBleWrite(cmdChar, frame, `${t.note} seq=${seq}`);
     await waitForAck(seq, 300);
-    const resp = await waitForL2Response(250);
+    const resp = await waitForL2Response(240);
     if (resp) {
       log(`🎯 L2 REPLY on ${t.note}: Cmd=0x${resp.cmdId?.toString(16).padStart(2,'0')}, Key=0x${resp.keyId?.toString(16).padStart(2,'0')}, Val=[${resp.valHex}]`, 'ok');
     }
-    await new Promise(r => setTimeout(r, 2500));
+    await new Promise(r => setTimeout(r, 350));
   }
 
   isTransferRunning = false;
-  log(`✅ Finished ${scope} (${tests.length} tests)! Tell me which key (0x66..0x6A or 0x6B..0x70) switched the watchface to Slot 3!`, 'ok');
+  log(`✅ Finished ${scope} (${tests.length} tests)!`, 'ok');
 });
 
 /* ============================================================================
@@ -1999,6 +2030,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
