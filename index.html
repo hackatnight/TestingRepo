@@ -202,7 +202,7 @@
           <option value="CODE09">🌫️ 0x09 - Sky Code 0x09</option>
           <option value="CODE0A">🌬️ 0x0A - Sky Code 0x0A</option>
           <option value="CODE0B">🌪️ 0x0B - Sky Code 0x0B</option>
-          <option value="CODE0C">🌡️ 0x0C - Sky Code 0x0C</option>
+          <option value="CODE0C">🌫️ 0x0C - Foggy (Verified)</option>
         </select>
       </div>
       <div class="field-row"><label>🔋 Battery (<span id="valBat">50</span>%)</label><input type="range" id="simBat" min="1" max="100" value="50" /></div>
@@ -238,6 +238,24 @@
           </select>
           <button class="primary" onclick="pushWeatherToWatch()" style="flex:1;justify-content:center;padding:4px 4px;font-size:10px;">🌤️ Push</button>
           <button class="warn" onclick="cycleAllSkyCodes()" title="Cycles SkyCode 0x01..0x0C on 0x02/0x36 with Temp = Code (1°C..12°C)" style="padding:4px 5px;font-size:9px;">🎞️ Sky</button>
+        </div>
+        <div class="alert-grid" style="grid-template-columns:repeat(4,1fr);gap:2px;margin-top:2px;">
+          <button onclick="sendSingleSkyCode(0x00, '0x00 Sleet')" style="font-size:9px;padding:3px 2px;" class="success">00 Sleet✓</button>
+          <button onclick="sendSingleSkyCode(0x01, '0x01 Sunny')" style="font-size:9px;padding:3px 2px;" class="success">01 Sunny✓</button>
+          <button onclick="sendSingleSkyCode(0x02, '0x02 ?')" style="font-size:9px;padding:3px 2px;">02 Test</button>
+          <button onclick="sendSingleSkyCode(0x03, '0x03 ?')" style="font-size:9px;padding:3px 2px;">03 Test</button>
+          <button onclick="sendSingleSkyCode(0x04, '0x04 ?')" style="font-size:9px;padding:3px 2px;">04 Test</button>
+          <button onclick="sendSingleSkyCode(0x05, '0x05 ?')" style="font-size:9px;padding:3px 2px;">05 Test</button>
+          <button onclick="sendSingleSkyCode(0x06, '0x06 LtRain')" style="font-size:9px;padding:3px 2px;" class="success">06 LtRain✓</button>
+          <button onclick="sendSingleSkyCode(0x07, '0x07 ?')" style="font-size:9px;padding:3px 2px;">07 Test</button>
+          <button onclick="sendSingleSkyCode(0x08, '0x08 ?')" style="font-size:9px;padding:3px 2px;">08 Test</button>
+          <button onclick="sendSingleSkyCode(0x09, '0x09 ?')" style="font-size:9px;padding:3px 2px;">09 Test</button>
+          <button onclick="sendSingleSkyCode(0x0a, '0x0A ?')" style="font-size:9px;padding:3px 2px;">0A Test</button>
+          <button onclick="sendSingleSkyCode(0x0b, '0x0B ?')" style="font-size:9px;padding:3px 2px;">0B Test</button>
+          <button onclick="sendSingleSkyCode(0x0c, '0x0C Foggy')" style="font-size:9px;padding:3px 2px;" class="success">0C Foggy✓</button>
+          <button onclick="sendSingleSkyCode(0x0d, '0x0D ?')" style="font-size:9px;padding:3px 2px;">0D Test</button>
+          <button onclick="sendSingleSkyCode(0x0e, '0x0E ?')" style="font-size:9px;padding:3px 2px;">0E Test</button>
+          <button onclick="sendSingleSkyCode(0x0f, '0x0F ?')" style="font-size:9px;padding:3px 2px;">0F Test</button>
         </div>
       </div>
     </div>
@@ -1483,6 +1501,27 @@ async function pushWeatherToWatch() {
   await waitForAck(wf.seq, 350);
 }
 
+async function sendSingleSkyCode(skyCode, label) {
+  updateLiveSensorReadout();
+  if (!cmdChar || !bleServer || !bleServer.connected) {
+    return log('ERROR: Pair & Bind to the watch first!', 'err');
+  }
+  abortBleOperation = false;
+  const cur = encodeFitCloudTemp(document.getElementById('liveTempCur').value);
+  const min = encodeFitCloudTemp(document.getElementById('liveTempMin').value);
+  const max = encodeFitCloudTemp(document.getElementById('liveTempMax').value);
+  const payload = [cur, min, max, skyCode & 0xff, skyCode & 0xff, 0x01, 0x01];
+
+  document.getElementById('rawCmd').value = '0x02';
+  document.getElementById('rawKey').value = '0x36';
+  document.getElementById('rawPayload').value = payload.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+
+  log(`🌤️ Sent Single Sky Code [${label}] -> Cmd=0x02, Key=0x36, Payload=[${payload.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ')}] (Open watch Weather app now!)`, 'ok');
+  const wf = buildFitCloudFrame(0x02, 0x36, payload, 0x00);
+  await enqueueBleWrite(cmdChar, wf.frame, `Sky_${label.replace(/\s+/g,'_')} seq=${wf.seq}`);
+  await waitForAck(wf.seq, 350);
+}
+
 async function cycleAllSkyCodes() {
   if (!cmdChar || !bleServer || !bleServer.connected) {
     return log('ERROR: Pair & Bind to the watch first!', 'err');
@@ -1825,6 +1864,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
