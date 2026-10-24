@@ -190,13 +190,19 @@
       <div class="field-row">
         <label>🌦️ Sky Condition</label>
         <select id="simWeatherCond" onchange="sensors.weatherCond = this.value; updateLiveSensorReadout();">
-          <option value="SUNNY" selected>☀️ 0x01 - Sunny / Clear</option>
-          <option value="CLOUDY">⛅ 0x02 - Cloudy / Sleet?</option>
-          <option value="OVERCAST">☁️ 0x03 - Overcast / Cloudy</option>
-          <option value="RAIN">🌧️ 0x04 - Rain Showers</option>
-          <option value="STORM">⛈️ 0x05 - Thunderstorm</option>
-          <option value="HEAVYRAIN">🌧️ 0x06 - Heavy Rain</option>
-          <option value="SNOW">❄️ 0x07 - Snow / Frost</option>
+          <option value="SUNNY" selected>☀️ 0x01 - Sunny (Verified)</option>
+          <option value="CLOUDY">⛅ 0x02 - Sky Code 0x02</option>
+          <option value="OVERCAST">☁️ 0x03 - Sky Code 0x03</option>
+          <option value="RAIN">🌦️ 0x04 - Sky Code 0x04</option>
+          <option value="STORM">⛈️ 0x05 - Sky Code 0x05</option>
+          <option value="LIGHTRAIN">🌧️ 0x06 - Light Rain (Verified)</option>
+          <option value="HEAVYRAIN">🌧️ 0x07 - Sky Code 0x07</option>
+          <option value="SNOW">❄️ 0x08 - Sky Code 0x08</option>
+          <option value="SLEET">🌨️ 0x00 - Sleet (Verified)</option>
+          <option value="CODE09">🌫️ 0x09 - Sky Code 0x09</option>
+          <option value="CODE0A">🌬️ 0x0A - Sky Code 0x0A</option>
+          <option value="CODE0B">🌪️ 0x0B - Sky Code 0x0B</option>
+          <option value="CODE0C">🌡️ 0x0C - Sky Code 0x0C</option>
         </select>
       </div>
       <div class="field-row"><label>🔋 Battery (<span id="valBat">50</span>%)</label><input type="range" id="simBat" min="1" max="100" value="50" /></div>
@@ -230,7 +236,8 @@
             <option value="key_36_b3">0x36 (Code in Byte3)</option>
             <option value="key_36_b4">0x36 (Code in Byte4)</option>
           </select>
-          <button class="primary" onclick="pushWeatherToWatch()" style="flex:1;justify-content:center;padding:4px 5px;font-size:10px;">🌤️ Push</button>
+          <button class="primary" onclick="pushWeatherToWatch()" style="flex:1;justify-content:center;padding:4px 4px;font-size:10px;">🌤️ Push</button>
+          <button class="warn" onclick="cycleAllSkyCodes()" title="Cycles SkyCode 0x01..0x0C on 0x02/0x36 with Temp = Code (1°C..12°C)" style="padding:4px 5px;font-size:9px;">🎞️ Sky</button>
         </div>
       </div>
     </div>
@@ -1383,8 +1390,9 @@ function encodeFitCloudTemp(t) {
   return v < 0 ? (0x80 | Math.min(127, Math.abs(v))) : (v & 0x7f);
 }
 
+const HT37_SKY_MAP = { SLEET: 0x00, SUNNY: 0x01, CLOUDY: 0x02, OVERCAST: 0x03, RAIN: 0x04, STORM: 0x05, LIGHTRAIN: 0x06, HEAVYRAIN: 0x07, SNOW: 0x08, CODE09: 0x09, CODE0A: 0x0a, CODE0B: 0x0b, CODE0C: 0x0c };
 function updateLiveSensorReadout() {
-  const condMap = { SUNNY: 0x01, CLOUDY: 0x02, OVERCAST: 0x03, RAIN: 0x04, STORM: 0x05, HEAVYRAIN: 0x06, SNOW: 0x07 };
+  const condMap = HT37_SKY_MAP;
   const code = condMap[sensors.weatherCond] || 0x02;
   const cur = encodeFitCloudTemp(sensors.weatherTemp);
   const min = encodeFitCloudTemp(document.getElementById('liveTempMin')?.value ?? 16);
@@ -1443,8 +1451,8 @@ async function pushWeatherToWatch() {
     return log('ERROR: Pair & Bind to the watch first!', 'err');
   }
   abortBleOperation = false;
-  const condMap = { SUNNY: 0x01, CLOUDY: 0x02, OVERCAST: 0x03, RAIN: 0x04, STORM: 0x05, HEAVYRAIN: 0x06, SNOW: 0x07 };
-  const code = condMap[sensors.weatherCond] || 0x01;
+  const condMap = HT37_SKY_MAP;
+  const code = condMap[sensors.weatherCond] !== undefined ? condMap[sensors.weatherCond] : 0x01;
   const cur = encodeFitCloudTemp(document.getElementById('liveTempCur').value);
   const min = encodeFitCloudTemp(document.getElementById('liveTempMin').value);
   const max = encodeFitCloudTemp(document.getElementById('liveTempMax').value);
@@ -1469,10 +1477,28 @@ async function pushWeatherToWatch() {
   document.getElementById('rawKey').value = '0x36';
   document.getElementById('rawPayload').value = payload.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
 
-  log(`🌤️ Pushing Live Weather to HT37 (Cmd=0x02, Key=0x36, Cur=${sensors.weatherTemp}°C, Min=${document.getElementById('liveTempMin').value}°C, Max=${document.getElementById('liveTempMax').value}°C, Sky=${sensors.weatherCond} [0x0${code}])...`, 'ok');
+  log(`🌤️ Pushing Live Weather to HT37 (Cmd=0x02, Key=0x36, Cur=${sensors.weatherTemp}°C, Min=${document.getElementById('liveTempMin').value}°C, Max=${document.getElementById('liveTempMax').value}°C, Sky=${sensors.weatherCond} [0x${code.toString(16).padStart(2,'0').toUpperCase()}])...`, 'ok');
   const wf = buildFitCloudFrame(0x02, targetKey, payload, 0x00);
   await enqueueBleWrite(cmdChar, wf.frame, `Weather_0x36 seq=${wf.seq}`);
   await waitForAck(wf.seq, 350);
+}
+
+async function cycleAllSkyCodes() {
+  if (!cmdChar || !bleServer || !bleServer.connected) {
+    return log('ERROR: Pair & Bind to the watch first!', 'err');
+  }
+  abortBleOperation = false;
+  await applyWatchUnitsAndTime();
+  log('🎞️ Cycling Sky Codes 0x01..0x0C on Key 0x02/0x36 (Watch Temp = Code # so you can match each icon!)...', 'ok');
+  for (let c = 1; c <= 12; c++) {
+    if (abortBleOperation) break;
+    const pl = [c, 10, 25, c, c, 0x01, 0x01];
+    const wf = buildFitCloudFrame(0x02, 0x36, pl, 0x00);
+    await enqueueBleWrite(cmdChar, wf.frame, `SkyTest_Code0x${c.toString(16).padStart(2,'0')}_Temp${c}C seq=${wf.seq}`);
+    await waitForAck(wf.seq, 300);
+    await new Promise(r => setTimeout(r, 2200));
+  }
+  log('✅ Finished Sky Code cycle (0x01..0x0C)!', 'ok');
 }
 
 async function activateWatchDialSlot() {
@@ -1799,6 +1825,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
