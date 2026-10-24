@@ -405,6 +405,12 @@
             <option value="0x02|0x7d|01">📐 Query Watch 360x360 GUI Info (0x02 / 0x7D [01] -> Replies 0x7E)</option>
             <option value="0x02|0xae|01">💾 Query Watch Flash Space (0x02 / 0xAE [01] -> Replies 0xAF)</option>
             <option value="0x02|0xb0|01">🔍 Query Watch Key 0xB0 (0x02 / 0xB0 [01] -> Replies 0xB7)</option>
+            <option value="0x02|0x0e|00">🌐 Set Watch Language: English [00] (0x02 / 0x0E = 00)</option>
+            <option value="0x02|0x0e|02">🌐 Set Watch Language: English [02] (0x02 / 0x0E = 02)</option>
+            <option value="0x02|0x0e|01">🇨🇳 Set Watch Language: Chinese [01] (0x02 / 0x0E = 01)</option>
+            <option value="0x02|0x39|01">🔊 Test Chime Alert Key 0x39 (0x02 / 0x39 = 01)</option>
+            <option value="0x02|0x3a|01">🔊 Test Chime Alert Key 0x3A (0x02 / 0x3A = 01)</option>
+            <option value="0x02|0x3b|01">🔊 Test Chime Alert Key 0x3B (0x02 / 0x3B = 01)</option>
             <option value="0x02|0x36|16 10 1A 01 01 01 01">🌤️ Push Weather 22°C Sunny (0x02 / 0x36 = [Cur Min Max Sky ...])</option>
             <option value="0x02|0x18|03 EF">🕒 Set Watch 12-Hour + °C + Weather ON (0x02 / 0x18 = 03 EF)</option>
             <option value="0x02|0x18|03 EB">🕒 Set Watch 24-Hour + °C + Weather ON (0x02 / 0x18 = 03 EB)</option>
@@ -429,11 +435,11 @@
       <div class="field-row">
         <label>Probe / Flash Scope</label>
         <select id="probeScopeSelect" style="width:205px">
-          <option value="bucket_1a_02_to_1f" selected>1A. Bucket 0x02..0x1F (Find Sound/Watchface)</option>
-          <option value="bucket_1b_30_to_4f">1B. Bucket 0x30..0x4F (Find Sound/Watchface)</option>
-          <option value="bucket_1c_50_to_64">1C. Bucket 0x50..0x64 (Find Sound/Watchface)</option>
-          <option value="bucket_1d_66_to_7b">1D. Bucket 0x66..0x7B (Find Sound/Watchface)</option>
-          <option value="restore_factory_tlvs">🛠️ Restore Original Watch Config TLVs</option>
+          <option value="restore_english_lang" selected>🌐 1. Restore Watch Language to English</option>
+          <option value="pinpoint_chime_38_3b">🔊 2. Pinpoint Chime (0x38, 0x39, 0x3A, 0x3B - 2.5s gap)</option>
+          <option value="bucket_1b2_3c_to_4f">🎨 3. Bucket 1B-2: 0x3C..0x4F (Find Watchface Change)</option>
+          <option value="bucket_1c_50_to_64">🎨 4. Bucket 1C: 0x50..0x64 (Find Watchface Change)</option>
+          <option value="bucket_1d_66_to_7b">🎨 5. Bucket 1D: 0x66..0x7B (Find Watchface Change)</option>
         </select>
       </div>
       <div class="field-row">
@@ -1860,31 +1866,34 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
   otaAccepted = false;
 
   const scope = document.getElementById('probeScopeSelect').value;
-  log(`Starting Sub-Bucket Pinpoint Scan (Scope=${scope})...`, 'ok');
-  log(`👀 Watch the terminal log & watch screen! When the Blue Alert/Sound or Watchface change happens, note the Key0xXX printed right at that moment (or click Stop)!`, 'warn');
+  log(`Starting Pinpoint Scan (Scope=${scope})...`, 'ok');
 
   const tests = [];
-  // Skip known config-TLV Write/Read keys so we don't clobber DND/DrinkWater/Sedentary/BP/Weather structs
   const skipKnown = new Set([
-    0x01, 0x12, 0x13, 0x15, 0x16, 0x18, 0x19, 0x1b, 0x20,
+    0x01, 0x0e, 0x12, 0x13, 0x15, 0x16, 0x18, 0x19, 0x1b, 0x20,
     0x22, 0x23, 0x25, 0x26, 0x28, 0x29, 0x2b, 0x2c, 0x2e, 0x2f,
     0x36, 0x37, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45,
     0x46, 0x47, 0x4c, 0x4d, 0x57, 0x58, 0x60, 0x65
   ]);
 
-  if (scope === 'restore_factory_tlvs') {
-    tests.push({ cmd: 0x02, key: 0x22, val: [0x00, 0x01, 0xe0, 0x04, 0xec],                   note: 'Restore_DND_0x22(5B)' });
-    tests.push({ cmd: 0x02, key: 0x25, val: [0x00, 0x01, 0xe0, 0x04, 0xec, 0x00, 0x3c],       note: 'Restore_DrinkWater_0x25(7B)' });
-    tests.push({ cmd: 0x02, key: 0x28, val: [0x00, 0x00, 0x3c, 0x01, 0xe0, 0x04, 0xec, 0x00, 0x00], note: 'Restore_Sedentary_0x28(9B)' });
-    tests.push({ cmd: 0x02, key: 0x2b, val: [0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], note: 'Restore_TLV2D_0x2B(9B)' });
-    tests.push({ cmd: 0x02, key: 0x2e, val: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], note: 'Restore_TLV30_0x2E(10B)' });
-    tests.push({ cmd: 0x02, key: 0x46, val: [0x00, 0x78, 0x00, 0x96, 0x28, 0x3c],             note: 'Restore_BP_0x46(6B)' });
-    tests.push({ cmd: 0x02, key: 0x4c, val: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00],             note: 'Restore_TLV4E_0x4C(6B)' });
-    tests.push({ cmd: 0x02, key: 0x57, val: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], note: 'Restore_TLV59_0x57(10B)' });
-    tests.push({ cmd: 0x02, key: 0x20, val: [0x01],                                           note: 'Verify_ReadAllConfig_0x20' });
+  let stepDelayMs = 650;
+
+  if (scope === 'restore_english_lang') {
+    // In Bucket 1A, one of 0x02..0x1F with [01] switched Language to Chinese (0x01=Chinese, 0x00=English)!
+    // Send [00] to the Language/Locale config keys in 0x02..0x1F to restore English:
+    log('🌐 Restoring Watch Language to English (Sending [00] to Language key 0x0E / 0x0A / 0x0B / 0x10 / 0x19)...', 'ok');
+    for (const k of [0x0e, 0x0a, 0x0b, 0x0c, 0x0d, 0x0f, 0x10, 0x11, 0x14, 0x17, 0x1a, 0x1d, 0x1e, 0x1f]) {
+      tests.push({ cmd: 0x02, key: k, val: [0x00], note: `LangEnglish_02/0x${k.toString(16).padStart(2,'0').toUpperCase()}_[00]` });
+    }
+    stepDelayMs = 350;
+  } else if (scope === 'pinpoint_chime_38_3b') {
+    // 2.5 seconds between 0x38, 0x39, 0x3A, 0x3B so you can see the exact key that starts the chime!
+    stepDelayMs = 2500;
+    for (const k of [0x38, 0x39, 0x3a, 0x3b]) {
+      tests.push({ cmd: 0x02, key: k, val: [0x01], note: `🔊 CHIME TEST -> Key=0x${k.toString(16).toUpperCase()} [01]` });
+    }
   } else {
-    let startK = 0x02, endK = 0x1f;
-    if (scope === 'bucket_1b_30_to_4f') { startK = 0x30; endK = 0x4f; }
+    let startK = 0x3c, endK = 0x4f;
     if (scope === 'bucket_1c_50_to_64') { startK = 0x50; endK = 0x64; }
     if (scope === 'bucket_1d_66_to_7b') { startK = 0x66; endK = 0x7b; }
 
@@ -1905,12 +1914,11 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
     if (resp) {
       log(`🎯 L2 REPLY on ${t.note}: Cmd=0x${resp.cmdId?.toString(16).padStart(2,'0')}, Key=0x${resp.keyId?.toString(16).padStart(2,'0')}, Val=[${resp.valHex}]`, 'ok');
     }
-    // 550ms visual pacing so you can see the exact key when the watch reacts!
-    await new Promise(r => setTimeout(r, 550));
+    await new Promise(r => setTimeout(r, stepDelayMs));
   }
 
   isTransferRunning = false;
-  log(`✅ Finished ${scope} (${tests.length} tests)! Tell me which bucket (and which Key 0xXX) triggered the Blue Alert/Sound or Watchface Change!`, 'ok');
+  log(`✅ Finished ${scope} (${tests.length} tests)!`, 'ok');
 });
 
 /* ============================================================================
@@ -1998,6 +2006,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
