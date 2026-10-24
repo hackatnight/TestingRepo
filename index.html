@@ -73,8 +73,8 @@
   .icon-btn { padding:3px 5px; font-size:11px; background:#101520; border:1px solid #263147; border-radius:4px; line-height:1; }
   .icon-btn.active-toggle { border-color:var(--warn); color:var(--warn); }
   .icon-btn.del-btn:hover { background:var(--danger); border-color:var(--danger); color:#fff; }
-  .alert-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
-  .alert-grid button { justify-content:center; padding:5px 6px; font-size:11px; }
+  .alert-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:3px; }
+  .alert-grid button { justify-content:center; padding:3px 4px; font-size:10px; line-height:1.15; }
   .raw-cmd-box { background:#0e131b; border:1px solid #263147; border-radius:6px; padding:7px; display:flex; flex-direction:column; gap:5px; margin-top:2px; overflow:hidden; }
   .raw-cmd-row { display:flex; gap:4px; align-items:center; width:100%; }
   .raw-cmd-row input.hex-in { width:42px; padding:4px 4px; text-align:center; font-size:11px; flex-shrink:0; }
@@ -240,33 +240,61 @@
         </select>
       </div>
       <div class="alert-grid">
-        <button class="primary" onclick="sendWatchAlert(0x01, 'Incoming Call')">📞 Incoming Call (04/01)</button>
-        <button class="danger" onclick="sendWatchAlert(0x02, 'End Call')">☎️ Dismiss Call (04/02)</button>
-        <button onclick="sendWatchAlert(0x03, 'Mute Call')">🔇 Mute Call (04/03)</button>
-        <button class="success" onclick="sendWatchAlert(0x04, 'SMS Text')">💬 SMS Text (04/04)</button>
-        <button onclick="sendWatchAlert(0x05, 'QQ Notice')">🐧 QQ Notice (04/05)</button>
+        <button class="primary" onclick="sendWatchAlert(0x01, 'Incoming Call')">📞 Call (04/01)</button>
+        <button class="danger" onclick="sendWatchAlert(0x02, 'End Call')">☎️ End Call (04/02)</button>
+        <button onclick="sendWatchAlert(0x03, 'Mute Call')">🔇 Mute (04/03)</button>
+        <button class="success" onclick="sendWatchAlert(0x04, 'SMS Text')">💬 SMS (04/04)</button>
+        <button onclick="sendWatchAlert(0x05, 'QQ Notice')">🐧 QQ (04/05)</button>
         <button onclick="sendWatchAlert(0x06, 'WeChat Notice')">🟢 WeChat (04/06)</button>
-        <button onclick="sendWatchAlert(0x0c, 'WhatsApp')">📲 WhatsApp (04/0C)</button>
-        <button onclick="sendWatchAlert(0x09, 'LinkedIn')">💼 LinkedIn (04/09)</button>
         <button onclick="sendWatchAlert(0x07, 'Facebook')">📘 Facebook (04/07)</button>
-        <button onclick="sendWatchAlert(0x08, 'X / Twitter')">𝕏 Twitter / X (04/08)</button>
+        <button onclick="sendWatchAlert(0x08, 'X / Twitter')">𝕏 Twitter/X (04/08)</button>
+        <button onclick="sendWatchAlert(0x09, 'LinkedIn')">💼 LinkedIn (04/09)</button>
         <button onclick="sendWatchAlert(0x0a, 'Instagram')">📸 Instagram (04/0A)</button>
+        <button onclick="sendWatchAlert(0x0b, 'App Notice')">🔔 Notice (04/0B)</button>
+        <button onclick="sendWatchAlert(0x0c, 'WhatsApp')">📲 WhatsApp (04/0C)</button>
+        <button onclick="sendWatchAlert(0x0d, 'LINE')">🟢 LINE (04/0D)</button>
+        <button onclick="sendWatchAlert(0x0e, 'FB Messenger')">💬 Messenger (04/0E)</button>
+        <button onclick="sendWatchAlert(0x0f, 'KakaoTalk')">💛 KakaoTalk (04/0F)</button>
+        <button onclick="sendWatchAlert(0x10, 'Skype')">🌐 Skype (04/10)</button>
         <button onclick="sendWatchAlert(0x11, 'Email')">✉️ Email (04/11)</button>
-        <button onclick="sendWatchAlert(0x0b, 'App Notice')">🔔 App Notice (04/0B)</button>
-        <button class="danger" onclick="triggerFactoryResetPrompt()" title="Cmd=0x02, Key=0x40: Plays beep and factory resets watch">⚠️ Factory Reset (02/40)</button>
+        <button onclick="sendWatchAlert(0x12, 'Telegram')">✈️ Telegram (04/12)</button>
+        <button onclick="sendWatchAlert(0x13, 'Viber')">💜 Viber (04/13)</button>
+        <button onclick="sendWatchAlert(0x15, 'Snapchat')">👻 Snapchat (04/15)</button>
+        <button class="danger" onclick="triggerFactoryResetPrompt()" title="Cmd=0x02, Key=0x40: Plays beep and factory resets watch">⚠️ Reset (02/40)</button>
       </div>
       <div class="raw-cmd-Row" style="display:flex;gap:4px;align-items:center;margin-top:2px;">
-        <select id="extraAlertKey" style="flex:1;width:auto;font-size:11px;padding:4px 6px;">
-          <option value="0x0d">🟢 04/0D - LINE</option>
+        <select id="extraAlertKey" style="flex:1;width:auto;font-size:10px;padding:3px 5px;">
+          <option value="0x01">📞 04/01 - Incoming Call</option>
+          <option value="0x02">☎️ 04/02 - Dismiss Call</option>
+          <option value="0x03">🔇 04/03 - Mute Call</option>
+          <option value="0x04">💬 04/04 - SMS Text</option>
+          <option value="0x05">🐧 04/05 - QQ Notice</option>
+          <option value="0x06">🟢 04/06 - WeChat Notice</option>
+          <option value="0x07">📘 04/07 - Facebook</option>
+          <option value="0x08">𝕏 04/08 - Twitter / X</option>
+          <option value="0x09">💼 04/09 - LinkedIn</option>
+          <option value="0x0a">📸 04/0A - Instagram</option>
+          <option value="0x0b">🔔 04/0B - App Notice</option>
+          <option value="0x0c">📲 04/0C - WhatsApp</option>
+          <option value="0x0d" selected>🟢 04/0D - LINE</option>
           <option value="0x0e">💬 04/0E - FB Messenger</option>
           <option value="0x0f">💛 04/0F - KakaoTalk (TALK)</option>
           <option value="0x10">🌐 04/10 - Skype</option>
+          <option value="0x11">✉️ 04/11 - Email</option>
           <option value="0x12">✈️ 04/12 - Telegram</option>
           <option value="0x13">💜 04/13 - Viber</option>
+          <option value="0x14">🚫 04/14 - Unassigned (No Op)</option>
           <option value="0x15">👻 04/15 - Snapchat</option>
+          <option value="0x16">🚫 04/16 - TikTok / Unused</option>
+          <option value="0x17">🚫 04/17 - YouTube / Unused</option>
+          <option value="0x18">🚫 04/18 - Calendar / Unused</option>
+          <option value="0x19">🚫 04/19 - iOS Mail / Unused</option>
+          <option value="0x1a">🚫 04/1A - DingTalk / Unused</option>
+          <option value="0x1b">🚫 04/1B - Alipay / Unused</option>
+          <option value="0x1c">🚫 04/1C - Taobao / Unused</option>
         </select>
-        <button class="primary" style="padding:4px 8px;font-size:11px" onclick="const s=document.getElementById('extraAlertKey');sendWatchAlert(parseInt(s.value,16), s.options[s.selectedIndex].text)">🔔 Send Icon</button>
-        <button class="warn" style="padding:4px 7px;font-size:11px" title="Cycles through all 7 verified extra icons (LINE, Messenger, KakaoTalk, Skype, Telegram, Viber, Snapchat)" onclick="(async()=>{for(const k of [0x0d,0x0e,0x0f,0x10,0x12,0x13,0x15]){if(abortBleOperation)break;await sendWatchAlert(k,'Extra_0x'+k.toString(16));await new Promise(r=>setTimeout(r,2200));}})()">🎞️ Demo 7 Icons</button>
+        <button class="primary" style="padding:3px 7px;font-size:10px" onclick="const s=document.getElementById('extraAlertKey');sendWatchAlert(parseInt(s.value,16), s.options[s.selectedIndex].text)">🔔 Send Icon</button>
+        <button class="warn" style="padding:3px 7px;font-size:10px" title="Cycles through all verified HT37 notification icons (04/04..04/15)" onclick="(async()=>{for(const k of [0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,0x10,0x11,0x12,0x13,0x15]){if(abortBleOperation)break;await sendWatchAlert(k,'AllTest_0x'+k.toString(16));await new Promise(r=>setTimeout(r,2000));}})()">🎞️ ALL TEST</button>
       </div>
 
       <div class="raw-cmd-box">
@@ -1599,6 +1627,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
