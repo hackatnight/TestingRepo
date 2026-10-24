@@ -386,6 +386,21 @@
         <button class="danger" onclick="triggerFactoryResetPrompt()" title="Cmd=0x02, Key=0x40: Plays beep and factory resets watch">⚠️ Reset (02/40)</button>
         <button class="warn" onclick="sendWatchChime(0x3b, 'Find Watch Chime')" title="Cmd=0x02, Key=0x3B=[01]: Verified Find Watch Chime & Screen Alert" style="grid-column:span 3;">🔊 Find Watch Chime (02/3B)</button>
       </div>
+        <!-- 🎵 Verified Media Controls (Cmd=0x07, Key=0x03) -->
+        <div style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px;">
+          <div style="font-size:10px;font-weight:600;color:var(--accent,#00e5ff);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>🎵 Media Controls (07/03)</span>
+            <span style="font-size:9px;color:var(--text-dim,#888);font-family:var(--font-mono)">Verified Topstep mediaControl</span>
+          </div>
+          <div class="alert-grid" style="grid-template-columns:repeat(6, 1fr);gap:3px;">
+            <button onclick="sendMediaControl(0x04, 'Prev Track')" title="Cmd=0x07, Key=0x03=[04]: Previous Track" style="padding:4px 2px;font-size:10px;">⏮️ Prev</button>
+            <button class="primary" onclick="sendMediaControl(0x02, 'Play')" title="Cmd=0x07, Key=0x03=[02]: Play" style="padding:4px 2px;font-size:10px;">▶️ Play</button>
+            <button onclick="sendMediaControl(0x01, 'Pause')" title="Cmd=0x07, Key=0x03=[01]: Pause" style="padding:4px 2px;font-size:10px;">⏸️ Pause</button>
+            <button onclick="sendMediaControl(0x03, 'Next Track')" title="Cmd=0x07, Key=0x03=[03]: Next Track" style="padding:4px 2px;font-size:10px;">⏭️ Next</button>
+            <button onclick="sendMediaControl(0x06, 'Vol Down')" title="Cmd=0x07, Key=0x03=[06]: Volume Down" style="padding:4px 2px;font-size:10px;">🔉 Vol-</button>
+            <button onclick="sendMediaControl(0x05, 'Vol Up')" title="Cmd=0x07, Key=0x03=[05]: Volume Up" style="padding:4px 2px;font-size:10px;">🔊 Vol+</button>
+          </div>
+        </div>
       <div class="raw-cmd-Row" style="display:flex;gap:4px;align-items:center;margin-top:2px;">
         <select id="extraAlertKey" style="flex:1;width:auto;font-size:10px;padding:3px 5px;">
           <option value="0x01">📞 04/01 - Incoming Call</option>
@@ -1440,104 +1455,16 @@ async function enableAllWatchAlerts() {
   await enqueueBleWrite(cmdChar, r.frame, `VerifyConfig(0x02/0x20) seq=${r.seq}`);
 }
 
-abortBleOperation = false;
+  // --- VERIFIED MEDIA CONTROLS (Cmd=0x07, Key=0x03) ---
+  async function sendMediaControl(actionByte, label) {
+    if (!cmdChar || !bleServer || !bleServer.connected) {
+      return log('ERROR: Connect & Bind to the watch first.', 'err');
+    }
+    abortBleOperation = false;
     const actHex = '0x' + actionByte.toString(16).padStart(2, '0').toUpperCase();
     log(`🎵 Sending Media Control [${label}] (Cmd=0x07, Key=0x03, Val=[${actHex}])...`, 'ok');
     const { frame, seq } = buildFitCloudFrame(0x07, 0x03, [actionByte & 0xff], 0x00);
     await enqueueBleWrite(cmdChar, frame, `Media_${label}(0x07/0x03=[${actHex}]) seq=${seq}`);
-  }
-
-  
-  /* ============================================================================
-   * 📋 HT37 MASTER COMMAND & EVENT REGISTRY
-   * ============================================================================
-   * Single Source of Truth for all Outbound Commands and Inbound Watch Events.
-   *
-   * --- 🛠️ HOW TO ADD NEW COMMANDS AS THEY ARE DISCOVERED ---
-   * 1. OUTBOUND COMMAND (App -> Watch):
-   *    Add a new object to HT37_COMMAND_REGISTRY below:
-   *    { id: 'MY_CMD', cmd: 0x02, key: 0xXX, name: 'Description', cat: 'system'|'alert'|'dial', defaultPayload: [...] }
-   *
-   * 2. INBOUND EVENT (Watch -> App):
-   *    Add a new entry to HT37_EVENT_REGISTRY below:
-   *    '0xCMD_0xKEY': { name: 'Feature Name', desc: 'What happened on the watch' }
-   * ============================================================================ */
-
-  const HT37_COMMAND_REGISTRY = [
-    // --- SYSTEM, TIME & SETTINGS (Cmd: 0x02) ---
-    { id: 'SYNC_TIME_6B',     cmd: 0x02, key: 0x01, name: 'Sync Time RTC (6B)',     cat: 'system', desc: 'Sets watch RTC clock and resets midnight step counter' },
-    { id: 'ENABLE_ALERTS',    cmd: 0x02, key: 0x12, name: 'Master Alert Whitelist', cat: 'system', desc: 'Writes [FF FF FF FF] mask so all notifications display', defaultPayload: [0xFF, 0xFF, 0xFF, 0xFF] },
-    { id: 'SET_UNITS_24H_C',  cmd: 0x02, key: 0x18, name: 'Units: 24H + °C',        cat: 'system', desc: 'Function switch bank 0x03=0xEB', defaultPayload: [0x03, 0xEB] },
-    { id: 'SET_UNITS_12H_C',  cmd: 0x02, key: 0x18, name: 'Units: 12H + °C',        cat: 'system', desc: 'Function switch bank 0x03=0xEF', defaultPayload: [0x03, 0xEF] },
-    { id: 'PUSH_WEATHER_7B',  cmd: 0x02, key: 0x36, name: 'Push Weather (7B)',      cat: 'system', desc: 'Pushes sky code and temperatures to complications' },
-    { id: 'FIND_WATCH_CHIME', cmd: 0x02, key: 0x3B, name: 'Find Watch Chime',       cat: 'action', desc: 'Fires speaker chime and lights display', defaultPayload: [0x01] },
-    { id: 'FACTORY_RESET',    cmd: 0x02, key: 0x40, name: 'Factory Reset',          cat: 'system', desc: 'Beeps and erases user flash (DANGEROUS)', isDangerous: true },
-    { id: 'SWITCH_DIAL_SLOT', cmd: 0x02, key: 0x70, name: 'Switch Dial Slot',       cat: 'dial',   desc: 'Swaps active watchface index [slotId]' },
-
-    // --- TELEPHONY & NOTICES (Cmd: 0x04) ---
-    { id: 'ALERT_CALL',       cmd: 0x04, key: 0x01, name: 'Incoming Call Alert',    cat: 'alert',  desc: 'Continuous vibration + caller prompt' },
-    { id: 'ALERT_CALL_END',   cmd: 0x04, key: 0x02, name: 'End / Dismiss Call',     cat: 'alert',  desc: 'Dismisses incoming call vibration' },
-    { id: 'ALERT_CALL_MUTE',  cmd: 0x04, key: 0x03, name: 'Mute Ringing Call',      cat: 'alert',  desc: 'Mutes call vibration without rejecting' },
-    { id: 'ALERT_SMS',        cmd: 0x04, key: 0x04, name: 'SMS Text Message',       cat: 'alert',  desc: 'SMS icon + sender & body struct' },
-    { id: 'ALERT_QQ',         cmd: 0x04, key: 0x05, name: 'QQ Notice',              cat: 'alert',  desc: 'QQ icon notification' },
-    { id: 'ALERT_WECHAT',     cmd: 0x04, key: 0x06, name: 'WeChat Notice',          cat: 'alert',  desc: 'WeChat green icon notification' },
-    { id: 'ALERT_FACEBOOK',   cmd: 0x04, key: 0x07, name: 'Facebook Notice',        cat: 'alert',  desc: 'Facebook blue icon notification' },
-    { id: 'ALERT_TWITTER',    cmd: 0x04, key: 0x08, name: 'X / Twitter Notice',     cat: 'alert',  desc: 'X / Twitter icon notification' },
-    { id: 'ALERT_LINKEDIN',   cmd: 0x04, key: 0x09, name: 'LinkedIn Notice',        cat: 'alert',  desc: 'LinkedIn icon notification' },
-    { id: 'ALERT_INSTAGRAM',  cmd: 0x04, key: 0x0A, name: 'Instagram Notice',       cat: 'alert',  desc: 'Instagram icon notification' },
-    { id: 'ALERT_GENERIC',    cmd: 0x04, key: 0x0B, name: 'General App Notice',     cat: 'alert',  desc: 'Generic bell notice icon' },
-    { id: 'ALERT_WHATSAPP',   cmd: 0x04, key: 0x0C, name: 'WhatsApp Notice',        cat: 'alert',  desc: 'WhatsApp icon notification' },
-    { id: 'ALERT_LINE',       cmd: 0x04, key: 0x0D, name: 'LINE Notice',            cat: 'alert',  desc: 'LINE icon notification' },
-    { id: 'ALERT_MESSENGER',  cmd: 0x04, key: 0x0E, name: 'FB Messenger Notice',    cat: 'alert',  desc: 'Messenger icon notification' },
-    { id: 'ALERT_KAKAOTALK',  cmd: 0x04, key: 0x0F, name: 'KakaoTalk Notice',       cat: 'alert',  desc: 'KakaoTalk icon notification' },
-    { id: 'ALERT_SKYPE',      cmd: 0x04, key: 0x10, name: 'Skype Notice',           cat: 'alert',  desc: 'Skype icon notification' },
-    { id: 'ALERT_EMAIL',      cmd: 0x04, key: 0x11, name: 'Email Notice',           cat: 'alert',  desc: 'Email letter envelope icon' },
-    { id: 'ALERT_TELEGRAM',   cmd: 0x04, key: 0x12, name: 'Telegram Notice',        cat: 'alert',  desc: 'Telegram paper airplane icon' },
-    { id: 'ALERT_VIBER',      cmd: 0x04, key: 0x13, name: 'Viber Notice',           cat: 'alert',  desc: 'Viber purple phone icon' },
-    { id: 'ALERT_SNAPCHAT',   cmd: 0x04, key: 0x15, name: 'Snapchat Notice',        cat: 'alert',  desc: 'Snapchat ghost icon' }
-    // ➕ ADD NEW OUTBOUND COMMANDS HERE
-  ];
-
-  const HT37_EVENT_REGISTRY = {
-    // --- CAMERA REMOTE BUS (Cmd: 0x07) ---
-    '0x07_0x04': { name: 'Camera: Viewfinder Opened', desc: 'Watch entered camera mode; phone should open camera viewfinder' },
-    '0x07_0x01': { name: 'Camera: Shutter Pressed',   desc: 'User tapped camera shutter on watch; take photo now!' },
-    '0x07_0x05': { name: 'Camera: Closed',            desc: 'Watch exited camera mode; close phone camera viewfinder' },
-
-    // --- MEDIA / MUSIC REMOTE BUS (Cmd: 0x07) ---
-    '0x07_0x03': {
-      name: 'Media: Action Triggered',
-      desc: 'Watch sent media control button',
-      actionMap: { 1: 'Pause', 2: 'Play', 3: 'Next Track', 4: 'Prev Track', 5: 'Vol Up', 6: 'Vol Down' }
-    },
-
-    // --- TELEPHONY & WATCH-TO-HOST TRIGGERS ---
-    '0x02_0x3C': { name: 'Find Phone: Triggered',     desc: 'User tapped Find Phone on watch; host device should ring' },
-    '0x02_0x7C': { name: 'Find Phone: Finished',      desc: 'Find Phone applet timed out or was dismissed' },
-    '0x04_0x20': { name: 'Call: User Declined',       desc: 'User pressed End Call on watch touchscreen' },
-    '0x02_0x51': { name: 'DND: Toggle Notice',        desc: 'User toggled Do Not Disturb in watch quick panel' },
-    '0x02_0xE5': { name: 'Alert: Display Active',     desc: 'Watch display turned on and is actively presenting alert' }
-    // ➕ ADD NEW INCOMING WATCH EVENTS HERE
-  };
-
-  /**
-   * Universal Dispatcher: Executes any command from the registry by its ID string
-   */
-  async function sendRegistryCommand(cmdId, customPayload = null) {
-    if (!cmdChar || !bleServer || !bleServer.connected) {
-      return log('ERROR: Connect & Bind to the watch first.', 'err');
-    }
-    const def = HT37_COMMAND_REGISTRY.find(c => c.id === cmdId);
-    if (!def) return log(`ERROR: Command ID "${cmdId}" not found in registry.`, 'err');
-
-    abortBleOperation = false;
-    const payload = customPayload || def.defaultPayload || [];
-    const hexCmd = '0x' + def.cmd.toString(16).padStart(2,'0').toUpperCase();
-    const hexKey = '0x' + def.key.toString(16).padStart(2,'0').toUpperCase();
-    log(`🚀 Executing [${def.name}] (${hexCmd}/${hexKey})...`, 'ok');
-
-    const { frame, seq } = buildFitCloudFrame(def.cmd, def.key, payload, 0x00);
-    await enqueueBleWrite(cmdChar, frame, `${def.id}(${hexCmd}/${hexKey}) seq=${seq}`);
   }
 
   async function sendWatchAlert(keyId, label) {
