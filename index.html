@@ -444,8 +444,9 @@
       <div class="field-row">
         <label>Probe / Flash Scope</label>
         <select id="probeScopeSelect" style="width:205px">
-          <option value="probe_71_to_7c_headers" selected>1. Probe 0x71..0x7C (Between 0x70 WF & 0x7D GUI)</option>
-          <option value="probe_70_multi_byte">2. Probe 0x70 Multi-Byte (Slot + Size/CRC Headers)</option>
+          <option value="prequery_then_b0_and_0103" selected>1. Pre-Query (70->C8->7D->AE) + 0xB0 & 01/03</option>
+          <option value="zero_byte_scan_01_02">2. Zero-Byte [] Scan on Cmd 0x01 & 0x02 (Safe)</option>
+          <option value="high_cmd_id_scan">3. Scan High Cmd IDs (0x11..0x30, 0x80, 0xF0..0xFF)</option>
         </select>
       </div>
       <div class="field-row">
@@ -1899,32 +1900,63 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
   otaAccepted = false;
 
   const bin = compileWatchfaceBin();
-  const slot = Number(document.getElementById('dialSlotSelect').value) || 1;
+  const slot = 5; // Slot 5 = Custom Watchface Slot
   const scope = document.getElementById('probeScopeSelect').value;
   const p = buildCandidatePayloads(bin, slot);
   const sz120kLE = [0xc0, 0xd4, 0x01, 0x00];
   const sz120kBE = [0x00, 0x01, 0xd4, 0xc0];
 
-  log(`Starting Dial Upload Neighborhood Probe (Scope=${scope})...`, 'ok');
+  log(`Starting Discovery Scan (Scope=${scope})...`, 'ok');
   const tests = [];
 
-  if (scope === 'probe_71_to_7c_headers') {
-    // 0x70 = Switch Watchface, 0x7D->0x7E = Read 360x360 GUI Info [03 01 01 68 01 68 00].
-    // Test 0x71..0x7C with 2B, 4B, 7B, and 8B Dial Upload headers!
-    for (let k = 0x71; k <= 0x7c; k++) {
-      tests.push({ cmd: 0x02, key: k, val: [0x01, 0x00],                              note: `Try_02/0x${k.toString(16).toUpperCase()}_2B_[01,00]` });
-      tests.push({ cmd: 0x02, key: k, val: sz120kBE,                                  note: `Try_02/0x${k.toString(16).toUpperCase()}_4B_SizeBE` });
-      tests.push({ cmd: 0x02, key: k, val: [0x03, 0x01, 0x01, 0x68, 0x01, 0x68, 0x00],note: `Try_02/0x${k.toString(16).toUpperCase()}_7B_Gui7E` });
-      tests.push({ cmd: 0x02, key: k, val: p.desc8BE,                                 note: `Try_02/0x${k.toString(16).toUpperCase()}_8B_DescBE` });
-      tests.push({ cmd: 0x02, key: k, val: p.desc8LE,                                 note: `Try_02/0x${k.toString(16).toUpperCase()}_8B_DescLE` });
+  if (scope === 'prequery_then_b0_and_0103') {
+    // 1. Switch to Slot 5 (Custom Watchface) first, then run the exact FitCloud Dial Pre-Queries (0xC8 -> 0x7D -> 0xAE) before each 0xB0 / 0x01 test!
+    const b0Payloads = [
+      [0x01],
+      [0x05],
+      [0x05, 0x00, 0x0d],
+      [0x00, 0x0d, ...sz120kBE],
+      [0x05, ...sz120kBE],
+      [0x05, ...sz120kLE],
+      [0x00, 0x00, 0x08, 0x26, ...sz120kBE],
+      [0x00, 0x00, 0x08, 0x26, ...sz120kBE, ...p.cBE],
+      [0x05, 0x00, 0x0d, ...sz120kBE, ...p.cBE],
+      p.desc8BE,
+      p.desc8LE
+    ];
+    tests.push({ cmd: 0x02, key: 0x70, val: [0x05], note: 'Pre_SetSlot5(0x02/0x70=[05])' });
+    tests.push({ cmd: 0x02, key: 0xc8, val: [],     note: 'Pre_ReadDialSlots(0x02/0xC8)' });
+    for (let idx = 0; idx < b0Payloads.length; idx++) {
+      tests.push({ cmd: 0x02, key: 0x7d, val: [0x01],          note: `Pre_GuiInfo_${idx}(0x02/0x7D)` });
+      tests.push({ cmd: 0x02, key: 0xae, val: [0x01],          note: `Pre_FlashSpace_${idx}(0x02/0xAE)` });
+      tests.push({ cmd: 0x02, key: 0xb0, val: b0Payloads[idx], note: `Try_02/B0_AfterAE_Variant${idx}(${b0Payloads[idx].length}B)` });
     }
-  } else if (scope === 'probe_70_multi_byte') {
-    // What if 0x70 with 1 byte switches watchface, and 0x70 with >1 byte starts custom watchface upload?
-    tests.push({ cmd: 0x02, key: 0x70, val: [0x01, 0x02, 0x00],         note: 'Try_02/70_3B_Slot1_ID512' });
-    tests.push({ cmd: 0x02, key: 0x70, val: [0x01, ...sz120kBE],        note: 'Try_02/70_5B_Slot1_SizeBE' });
-    tests.push({ cmd: 0x02, key: 0x70, val: [0x01, ...sz120kLE],        note: 'Try_02/70_5B_Slot1_SizeLE' });
-    tests.push({ cmd: 0x02, key: 0x70, val: p.desc8BE,                  note: 'Try_02/70_8B_DescBE' });
-    tests.push({ cmd: 0x02, key: 0x70, val: p.desc8LE,                  note: 'Try_02/70_8B_DescLE' });
+    // Also test 0x01/0x01 + 0x01/0x03 right after 0x7D + 0xAE + Slot 5!
+    const dev53 = [...watchDeviceInfo53B];
+    dev53[27] = 0x08; dev53[44] = 0x11;
+    tests.push({ cmd: 0x02, key: 0x7d, val: [0x01],       note: 'Pre_GuiInfo_OTA(0x02/0x7D)' });
+    tests.push({ cmd: 0x02, key: 0xae, val: [0x01],       note: 'Pre_FlashSpace_OTA(0x02/0xAE)' });
+    tests.push({ cmd: 0x01, key: 0x01, val: dev53,        note: 'Try_01/01_AfterAE_53B' });
+    tests.push({ cmd: 0x01, key: 0x03, val: [0x01, 0x00], note: 'Try_01/03_AfterAE_[01,00]' });
+  } else if (scope === 'zero_byte_scan_01_02') {
+    // Many FitCloud Read/Trigger keys (like 0x1B, 0x60, 0xC8) ONLY respond to 0-byte [] payloads!
+    const skip02 = new Set([0x01, 0x12, 0x15, 0x18, 0x1b, 0x20, 0x36, 0x3a, 0x3b, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x60, 0x65, 0x70, 0x88, 0xc8]);
+    for (let k = 0x01; k <= 0x30; k++) {
+      tests.push({ cmd: 0x01, key: k, val: [], note: `ZeroB_01/0x${k.toString(16).padStart(2,'0').toUpperCase()}_[]` });
+    }
+    for (let k = 0x02; k <= 0xfe; k++) {
+      if (skip02.has(k)) continue;
+      tests.push({ cmd: 0x02, key: k, val: [], note: `ZeroB_02/0x${k.toString(16).padStart(2,'0').toUpperCase()}_[]` });
+    }
+  } else if (scope === 'high_cmd_id_scan') {
+    // Scan higher L2 Command IDs (0x11..0x30, 0x80, 0xA0, 0xF0..0xFE) with Key=0x01 [01] and []
+    const cmdIds = [];
+    for (let c = 0x11; c <= 0x30; c++) cmdIds.push(c);
+    cmdIds.push(0x80, 0x90, 0xa0, 0xb0, 0xc0, 0xd0, 0xe0, 0xf0, 0xf1, 0xf2, 0xfe, 0xff);
+    for (const c of cmdIds) {
+      tests.push({ cmd: c, key: 0x01, val: [0x01], note: `HighCmd_0x${c.toString(16).toUpperCase()}_Key01_[01]` });
+      tests.push({ cmd: c, key: 0x01, val: [],     note: `HighCmd_0x${c.toString(16).toUpperCase()}_Key01_[]` });
+    }
   }
 
   for (let i = 0; i < tests.length; i++) {
@@ -1933,16 +1965,15 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
     otaLastResponse = null;
     const { frame, seq } = buildFitCloudFrame(t.cmd, t.key, t.val, 0x00);
     await enqueueBleWrite(cmdChar, frame, `${t.note} seq=${seq}`);
-    await waitForAck(seq, 300);
-    const resp = await waitForL2Response(240);
+    await waitForAck(seq, 280);
+    const resp = await waitForL2Response(180);
     if (resp) {
       log(`🎯 L2 REPLY on ${t.note}: Cmd=0x${resp.cmdId?.toString(16).padStart(2,'0')}, Key=0x${resp.keyId?.toString(16).padStart(2,'0')}, Val=[${resp.valHex}]`, 'ok');
     }
-    await new Promise(r => setTimeout(r, 350));
   }
 
   isTransferRunning = false;
-  log(`✅ Finished ${scope} (${tests.length} tests)!`, 'ok');
+  log(`✅ Finished ${scope} (${tests.length} tests)! Copy and paste the logs here!`, 'ok');
 });
 
 /* ============================================================================
@@ -2030,6 +2061,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
