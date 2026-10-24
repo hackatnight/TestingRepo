@@ -404,9 +404,9 @@
       <div class="field-row">
         <label>Probe / Flash Scope</label>
         <select id="probeScopeSelect" style="width:205px">
-          <option value="paired_0101_0103_lengths" selected>1. Paired 01/01->01/03 (Lengths 0..64B)</option>
-          <option value="fuzz_53b_sections">2. 53B Section Fuzz on 01/01->01/03</option>
-          <option value="dial_02_82_98_a4_b0">3. Test New 0x02 Keys (80/82/98/A4/B0/DA/E0/E8)</option>
+          <option value="lead_b0_all_lengths" selected>1. Lead C: 0x02/0xB0 Lengths 0..64B (Watch 0xB7!)</option>
+          <option value="lead_0103_2b_patterns">2. Lead A: 0x01/03 2-Byte Patterns (Big/Little Endian)</option>
+          <option value="lead_0101_all_lengths">3. Lead B: 0x01/01 Every Length 13..100B</option>
         </select>
       </div>
       <div class="field-row">
@@ -1836,62 +1836,51 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
   const slot = Number(document.getElementById('dialSlotSelect').value) || 1;
   const scope = document.getElementById('probeScopeSelect').value;
   const p = buildCandidatePayloads(bin, slot);
-  const sz120kLE = [0xc0, 0xd4, 0x01, 0x00];
-  const sz120kBE = [0x00, 0x01, 0xd4, 0xc0];
 
-  log(`Starting Paired OTA & Dial Trigger Discovery (Scope=${scope})...`, 'ok');
-  log(`👀 Watch your HT37 screen for the White Up-Arrow + 0% Upload screen!`, 'warn');
+  log(`Starting Surgical Length & Pattern Discovery (Scope=${scope})...`, 'ok');
+  log(`👀 Watch terminal for 0x02/0xB7 != [01] or 0x01/0x04 != [02]!`, 'warn');
 
   const tests = [];
 
-  if (scope === 'paired_0101_0103_lengths') {
-    // Test 0x01/0x01 across all candidate lengths (0B..64B), each immediately followed by 0x01/0x03!
-    const lengths = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 54, 56, 60, 64];
-    for (const len of lengths) {
-      const v01 = new Array(len).fill(0x01);
-      if (len >= 6) {
-        // Put project ID 85 45 at bytes 4..5 if long enough
-        v01[4] = 0x85; v01[5] = 0x45;
-      }
-      tests.push({ cmd: 0x01, key: 0x01, val: v01, note: `LenTest_01/01_${len}B` });
-      // Pair with 0x01/0x03 of same length (or 4B/8B)
-      const v03 = len > 0 ? v01 : [0x01];
-      tests.push({ cmd: 0x01, key: 0x03, val: v03, note: `LenTest_01/03_${v03.length}B` });
+  if (scope === 'lead_b0_all_lengths') {
+    // Test 0x02/0xB0 across EVERY byte length from 0 to 64B to see which length changes 0x02/0xB7 from [01]!
+    for (let len = 0; len <= 64; len++) {
+      const arr = new Array(len).fill(0x01);
+      tests.push({ cmd: 0x02, key: 0xb0, val: arr, note: `B0_Len_${len}B` });
+    }
+    // Also test 0x02/0xB0 with first byte = 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x10, 0x20, 0xFF (1B & 2B & 4B):
+    for (const b0 of [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x08, 0x10, 0x20, 0xff]) {
+      tests.push({ cmd: 0x02, key: 0xb0, val: [b0, 0x00], note: `B0_2B_[0x${b0.toString(16)},00]` });
+      tests.push({ cmd: 0x02, key: 0xb0, val: [0x00, b0], note: `B0_2B_[00,0x${b0.toString(16)}]` });
     }
   }
 
-  if (scope === 'fuzz_53b_sections') {
-    // Keep Project/MAC intact or vary each section of the 53B DeviceInfo with 0xFF / +1, paired with 0x01/0x03
-    for (let i = 0; i < 53; i++) {
-      const b53 = [...watchDeviceInfo53B];
-      b53[i] = (b53[i] + 1) & 0xff;
-      tests.push({ cmd: 0x01, key: 0x01, val: b53, note: `ByteBump53B_Idx${i}_(0x${watchDeviceInfo53B[i].toString(16)}->0x${b53[i].toString(16)})` });
+  if (scope === 'lead_0103_2b_patterns') {
+    // We proved 0x01/0x03 MUST be 2 bytes (ValLen == 2) and must follow 0x01/0x01!
+    // Test 2-byte patterns [0x00, X], [X, 0x00], [X, X] where X = 0x00..0x20, 0x40, 0x80, 0xFF
+    const mod53 = [...watchDeviceInfo53B];
+    mod53[27] = 0x08; // v1.08
+    mod53[44] = 0x11; // UI bump
+    const vals = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0c, 0x10, 0x20, 0x40, 0x80, 0xff];
+    for (const v of vals) {
+      tests.push({ cmd: 0x01, key: 0x01, val: mod53,      note: `Pre_01/01_for_00_${v.toString(16)}` });
+      tests.push({ cmd: 0x01, key: 0x03, val: [0x00, v],  note: `Try_01/03_2B_[00,0x${v.toString(16).padStart(2,'0')}]` });
     }
-    // Also test 53B with 0xFF in all zero bytes, and 53B with endian-swapped versions:
-    const ffZeros = watchDeviceInfo53B.map(b => b === 0x00 ? 0x01 : b);
-    tests.push({ cmd: 0x01, key: 0x01, val: ffZeros, note: 'ByteBump53B_AllZerosTo01' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0x01, 0x00], note: 'StartAfter_AllZerosTo01' });
-
-    const maxVer = [...watchDeviceInfo53B];
-    for (const idx of [0,1,2,3, 6,7, 8,9, 10,11, 12,13, 26,27, 43,44]) maxVer[idx] = 0xff;
-    tests.push({ cmd: 0x01, key: 0x01, val: maxVer, note: 'ByteBump53B_MaxVersionsFF' });
-    tests.push({ cmd: 0x01, key: 0x03, val: [0xff, 0xff], note: 'StartAfter_MaxVersionsFF' });
+    for (const v of [0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80]) {
+      tests.push({ cmd: 0x01, key: 0x01, val: mod53,      note: `Pre_01/01_for_${v.toString(16)}_01` });
+      tests.push({ cmd: 0x01, key: 0x03, val: [v, 0x01],  note: `Try_01/03_2B_[0x${v.toString(16).padStart(2,'0')},01]` });
+    }
   }
 
-  if (scope === 'dial_02_82_98_a4_b0') {
-    // Test the Write counterparts to the new Read/Reply keys we just found in Group 3 & Gap Scan:
-    // 0x80->0x81 (Write=0x7F?), 0x82->0x83, 0x99->0x9A (Write=0x98), 0xA5->0xA6 (Write=0xA4),
-    // 0xB0->0xB7, 0xDB->0xDC (Write=0xDA), 0xE1->0xE2 (Write=0xE0), 0xE9->0xEA (Write=0xE8)
-    tests.push({ cmd: 0x02, key: 0xa4, val: [0x00], note: 'TestWrite_02/A4_[00]' });
-    tests.push({ cmd: 0x02, key: 0xa4, val: [0x01], note: 'TestWrite_02/A4_[01]' });
-    tests.push({ cmd: 0x02, key: 0xa4, val: [0x02], note: 'TestWrite_02/A4_[02]' });
-    tests.push({ cmd: 0x02, key: 0xa4, val: [0x04], note: 'TestWrite_02/A4_[04]' });
-    tests.push({ cmd: 0x02, key: 0xa5, val: [0x01], note: 'VerifyRead_02/A5' });
-
-    tests.push({ cmd: 0x02, key: 0xe0, val: [0x01, 0x00, 0x08, 0x26, ...sz120kBE], note: 'TestWrite_02/E0_DialId_Size' });
-    tests.push({ cmd: 0x02, key: 0xe8, val: [0xff, 0xfd, 0x01], note: 'TestWrite_02/E8_[FF,FD,01]' });
-    tests.push({ cmd: 0x02, key: 0xb0, val: [0x01, 0x02, 0x00, ...sz120kBE], note: 'TestWrite_02/B0_7B_Slot1_SizeBE' });
-    tests.push({ cmd: 0x02, key: 0xb0, val: [0x00, 0x08, 0x26, ...sz120kBE], note: 'TestWrite_02/B0_7B_Id0826_SizeBE' });
+  if (scope === 'lead_0101_all_lengths') {
+    // Test every exact length of 0x01/0x01 from 13 to 96 bytes that we didn't test yet!
+    for (let len = 13; len <= 96; len++) {
+      const arr = new Array(len).fill(0x01);
+      for (let i = 0; i < Math.min(len, watchDeviceInfo53B.length); i++) arr[i] = watchDeviceInfo53B[i];
+      if (len > 27) arr[27] = 0x08;
+      if (len > 44) arr[44] = 0x11;
+      tests.push({ cmd: 0x01, key: 0x01, val: arr, note: `Try_01/01_ExactLen_${len}B` });
+    }
   }
 
   for (let i = 0; i < tests.length; i++) {
@@ -1996,6 +1985,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
