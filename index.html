@@ -364,28 +364,28 @@
         </select>
       </div>
       <div class="alert-grid">
-        <button class="primary" onclick="sendWatchAlert(0x01, 'Incoming Call')">📞 Call (04/01)</button>
-        <button class="danger" onclick="sendWatchAlert(0x02, 'End Call')">☎️ End Call (04/02)</button>
-        <button onclick="sendWatchAlert(0x03, 'Mute Call')">🔇 Mute (04/03)</button>
-        <button class="success" onclick="sendWatchAlert(0x04, 'SMS Text')">💬 SMS (04/04)</button>
-        <button onclick="sendWatchAlert(0x05, 'QQ Notice')">🐧 QQ (04/05)</button>
-        <button onclick="sendWatchAlert(0x06, 'WeChat Notice')">🟢 WeChat (04/06)</button>
-        <button onclick="sendWatchAlert(0x07, 'Facebook')">📘 Facebook (04/07)</button>
-        <button onclick="sendWatchAlert(0x08, 'X / Twitter')">𝕏 Twitter/X (04/08)</button>
-        <button onclick="sendWatchAlert(0x09, 'LinkedIn')">💼 LinkedIn (04/09)</button>
-        <button onclick="sendWatchAlert(0x0a, 'Instagram')">📸 Instagram (04/0A)</button>
-        <button onclick="sendWatchAlert(0x0b, 'App Notice')">🔔 Notice (04/0B)</button>
-        <button onclick="sendWatchAlert(0x0c, 'WhatsApp')">📲 WhatsApp (04/0C)</button>
-        <button onclick="sendWatchAlert(0x0d, 'LINE')">🟢 LINE (04/0D)</button>
-        <button onclick="sendWatchAlert(0x0e, 'FB Messenger')">💬 Messenger (04/0E)</button>
-        <button onclick="sendWatchAlert(0x0f, 'KakaoTalk')">💛 KakaoTalk (04/0F)</button>
-        <button onclick="sendWatchAlert(0x10, 'Skype')">🌐 Skype (04/10)</button>
-        <button onclick="sendWatchAlert(0x11, 'Email')">✉️ Email (04/11)</button>
-        <button onclick="sendWatchAlert(0x12, 'Telegram')">✈️ Telegram (04/12)</button>
-        <button onclick="sendWatchAlert(0x13, 'Viber')">💜 Viber (04/13)</button>
-        <button onclick="sendWatchAlert(0x15, 'Snapchat')">👻 Snapchat (04/15)</button>
+        <button class="primary" onclick="sendWatchAlert('ALERT_CALL')">📞 Call (04/01)</button>
+        <button class="danger" onclick="sendWatchAlert('ALERT_CALL_END')">☎️ End Call (04/02)</button>
+        <button onclick="sendWatchAlert('ALERT_CALL_MUTE')">🔇 Mute (04/03)</button>
+        <button class="success" onclick="sendWatchAlert('ALERT_SMS')">💬 SMS (04/04)</button>
+        <button onclick="sendWatchAlert('ALERT_QQ')">🐧 QQ (04/05)</button>
+        <button onclick="sendWatchAlert('ALERT_WECHAT')">🟢 WeChat (04/06)</button>
+        <button onclick="sendWatchAlert('ALERT_FACEBOOK')">📘 Facebook (04/07)</button>
+        <button onclick="sendWatchAlert('ALERT_TWITTER')">𝕏 Twitter/X (04/08)</button>
+        <button onclick="sendWatchAlert('ALERT_LINKEDIN')">💼 LinkedIn (04/09)</button>
+        <button onclick="sendWatchAlert('ALERT_INSTAGRAM')">📸 Instagram (04/0A)</button>
+        <button onclick="sendWatchAlert('ALERT_GENERIC')">🔔 Notice (04/0B)</button>
+        <button onclick="sendWatchAlert('ALERT_WHATSAPP')">📲 WhatsApp (04/0C)</button>
+        <button onclick="sendWatchAlert('ALERT_LINE')">🟢 LINE (04/0D)</button>
+        <button onclick="sendWatchAlert('ALERT_MESSENGER')">💬 Messenger (04/0E)</button>
+        <button onclick="sendWatchAlert('ALERT_KAKAOTALK')">💛 KakaoTalk (04/0F)</button>
+        <button onclick="sendWatchAlert('ALERT_SKYPE')">🌐 Skype (04/10)</button>
+        <button onclick="sendWatchAlert('ALERT_EMAIL')">✉️ Email (04/11)</button>
+        <button onclick="sendWatchAlert('ALERT_TELEGRAM')">✈️ Telegram (04/12)</button>
+        <button onclick="sendWatchAlert('ALERT_VIBER')">💜 Viber (04/13)</button>
+        <button onclick="sendWatchAlert('ALERT_SNAPCHAT')">👻 Snapchat (04/15)</button>
         <button class="danger" onclick="triggerFactoryResetPrompt()" title="Cmd=0x02, Key=0x40: Plays beep and factory resets watch">⚠️ Reset (02/40)</button>
-        <button class="warn" onclick="sendWatchChime(0x3b, 'Find Watch Chime')" title="Cmd=0x02, Key=0x3B=[01]: Verified Find Watch Chime & Screen Alert" style="grid-column:span 3;">🔊 Find Watch Chime (02/3B)</button>
+        <button class="warn" onclick="sendWatchChime('FIND_WATCH_CHIME')" title="Cmd=0x02, Key=0x3B=[01]: Verified Find Watch Chime & Screen Alert" style="grid-column:span 3;">🔊 Find Watch Chime (02/3B)</button>
       </div>
         <!-- 🎵 Verified Media Controls (Cmd=0x07, Key=0x03) -->
         <div style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px;">
@@ -1428,7 +1428,13 @@ async function sendWatchChime(keyId, label) {
     return log('ERROR: Pair & Bind to the watch first!', 'err');
   }
   abortBleOperation = false;
-  log(`🔊 Sending ${label} (Cmd=0x02, Key=0x${keyId.toString(16).toUpperCase()}, Val=[01])...`, 'ok');
+  
+    // Resolve chime from registry if string ID passed
+    if (typeof keyId === 'string' && typeof HT37 !== 'undefined') {
+      const def = HT37.getCommand(keyId);
+      if (def) { keyId = def.key; label = def.name; }
+    }
+log(`🔊 Sending ${label} (Cmd=0x02, Key=0x${keyId.toString(16).toUpperCase()}, Val=[01])...`, 'ok');
   const { frame, seq } = buildFitCloudFrame(0x02, keyId, [0x01], 0x00);
   await enqueueBleWrite(cmdChar, frame, `${label.replace(/\s+/g,'_')}(0x02/0x${keyId.toString(16).toUpperCase()}) seq=${seq}`);
 }
@@ -1473,7 +1479,17 @@ async function enableAllWatchAlerts() {
     return log('ERROR: Pair & Bind to the watch first!', 'err');
   }
   abortBleOperation = false;
-  const sender = (document.getElementById('alertSender').value || 'HT37').trim();
+  
+    // Resolve command ID string (e.g. 'ALERT_WHATSAPP') or numeric key from HT37 registry
+    const cmdDef = (typeof HT37 !== 'undefined')
+      ? (typeof keyId === 'string' ? HT37.getCommand(keyId) : HT37.commands.find(c => c.cmd === 0x04 && c.key === keyId))
+      : null;
+    if (cmdDef) {
+      keyId = cmdDef.key;
+      label = cmdDef.name;
+    }
+
+    const sender = (document.getElementById('alertSender').value || 'HT37').trim();
   const msg = (document.getElementById('alertMsg').value || 'Test').trim();
   const fmt = document.getElementById('alertFormat').value;
   const enc = new TextEncoder();
