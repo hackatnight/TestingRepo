@@ -198,25 +198,25 @@
         </select>
       </div>
       <div class="field-row"><label>🔋 Battery (<span id="valBat">50</span>%)</label><input type="range" id="simBat" min="1" max="100" value="50" /></div>
-      <div style="border-top:1px solid var(--panel-border);padding-top:4px;margin-top:2px;display:flex;flex-direction:column;gap:4px;">
+      <div style="border-top:1px solid var(--panel-border);padding-top:4px;margin-top:2px;display:flex;flex-direction:column;gap:3px;">
         <div class="field-row">
-          <label>📍 Weather Text</label>
-          <input type="text" id="liveWeatherText" value="this is a test" style="width:150px;font-size:10px;padding:2px 5px;" />
-        </div>
-        <div class="field-row">
-          <label>🌡️ Cur/Min/Max</label>
+          <label>🌡️ Cur/Min/Max °C</label>
           <div style="display:flex;gap:3px;width:150px;">
-            <input type="number" id="liveTempCur" value="22" style="width:48px;font-size:10px;padding:2px 4px;" title="Current Temp °C" oninput="sensors.weatherTemp=Number(this.value);document.getElementById('simWeatherTemp').value=this.value;document.getElementById('valWeatherTemp').textContent=this.value;" />
-            <input type="number" id="liveTempMin" value="16" style="width:48px;font-size:10px;padding:2px 4px;" title="Min Temp °C" />
-            <input type="number" id="liveTempMax" value="26" style="width:48px;font-size:10px;padding:2px 4px;" title="Max Temp °C" />
+            <input type="number" id="liveTempCur" value="22" style="width:48px;font-size:10px;padding:2px 4px;" title="Current Temp °C" oninput="sensors.weatherTemp=Number(this.value);document.getElementById('simWeatherTemp').value=this.value;document.getElementById('valWeatherTemp').textContent=this.value;updateLiveSensorReadout();" />
+            <input type="number" id="liveTempMin" value="16" style="width:48px;font-size:10px;padding:2px 4px;" title="Min Temp °C" oninput="updateLiveSensorReadout();" />
+            <input type="number" id="liveTempMax" value="26" style="width:48px;font-size:10px;padding:2px 4px;" title="Max Temp °C" oninput="updateLiveSensorReadout();" />
           </div>
         </div>
         <div class="field-row">
-          <label>📡 Live Data Hex</label>
-          <input type="text" id="liveSensorHex" value="16 10 1A 02 | 76BPM 1013hPa" readonly style="width:150px;font-size:9px;padding:2px 5px;color:var(--accent);" />
+          <label>📊 Live Sensors</label>
+          <input type="text" id="liveSensorSummary" value="HDG:42° HR:76 STP:6840" readonly style="width:150px;font-size:9px;padding:2px 5px;color:var(--text-main);" />
+        </div>
+        <div class="field-row">
+          <label>📡 Weather Hex</label>
+          <input type="text" id="liveSensorHex" value="16 10 1A 02 | 1013hPa 50%" readonly style="width:150px;font-size:9px;padding:2px 5px;color:var(--accent);" />
         </div>
         <div class="field-row" style="gap:4px;">
-          <button class="primary" onclick="pushWeatherToWatch()" style="flex:1;justify-content:center;padding:4px 6px;font-size:10px;">🌤️ Push Weather to Watch</button>
+          <button class="primary" onclick="pushWeatherToWatch()" style="flex:1;justify-content:center;padding:4px 6px;font-size:10px;">🌤️ Push Weather (Safe)</button>
         </div>
       </div>
     </div>
@@ -649,15 +649,10 @@ function drawWidget(c, w) {
     case 'heartrate': {
       const bpm = Math.max(30, Math.min(220, Number(sensors.hr) || 76));
       const beatPeriodMs = 60000 / bpm;
-      const beatProgress = (performance.now() % beatPeriodMs) / beatPeriodMs;
-      const isBeatPeak = beatProgress < 0.18;
       c.fillStyle = 'rgba(255, 82, 82, 0.1)'; c.strokeStyle = w.color; c.lineWidth = 1.5;
       c.beginPath(); c.roundRect(-58, -24, 116, 48, 10); c.fill(); c.stroke();
-      c.save();
-      if (isBeatPeak) { c.shadowColor = w.color; c.shadowBlur = 8; }
       c.fillStyle = w.color; c.font = 'bold 16px monospace'; c.textAlign = 'left';
-      c.fillText(`${isBeatPeak ? '❤️' : '♥'} ${bpm}`, -48, -4);
-      c.restore();
+      c.fillText(`♥ ${bpm}`, -48, -4);
       c.fillStyle = '#9aa4b2'; c.font = '9px monospace'; c.fillText(w.text || 'PPG LIVE', -48, 12);
       c.strokeStyle = w.accent; c.lineWidth = 1.6; c.beginPath();
       const pxPerBeat = Math.max(14, Math.min(42, Math.round(28 * (60 / bpm))));
@@ -1095,7 +1090,7 @@ function isDangerousResetFrame(frame) {
   if (frame.length >= 13 && frame[0] === 0xab && frame[1] === 0x00) {
     const cmd = frame[8], key = frame[10];
     // Block Cmd 0x02 Key 0x40..0x45 (Factory Reset / Unbind / PowerOff) & Cmd 0x07 (System Reboot)
-    if (cmd === 0x02 && (key === 0x40 || key === 0x65 || key === 0x88)) return `Blocked Reset / Crash key (0x02/0x${key.toString(16)})`;
+    if (cmd === 0x02 && ((key >= 0x40 && key <= 0x45) || key === 0x65 || key === 0x88)) return `Blocked Reset / PowerOff / Crash key (0x02/0x${key.toString(16)})`;
     if (cmd === 0x07) return `Blocked System Reboot command (0x07/0x${key.toString(16)})`;
   }
   return null;
@@ -1379,10 +1374,14 @@ function updateLiveSensorReadout() {
   const max = encodeFitCloudTemp(document.getElementById('liveTempMax')?.value ?? 26);
   const curEl = document.getElementById('liveTempCur');
   if (curEl && document.activeElement !== curEl) curEl.value = sensors.weatherTemp;
+  const sumEl = document.getElementById('liveSensorSummary');
+  if (sumEl) {
+    sumEl.value = `HDG:${sensors.heading}° HR:${sensors.hr} STP:${sensors.steps}`;
+  }
   const hexEl = document.getElementById('liveSensorHex');
   if (hexEl) {
     const h = [cur, min, max, code].map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
-    hexEl.value = `${h} | ${sensors.hr}BPM ${sensors.baro}hPa`;
+    hexEl.value = `${h} | ${sensors.baro}hPa BAT:${sensors.battery}%`;
   }
 }
 
@@ -1397,35 +1396,17 @@ async function pushWeatherToWatch() {
   const cur = encodeFitCloudTemp(document.getElementById('liveTempCur').value);
   const min = encodeFitCloudTemp(document.getElementById('liveTempMin').value);
   const max = encodeFitCloudTemp(document.getElementById('liveTempMax').value);
-  const locText = (document.getElementById('liveWeatherText').value || 'this is a test').trim();
-  const locBytes = Array.from(new TextEncoder().encode(locText)).slice(0, 32);
 
-  // FitCloud Cmd=0x02, Key=0x41 / 0x42 Weather Packet Formats:
-  // Format 1 (15B + City): [CurTemp, MaxTemp, MinTemp, WeatherCode, Wind, Humidity, UV, AQ, LocLen, ...LocUTF8]
-  const weather41_Std = [cur, max, min, code, 0x03, 0x32, 0x05, 0x01, locBytes.length, ...locBytes];
-  // Format 2 (Compact): [CurTemp, MinTemp, MaxTemp, WeatherCode, LocLen, ...LocUTF8]
-  const weather41_Short = [cur, min, max, code, locBytes.length, ...locBytes];
-  // Format 3 (With 4-byte timestamp +Today+Forecast): [CurTemp, MinTemp, MaxTemp, WeatherCode, 0x00, 0x00, ...locBytes]
-  const weather42_Forecast = [cur, min, max, code, cur, min, max, code, cur, min, max, code];
+  // Pure numeric Weather payload (No text string): [CurTemp, MinTemp, MaxTemp, WeatherCode, 00, 00, 00]
+  const weather7B = [cur, min, max, code, 0x00, 0x00, 0x00];
 
-  // Mirror into Custom L2 Sender so user can inspect/tweak the exact hex!
   document.getElementById('rawCmd').value = '0x02';
-  document.getElementById('rawKey').value = '0x41';
-  document.getElementById('rawPayload').value = weather41_Short.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+  document.getElementById('rawKey').value = '0x35';
+  document.getElementById('rawPayload').value = weather7B.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
 
-  log(`🌤️ Pushing Live Weather to Watch (0x02/0x41 & 0x42): Temp=${sensors.weatherTemp}°C (Min=${document.getElementById('liveTempMin').value}°, Max=${document.getElementById('liveTempMax').value}°), Sky=${sensors.weatherCond} (0x0${code}), Text="${locText}"`, 'ok');
-
-  for (const pkt of [
-    { key: 0x22, val: [0x00, 0x01, 0xe0, 0x04, 0xec], name: 'RestoreSedentaryDefault(0x02/0x22)' },
-    { key: 0x41, val: weather41_Short, name: 'WeatherPush_0x41_Short' },
-    { key: 0x41, val: weather41_Std, name: 'WeatherPush_0x41_Std' },
-    { key: 0x42, val: weather42_Forecast, name: 'WeatherPush_0x42_Forecast' }
-  ]) {
-    const { frame, seq } = buildFitCloudFrame(0x02, pkt.key, pkt.val, 0x00);
-    await enqueueBleWrite(cmdChar, frame, `${pkt.name} seq=${seq}`);
-    await waitForAck(seq, 350);
-    await new Promise(r => setTimeout(r, 120));
-  }
+  log(`🌤️ Pushing Numeric Weather to Watch: Cur=${sensors.weatherTemp}°C, Min=${document.getElementById('liveTempMin').value}°C, Max=${document.getElementById('liveTempMax').value}°C, Sky=${sensors.weatherCond} (0x0${code})`, 'ok');
+  const { frame, seq } = buildFitCloudFrame(0x02, 0x35, weather7B, 0x00);
+  await enqueueBleWrite(cmdChar, frame, `WeatherPush_0x35 seq=${seq}`);
 }
 
 async function activateWatchDialSlot() {
@@ -1744,6 +1725,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </body>
 </html>
+
 
 
 
