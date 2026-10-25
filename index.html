@@ -137,6 +137,7 @@
   }
 </style>
   <script src="ht37-commands.js"></script>
+  <script src="ht37-decompiler.js"></script>
 </head>
 <body>
 
@@ -321,7 +322,7 @@
       <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="chkShowGuides" checked /> Snap Grid & Bezel Marks</label>
       <span style="color:#303c54">|</span>
       <button onclick="centerSelectedWidget()">🎯 Center Layer</button>
-      <button onclick="duplicateSelectedWidget()">⧉ Duplicate Layer</button>
+      <button onclick="duplicateSelectedWidget()">⧉ Duplicate Layer</button>`n        <span style="color:#303c54">|</span>`n        <button class="primary" onclick="openDecompilerModal()" style="padding:3px 8px;font-size:11px;font-weight:bold;background:var(--accent,#00e5ff);color:#000;border:none;border-radius:4px;cursor:pointer;" title="Open floating visual .BIN decompiler">🔬 Dial Decompiler</button>
       <button class="danger" onclick="deleteSelectedWidget()">🗑️ Remove Layer</button>
       <span style="color:#303c54">|</span>
       <button onclick="resetDefaultWatchface()">🔄 Reset Preset</button>
@@ -2357,6 +2358,40 @@ requestAnimationFrame(animateLoop);
 log('HT37 Web Bluetooth WYSIWYG Watchface Studio Initialized.', 'ok');
 log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1 ("Test 0x7C/0xAD/0xB0 Dial Keys + Bumped OTA")!', 'rx');
 </script>
+
+  <!-- ============================================================== -->
+  <!-- 🔬 FLOATING DRAGGABLE MODAL: DIAL DECOMPILER & LAYER STUDIO     -->
+  <!-- ============================================================== -->
+  <div id="dialDecompilerModal" style="position:fixed;top:90px;left:calc(50% - 240px);width:480px;max-width:95vw;background:rgba(12,17,26,0.96);backdrop-filter:blur(14px);border:1px solid var(--accent,#00e5ff);border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,0.88),0 0 25px rgba(0,229,255,0.18);z-index:100000;display:none;flex-direction:column;font-family:inherit;">
+    <div id="decompilerDragHandle" style="padding:8px 12px;background:rgba(0,229,255,0.08);border-bottom:1px solid rgba(0,229,255,0.25);cursor:grab;user-select:none;display:flex;justify-content:space-between;align-items:center;border-radius:7px 7px 0 0;">
+      <span style="font-weight:bold;color:var(--accent,#00e5ff);font-size:11px;display:flex;align-items:center;gap:6px;">
+        <span>🔬</span> [FitCloud .BIN Decompiler & Layer Studio]
+      </span>
+      <button onclick="closeDecompilerModal()" style="background:transparent;border:none;color:#aaa;font-size:16px;cursor:pointer;padding:0 4px;line-height:1;" title="Close Window">✕</button>
+    </div>
+    <div style="padding:12px;max-height:75vh;overflow-y:auto;">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+        <label class="primary" style="cursor:pointer;padding:5px 12px;font-size:11px;font-weight:bold;border-radius:4px;display:inline-flex;align-items:center;gap:6px;background:var(--accent,#00e5ff);color:#000;">
+          📂 Select .BIN or .PGL
+          <input type="file" id="modalBinFileInput" accept=".bin,.pgl" style="display:none;" onchange="handleModalFileSelect(event)">
+        </label>
+        <span style="font-size:10px;color:var(--text-dim,#888);">Drop 80287ac5...bin here</span>
+      </div>
+
+      <div id="modalFileInfo" style="font-size:9.5px;color:var(--text-dim,#aaa);font-family:var(--font-mono);background:rgba(0,0,0,0.3);padding:5px 8px;border-radius:3px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.06);">
+        Select <b>80287ac5...bin</b> to decompile all 10 complications and background.
+      </div>
+
+      <div id="modalAssetGrid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(80px, 1fr));gap:6px;margin-bottom:10px;">
+        <!-- Extracted layer cards injected dynamically -->
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;">
+        <button onclick="closeDecompilerModal()" style="padding:4px 10px;font-size:10px;background:transparent;border:1px solid rgba(255,255,255,0.2);color:#ccc;border-radius:3px;">Close</button>
+        <button class="primary" id="btnModalStage" onclick="applyDecompiledToWatchface()" style="padding:4px 12px;font-size:10px;font-weight:bold;display:none;background:var(--accent,#00e5ff);color:#000;border:none;border-radius:3px;cursor:pointer;">🎯 Stage & Sync to Watchface</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
 
