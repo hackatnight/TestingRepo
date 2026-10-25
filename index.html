@@ -2357,8 +2357,204 @@ requestAnimationFrame(animateLoop);
 log('HT37 Web Bluetooth WYSIWYG Watchface Studio Initialized.', 'ok');
 log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1 ("Test 0x7C/0xAD/0xB0 Dial Keys + Bumped OTA")!', 'rx');
 </script>
+<!-- STUDIO_TAB_SYSTEM_START -->
+<style id="studio-tab-styles">
+  /* Studio Navigation Bar */
+  .studio-tab-nav {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #111827;
+    border-bottom: 1px solid #1f2937;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .studio-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #1f2937;
+    color: #9ca3af;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+  }
+  .studio-tab-btn:hover {
+    color: #f3f4f6;
+    background: #374151;
+    border-color: #4b5563;
+  }
+  .studio-tab-btn.active {
+    color: #38bdf8;
+    background: #0f172a;
+    border-color: #38bdf8;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+  }
+  
+  /* Tab Viewport & Panes */
+  .studio-tab-container {
+    padding: 16px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .studio-tab-pane {
+    display: none;
+    animation: studioFadeIn 0.2s ease;
+  }
+  .studio-tab-pane.active {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  /* Watch Studio Responsive Split View */
+  #tab-studio.active {
+    display: grid;
+    grid-template-columns: minmax(320px, 460px) 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    #tab-studio.active {
+      grid-template-columns: 1fr;
+    }
+  }
+  .studio-col-chassis, .studio-col-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  @keyframes studioFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+<script id="studio-tab-runtime">
+(function initStudioWorkspace() {
+  function setupTabs() {
+    if (document.getElementById('studioTabNav')) return;
+
+    // 1. Create Sticky Workspace Tab Bar
+    const nav = document.createElement('nav');
+    nav.id = 'studioTabNav';
+    nav.className = 'studio-tab-nav';
+    nav.innerHTML = 
+      <button type="button" class="studio-tab-btn active" data-tab="tab-studio">🎨 Watch Studio</button>
+      <button type="button" class="studio-tab-btn" data-tab="tab-alerts">🔔 Alerts & Commands</button>
+      <button type="button" class="studio-tab-btn" data-tab="tab-weather">🌤️ Weather & Sensors</button>
+      <button type="button" class="studio-tab-btn" data-tab="tab-dfu">🚀 DFU Flashing</button>
+      <button type="button" class="studio-tab-btn" data-tab="tab-diagnostics">🔬 Logs & Terminal</button>
+    ;
+
+    // 2. Position Tab Bar directly under Header
+    const header = document.querySelector('header');
+    if (header && header.nextSibling) {
+      header.parentNode.insertBefore(nav, header.nextSibling);
+    } else {
+      document.body.insertBefore(nav, document.body.firstChild);
+    }
+
+    // 3. Build Tab Container Viewport
+    const container = document.createElement('div');
+    container.className = 'studio-tab-container';
+    container.innerHTML = 
+      <div id="tab-studio" class="studio-tab-pane active">
+        <div class="studio-col-chassis" id="studioChassisCol"></div>
+        <div class="studio-col-tools" id="studioToolsCol"></div>
+      </div>
+      <div id="tab-alerts" class="studio-tab-pane"></div>
+      <div id="tab-weather" class="studio-tab-pane"></div>
+      <div id="tab-dfu" class="studio-tab-pane"></div>
+      <div id="tab-diagnostics" class="studio-tab-pane"></div>
+    ;
+    nav.parentNode.insertBefore(container, nav.nextSibling);
+
+    // Dynamic card resolver
+    function getCard(id) {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      let card = el.closest('.section-card, .card, section, details, .panel');
+      if (card && card !== document.body && card.tagName !== 'MAIN') return card;
+      if (el.parentElement && el.parentElement !== document.body && el.parentElement.tagName !== 'MAIN') {
+        return el.parentElement;
+      }
+      return el;
+    }
+
+    const chassisCol = document.getElementById('studioChassisCol');
+    const toolsCol = document.getElementById('studioToolsCol');
+
+    // Tab 1: Studio (Chassis on left, Layers/Inspector/BG on right)
+    const chassisCard = getCard('watchChassis');
+    if (chassisCard) chassisCol.appendChild(chassisCard);
+
+    ['secScreenBgBody', 'secAddWidgetBody', 'secWidgetLayersBody', 'inspectorBody'].forEach(id => {
+      const c = getCard(id);
+      if (c && !toolsCol.contains(c) && !chassisCol.contains(c)) toolsCol.appendChild(c);
+    });
+
+    // Tab 2: Alerts & Commands
+    const alertsTab = document.getElementById('tab-alerts');
+    const alertCard = getCard('secAlertTesterBody');
+    if (alertCard) alertsTab.appendChild(alertCard);
+
+    // Tab 3: Weather & Sensors
+    const weatherTab = document.getElementById('tab-weather');
+    const weatherCard = getCard('secSensorWeatherBody');
+    if (weatherCard) weatherTab.appendChild(weatherCard);
+
+    // Tab 4: DFU Flashing
+    const dfuTab = document.getElementById('tab-dfu');
+    const dfuCard = getCard('secDfuEngineBody');
+    if (dfuCard) dfuTab.appendChild(dfuCard);
+
+    // Tab 5: Logs & Diagnostics
+    const diagTab = document.getElementById('tab-diagnostics');
+    ['commandExplorer', 'hexInspector', 'logTerminal'].forEach(id => {
+      const c = getCard(id);
+      if (c && !diagTab.contains(c)) diagTab.appendChild(c);
+    });
+
+    // 4. Tab switching logic
+    nav.addEventListener('click', (e) => {
+      const btn = e.target.closest('.studio-tab-btn');
+      if (!btn) return;
+      const targetTab = btn.dataset.tab;
+      document.querySelectorAll('.studio-tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.studio-tab-pane').forEach(p => p.classList.toggle('active', p.id === targetTab));
+      try { localStorage.setItem('ht37_active_tab', targetTab); } catch(err){}
+    });
+
+    // Restore last open tab
+    try {
+      const savedTab = localStorage.getItem('ht37_active_tab');
+      if (savedTab && document.getElementById(savedTab)) {
+        const targetBtn = nav.querySelector([data-tab=" + savedTab + "]);
+        if (targetBtn) targetBtn.click();
+      }
+    } catch(err){}
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupTabs);
+  } else {
+    setupTabs();
+  }
+})();
+</script>
+<!-- STUDIO_TAB_SYSTEM_END -->
 </body>
 </html>
+
 
 
 
