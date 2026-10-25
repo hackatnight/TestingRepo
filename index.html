@@ -690,6 +690,10 @@ const canvas = document.getElementById('watchCanvas');
 const ctx = canvas.getContext('2d');
 let screenConfig = { width: 360, height: 360, isRect: false, previewWidth: 220, previewHeight: 220 };
 let bgTheme = 'tactical', customBgImage = null, loadedTemplateBin = null;
+  window.setCustomBackground = function(canvasImg) {
+    customBgImage = canvasImg;
+    if (typeof renderCanvas === 'function') renderCanvas();
+  };
 const sensors = { heading: 42, hr: 76, steps: 6840, stepGoal: 10000, baro: 1013, altitude: 148, battery: 50, tempC: 36.6, weatherTemp: 22, weatherCond: 'CLOUDY', ecgPhase: 0 };
 let widgets = [], selectedWidgetId = null, isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
 
