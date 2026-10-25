@@ -1,0 +1,313 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HT37 Dial Studio & Decompiler (FitCloudPro / TBUI)</title>
+<style>
+  :root {
+    --bg-main: #0c1017;
+    --bg-card: #141b25;
+    --bg-sub: #1b2533;
+    --accent: #00d2ff;
+    --border: #243347;
+    --text-primary: #f0f4f8;
+    --text-muted: #8b9bb4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { background: var(--bg-main); color: var(--text-primary); padding: 18px; font-size: 13px; }
+  header { margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+  h1 { font-size: 1.35rem; color: var(--accent); }
+  .badge { background: #19527e; color: #7fe1ff; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px; font-weight: normal; }
+  .layout { display: grid; grid-template-columns: 360px 1fr; gap: 18px; }
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+  .drop-zone { border: 2px dashed var(--accent); background: rgba(0,210,255,0.04); border-radius: 6px; padding: 18px 10px; text-align: center; cursor: pointer; transition: 0.2s; }
+  .drop-zone:hover { background: rgba(0,210,255,0.1); }
+  .btn { background: linear-gradient(135deg, #0099cc, var(--accent)); color: #05101a; font-weight: 700; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+  .btn-sec { background: var(--bg-sub); color: var(--text-primary); border: 1px solid var(--border); }
+  .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
+  .step-btn-group { display: flex; gap: 4px; margin-top: 6px; }
+  .step-btn-group button { flex: 1; padding: 4px; font-size: 0.72rem; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  label { font-size: 0.74rem; color: var(--text-muted); display: block; margin-bottom: 2px; }
+  input[type="number"], input[type="text"], select { width: 100%; background: var(--bg-sub); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; padding: 5px 8px; font-size: 0.8rem; }
+  .preview-wrapper { width: 100%; height: 380px; background: repeating-conic-gradient(#16202c 0% 25%, #0f151e 0% 50%) 50% / 16px 16px; border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-top: 10px; }
+  .preview-wrapper canvas { max-width: 100%; max-height: 100%; image-rendering: pixelated; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+  .pinned-card { background: var(--bg-sub); border: 1px solid var(--border); border-radius: 6px; padding: 8px; text-align: center; }
+  .card-canvas-wrap { width: 100%; height: 110px; background: repeating-conic-gradient(#121924 0% 25%, #0a0e14 0% 50%) 50% / 12px 12px; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 6px; }
+  .card-canvas-wrap canvas { max-width: 100%; max-height: 100%; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⌚ HT37 Dial Studio <span class="badge">TBUI @ 0x400 &bull; 360x360</span></h1>
+  <div>
+    <button class="btn btn-sec btn-sm" onclick="exportActivePNG()">💾 Download Viewport PNG</button>
+  </div>
+</header>
+
+<div class="layout">
+  <div>
+    <div class="card">
+      <h3 style="font-size:0.9rem; margin-bottom:8px;">📂 Dial Assets</h3>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fIn').click()">
+        <p><strong>Click or Drop .bin &amp; .pgl Here</strong></p>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Accepts <code>80287ac5...bin</code> &amp; companion files</p>
+        <input type="file" id="fIn" multiple accept=".bin,.pgl" style="display:none" onchange="handleFiles(this.files)">
+      </div>
+      <div style="margin-top:10px;">
+        <label>Active File:</label>
+        <select id="activeFile" onchange="changeActiveFile()"></select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:0.9rem; margin-bottom:6px;">🛠️ Frame &amp; Offset Inspector</h3>
+      <div>
+        <label>Byte Offset (Hex or Dec):</label>
+        <input type="text" id="offsetInput" value="0x400" oninput="renderLive()">
+        <div class="step-btn-group">
+          <button class="btn btn-sec" onclick="stepOffset(-1024)">-1KB</button>
+          <button class="btn btn-sec" onclick="stepOffset(-16)">-16B</button>
+          <button class="btn btn-sec" onclick="stepOffset(16)">+16B</button>
+          <button class="btn btn-sec" onclick="stepOffset(256)">+256B</button>
+          <button class="btn btn-sec" onclick="stepOffset(1024)">+1KB</button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <label>Width:</label>
+          <input type="number" id="widthInput" value="360" step="2" oninput="renderLive()">
+        </div>
+        <div>
+          <label>Height:</label>
+          <input type="number" id="heightInput" value="360" step="2" oninput="renderLive()">
+        </div>
+      </div>
+
+      <div style="margin-top:8px;">
+        <label>Format Decoding Mode:</label>
+        <select id="fmtSelect" onchange="renderLive()">
+          <option value="rgb565">RGB565 Little-Endian (Standard 16-bit)</option>
+          <option value="bgr565">BGR565 Little-Endian</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:0;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2 style="font-size:1.05rem;">Live Viewport (<span id="dimsLabel">360x360</span>)</h2>
+      <span id="offsetLabel" style="font-size:0.75rem; color:var(--text-muted);">Offset: 0x400 (1024 bytes)</span>
+    </div>
+
+    <div class="preview-wrapper">
+      <canvas id="mainCanvas" width="360" height="360"></canvas>
+    </div>
+
+    <h3 style="font-size:0.95rem; margin-top:16px;">Decompiled TBUI Sprites (<span id="pinCount">0</span>)</h3>
+    <div class="gallery" id="pinnedGallery">
+      <div style="grid-column: 1 / -1; text-align:center; padding: 30px; color:var(--text-muted);">
+        Load your dial <code>.bin</code> file to extract watch face assets.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let files = {};
+let activeKey = null;
+let sprites = [];
+
+function handleFiles(uploaded) {
+  for (const f of uploaded) {
+    const ext = f.name.split('.').pop().toLowerCase();
+    const r = new FileReader();
+    r.onload = (e) => {
+      files[ext] = { name: f.name, data: new Uint8Array(e.target.result) };
+      updateDropdown();
+      decompileAll121Frames();
+    };
+    r.readAsArrayBuffer(f);
+  }
+}
+
+const dz = document.getElementById('dropZone');
+if (dz) {
+  dz.ondragover = (e) => { e.preventDefault(); dz.style.background = 'rgba(0,210,255,0.12)'; };
+  dz.ondragleave = () => { dz.style.background = 'rgba(0,210,255,0.04)'; };
+  dz.ondrop = (e) => {
+    e.preventDefault();
+    dz.style.background = 'rgba(0,210,255,0.04)';
+    handleFiles(e.dataTransfer.files);
+  };
+}
+
+function updateDropdown() {
+  const sel = document.getElementById('activeFile');
+  if (!sel) return;
+  sel.innerHTML = '';
+  Object.keys(files).forEach(k => {
+    sel.innerHTML += `<option value="${k}">.${k.toUpperCase()} (${files[k].name})</option>`;
+  });
+  if (files['bin'] && !activeKey) activeKey = 'bin';
+  else if (files['pgl'] && !activeKey) activeKey = 'pgl';
+  if (activeKey) sel.value = activeKey;
+}
+
+function changeActiveFile() {
+  activeKey = document.getElementById('activeFile').value;
+  decompileAll121Frames();
+}
+
+function decompileAll121Frames() {
+  sprites = [];
+  const target = files[activeKey] || files['bin'];
+  if (!target) return;
+  const d = target.data;
+
+  // Read all 121 frames from the master frame table at 0x1120
+  for (let i = 0x1120; i < 0x2000; i += 12) {
+    const idx = d[i] | (d[i+1] << 8);
+    const fmt = d[i+2] | (d[i+3] << 8);
+    const w   = d[i+4] | (d[i+5] << 8);
+    const h   = d[i+6] | (d[i+7] << 8);
+    const off = d[i+8] | (d[i+9] << 8) | (d[i+10] << 16) | (d[i+11] << 24);
+
+    if (w > 0 && w <= 360 && h > 0 && h <= 360 && off < d.length) {
+      const absOff = off + 0x400;
+      // If frame starts with 'PA' (0x50, 0x41), skip the 16-byte asset header to reach pixel data
+      const hasPA = (d[absOff] === 0x50 && d[absOff+1] === 0x41);
+      const dataStart = hasPA ? (absOff + 16) : absOff;
+
+      let name = `Frame_${idx}_(${w}x${h})`;
+      if (w === 360 && h === 360) name = `Background_360x360`;
+      else if (w === 240 && h === 240) name = `Preview_240x240`;
+      else if (w === 48 && h === 76) name = `Clock_Digit_${idx - 23}_(${w}x${h})`;
+
+      sprites.push({
+        id: idx,
+        name: name,
+        width: w,
+        height: h,
+        offset: dataStart,
+        rawOffset: absOff,
+        fmtCode: fmt
+      });
+    } else {
+      break;
+    }
+  }
+
+  renderGallery();
+  if (sprites.length > 0) loadSpriteToViewer(sprites[0].id);
+}
+
+function renderGallery() {
+  const g = document.getElementById('pinnedGallery');
+  const target = files[activeKey] || files['bin'];
+  if (!g || !target) return;
+  g.innerHTML = '';
+  document.getElementById('pinCount').textContent = sprites.length;
+
+  sprites.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'pinned-card';
+    card.innerHTML = `
+      <div style="font-size:0.75rem; font-weight:600; margin-bottom:4px;">${s.name}</div>
+      <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:6px;">Offset: 0x${s.rawOffset.toString(16)}</div>
+      <div class="card-canvas-wrap" id="wrap-${s.id}"></div>
+      <div style="display:flex; gap:4px; margin-top:6px;">
+        <button class="btn btn-sec btn-sm" style="flex:1;" onclick="loadSpriteToViewer(${s.id})">Inspect</button>
+        <button class="btn btn-sm" style="flex:1;" onclick="downloadSprite(${s.id})">Save PNG</button>
+      </div>
+    `;
+    g.appendChild(card);
+    const canvas = drawFrame(target.data, s.offset, s.width, s.height);
+    s.canvas = canvas;
+    document.getElementById(`wrap-${s.id}`).appendChild(canvas);
+  });
+}
+
+function drawFrame(data, offset, w, h) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.createImageData(w, h);
+  const px = imgData.data;
+
+  const totalPx = w * h;
+  for (let i = 0, dp = 0; i < totalPx && (offset + i * 2 + 1) < data.length; i++, dp += 4) {
+    const val = data[offset + i * 2] | (data[offset + i * 2 + 1] << 8);
+    const r = Math.round(((val >> 11) & 0x1F) * 255 / 31);
+    const g = Math.round(((val >> 5) & 0x3F) * 255 / 63);
+    const b = Math.round((val & 0x1F) * 255 / 31);
+    px[dp] = r; px[dp+1] = g; px[dp+2] = b;
+    px[dp+3] = (r === 0 && g === 0 && b === 0 && w < 360) ? 0 : 255;
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return canvas;
+}
+
+function loadSpriteToViewer(id) {
+  const s = sprites.find(item => item.id === id);
+  if (!s) return;
+  document.getElementById('offsetInput').value = `0x${s.offset.toString(16)}`;
+  document.getElementById('widthInput').value = s.width;
+  document.getElementById('heightInput').value = s.height;
+  renderLive();
+}
+
+function renderLive() {
+  const target = files[activeKey] || files['bin'];
+  if (!target) return;
+  let offStr = document.getElementById('offsetInput').value.trim();
+  let off = offStr.startsWith('0x') ? parseInt(offStr, 16) : parseInt(offStr, 10);
+  if (isNaN(off)) off = 0;
+
+  const w = parseInt(document.getElementById('widthInput').value) || 360;
+  const h = parseInt(document.getElementById('heightInput').value) || 360;
+
+  document.getElementById('dimsLabel').textContent = `${w}x${h}`;
+  document.getElementById('offsetLabel').textContent = `Offset: 0x${off.toString(16)} (${off} bytes)`;
+
+  const canvas = document.getElementById('mainCanvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  const rendered = drawFrame(target.data, off, w, h);
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(rendered, 0, 0);
+}
+
+function stepOffset(delta) {
+  let offStr = document.getElementById('offsetInput').value.trim();
+  let off = offStr.startsWith('0x') ? parseInt(offStr, 16) : parseInt(offStr, 10);
+  if (isNaN(off)) off = 0;
+  off = Math.max(0, off + delta);
+  document.getElementById('offsetInput').value = `0x${off.toString(16)}`;
+  renderLive();
+}
+
+function downloadSprite(id) {
+  const s = sprites.find(item => item.id === id);
+  if (!s || !s.canvas) return;
+  const a = document.createElement('a');
+  a.href = s.canvas.toDataURL('image/png');
+  a.download = `${s.name}.png`;
+  a.click();
+}
+
+function exportActivePNG() {
+  const main = document.getElementById('mainCanvas');
+  const a = document.createElement('a');
+  a.href = main.toDataURL('image/png');
+  a.download = `dial_export.png`;
+  a.click();
+}
+</script>
+</body>
+</html>
+
