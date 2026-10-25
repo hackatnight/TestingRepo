@@ -137,6 +137,7 @@
   }
 </style>
   <script src="ht37-commands.js"></script>
+  <script src="ht37-decompiler.js"></script>
 </head>
 <body>
 
@@ -322,6 +323,8 @@
       <span style="color:#303c54">|</span>
       <button onclick="centerSelectedWidget()">🎯 Center Layer</button>
       <button onclick="duplicateSelectedWidget()">⧉ Duplicate Layer</button>
+        <span style="color:#303c54">|</span>
+        <label class="btn primary" style="cursor:pointer;padding:3px 8px;font-size:11px;display:inline-flex;align-items:center;gap:4px;background:var(--accent,#00e5ff);color:#000;font-weight:bold;border-radius:4px;" title="Open and decompile authentic .bin watch face file">📂 Open .BIN Dial<input type="file" id="dialFilePicker" accept=".bin,.pgl" style="display:none;" onchange="handleDialFileOpen(event)"></label>`n        <span style="color:#303c54">|</span>
       <button class="danger" onclick="deleteSelectedWidget()">🗑️ Remove Layer</button>
       <span style="color:#303c54">|</span>
       <button onclick="resetDefaultWatchface()">🔄 Reset Preset</button>
@@ -337,6 +340,25 @@
       <canvas id="watchCanvas" width="360" height="360" style="position:relative;z-index:2;"></canvas>
     </div>
   </div>
+
+      <!-- 🎨 DECOMPILED ASSET GALLERY & SPRITE INSPECTOR (DAFIT-CANVAS STYLE) -->
+      <div class="section-card" id="secDialDecompiler" style="width:100%;max-width:440px;margin:12px auto 0 auto;background:rgba(12,17,26,0.92);border:1px solid rgba(0,229,255,0.3);box-shadow:0 0 15px rgba(0,229,255,0.06);border-radius:6px;padding:8px 10px;font-family:inherit;box-sizing:border-box;">
+        <div class="section-title collapsible" onclick="toggleSectionCollapse(this, 'secDecompilerBody')" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
+          <span style="font-weight:bold;color:var(--accent,#00e5ff);font-size:11px;">🎨 Decompiled Dial Assets & Sprites</span>
+          <span id="decompileStatusBadge" style="font-size:9px;background:rgba(0,229,255,0.15);color:var(--accent,#00e5ff);padding:1px 6px;border-radius:3px;font-family:var(--font-mono);">DaFit-Canvas Mode</span>
+        </div>
+        <div class="section-body" id="secDecompilerBody">
+          <div id="decompileFileInfo" style="font-size:9.5px;color:var(--text-dim,#aaa);font-family:var(--font-mono);background:rgba(0,0,0,0.3);padding:4px 6px;border-radius:3px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.06);">
+            Drop <b>80287ac5...bin</b> onto the watch canvas or click <b>📂 Open .BIN Dial</b> to unpack all 10 complications and background sprites.
+          </div>
+          <div id="decompileAssetGrid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(80px, 1fr));gap:6px;margin-bottom:8px;">
+            <!-- Thumbnails injected dynamically -->
+          </div>
+          <div style="display:flex;gap:5px;justify-content:flex-end;">
+            <button class="primary" id="btnApplyDecompiled" onclick="applyDecompiledToCanvas()" style="padding:4px 9px;font-size:10px;display:none;">🎯 Stage on Watchface</button>
+          </div>
+        </div>
+      </div>
 
   <div class="panel right">
     <!-- WATCH ALERT & COMMAND TESTER WINDOW -->
