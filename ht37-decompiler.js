@@ -995,3 +995,62 @@
   });
 
 })();
+// Inject BMP scanner into HT37Decompiler
+(function() {
+  if (!window.HT37Decompiler) return;
+
+  const originalScan = window.HT37Decompiler.scanForSprites;
+
+  window.HT37Decompiler.scanForSprites = function() {
+    // Run original scan (PNG, JPEG, TBUI)
+    originalScan.call(this);
+
+    const buf = this.fileData;
+    const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+
+    // Scan for Embedded BMPs ('BM' = 0x42, 0x4D)
+    for (let i = 0; i < buf.length - 26; i++) {
+      if (buf[i] === 0x42 && buf[i+1] === 0x4D) {
+        try {
+          const fileSize = view.getUint32(i + 2, true);
+          const reserved = view.getUint32(i + 6, true);
+          const dataOffset = view.getUint32(i + 10, true);
+          const dibSize = view.getUint32(i + 14, true);
+
+          if (reserved === 0 && (dibSize === 40 || dibSize === 56 || dibSize === 108 || dibSize === 124)) {
+            const width = Math.abs(view.getInt32(i + 18, true));
+            const height = Math.abs(view.getInt32(i + 22, true));
+            const bpp = view.getUint16(i + 28, true);
+
+            if (width > 0 && width <= 480 && height > 0 && height <= 480 &&
+                (bpp === 16 || bpp === 24 || bpp === 32 || bpp === 8) &&
+                dataOffset < fileSize && (i + fileSize) <= buf.length) {
+              
+              // Verify not already added
+              if (!this.sprites.some(s => s.offset === i)) {
+                const slice = buf.subarray(i, i + fileSize);
+                const blob = new Blob([slice], { type: 'image/bmp' });
+                const url = URL.createObjectURL(blob);
+
+                this.sprites.push({
+                  type: 'BMP',
+                  formatLabel: `Embedded BMP (${bpp}-bit)`,
+                  offset: i,
+                  length: fileSize,
+                  width: width,
+                  height: height,
+                  dataUrl: url
+                });
+
+                i += fileSize - 1; // skip ahead
+              }
+            }
+          }
+        } catch(e) {}
+      }
+    }
+
+    // Re-render gallery with detected BMPs
+    this.reRenderGallery();
+  };
+})();
