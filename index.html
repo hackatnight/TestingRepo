@@ -5226,100 +5226,261 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
         if (delBtn) delBtn.disabled = false;
       }
 
-      // 3. Load authentic .bin sprite widgets (with Locale/Mi option) & b-aligned font digit widgets
+      // 3. Load authentic .bin sprite widgets with live reactive sensor binding
       let added = 0;
-      const localeMode = (document.getElementById('decompLocaleSelect') || {}).value || 'EN_IMPERIAL';
-      const isEnglish = localeMode.startsWith('EN_');
-      const isImperial = localeMode === 'EN_IMPERIAL';
 
-      // Bilingual sprite map: 86=CN_KM, 87=EN_KM, 88=CN_Mi, 89=EN_Mi
-      const cnToEnSpriteMap = {
-        82: isEnglish ? 83 : 82,
-        84: isEnglish ? 85 : 84,
-        86: isImperial ? (isEnglish ? 89 : 88) : (isEnglish ? 87 : 86),
-        88: isEnglish ? 89 : 88,
-        90: isEnglish ? 91 : 90,
-        92: isEnglish ? 93 : 92,
-        107: isEnglish ? 108 : 107
+      // Helper: Compose a number/text string using a TBUI FontList (M.fonts[fontIdx])
+      window.buildBinFontCanvas = function(M, fontIdx, strText) {
+        if (!M || !M.fonts || !M.fonts.length) return null;
+        const fl = M.fonts[fontIdx] || M.fonts[0];
+        if (!fl || !fl.pairs || !fl.pairs.length) return null;
+        const digitSprites = Array.from(String(strText)).map(ch => {
+          const asciiCode = ch.charCodeAt(0);
+          const pair = fl.pairs.find(p => p.ch === asciiCode) || fl.pairs[0];
+          return pair ? M.sprites.find(s => s.id === pair.sprite && s.dec && s.canvas) : null;
+        }).filter(Boolean);
+        if (!digitSprites.length) return null;
+        const totalW = digitSprites.reduce((sum, s) => sum + s.w, 0);
+        const maxH = Math.max(...digitSprites.map(s => s.h));
+        const compCv = document.createElement('canvas');
+        compCv.width = totalW; compCv.height = maxH;
+        const ctx = compCv.getContext('2d');
+        let dx = 0;
+        digitSprites.forEach(s => { ctx.drawImage(s.canvas, dx, 0); dx += s.w; });
+        return { canvas: compCv, w: totalW, h: maxH, firstSpriteId: digitSprites[0].id };
       };
 
-      const subSampleMap = {
-        0:  { str: '06840', label: 'Steps' },
-        2:  { str: '09',    label: 'Hour' },
-        3:  { str: '40',    label: 'Minute' },
-        6:  { str: '3.25',  label: 'Distance' },
-        7:  { str: '103.4', label: 'Kcal' },
-        8:  { str: '86',    label: 'BPM' },
-        11: { str: isImperial ? '72F' : '22C', label: 'Temp' },
-        13: { str: '06/28', label: 'Date' }
+      // Helper: Synchronize all loaded .BIN hardware widgets with current Tab 1 Tool 3 sensor values
+      window.syncBinWidgetsWithSensors = function() {
+        const M = window.decompiledBinData;
+        if (!M || !widgets || !widgets.length) return;
+
+        const localeMode = (document.getElementById('decompLocaleSelect') || {}).value || 'EN_IMPERIAL';
+        const isEnglish = localeMode.startsWith('EN_');
+        const isImperial = localeMode === 'EN_IMPERIAL';
+
+        const curSteps = (typeof sensors !== 'undefined' && sensors.steps != null) ? Number(sensors.steps) : 6840;
+        const curHr    = (typeof sensors !== 'undefined' && sensors.hr != null) ? Number(sensors.hr) : 86;
+        const curBat   = (typeof sensors !== 'undefined' && sensors.battery != null) ? Number(sensors.battery) : 50;
+        const curTempC = (typeof sensors !== 'undefined' && sensors.weatherTemp != null) ? Number(sensors.weatherTemp) : 22;
+        const curCond  = (typeof sensors !== 'undefined' && sensors.weatherCond) ? String(sensors.weatherCond).toUpperCase() : 'SUNNY';
+
+        const simTimeEl = document.getElementById('simClockTime');
+        const timeParts = (simTimeEl && simTimeEl.value) ? simTimeEl.value.split(':') : ['09', '40'];
+        const curHour   = (timeParts[0] || '09').padStart(2, '0');
+        const curMin    = (timeParts[1] || '40').padStart(2, '0');
+        const simDayEl  = document.getElementById('simWeekdaySelect');
+        const dayIdx    = simDayEl ? Number(simDayEl.value) : 0; // 0=MON .. 6=SUN
+        const simDateEl = document.getElementById('simDateInput');
+        const curDate   = (simDateEl && simDateEl.value) ? simDateEl.value : '06/28';
+
+        const kcalStr = (curSteps * 0.015117).toFixed(1);
+        const distStr = isImperial ? (curSteps * 0.000475).toFixed(2) : (curSteps * 0.000764).toFixed(2);
+        const tempVal = isImperial ? Math.round(curTempC * 9 / 5 + 32) : Math.round(curTempC);
+        const tempStr = `${tempVal}${isImperial ? 'F' : 'C'}`;
+
+        const condOffsetMap = {
+          'SUNNY': 0, 'CLOUDY': 1, 'OVERCAST': 2, 'SHOWER': 3, 'THUNDER': 4,
+          'LT_RAIN': 5, 'MOD_RAIN': 6, 'SLEET': 7, 'LT_SNOW': 8, 'MOD_SNOW': 9,
+          'SAND': 10, 'FOGGY': 11
+        };
+        const condOff = condOffsetMap[curCond] !== undefined ? condOffsetMap[curCond] : 0;
+
+        widgets.forEach(w => {
+          const hm = w.hwMeta;
+          if (!hm) return;
+
+          // Detect if user manually dragged the widget on the canvas and update its anchor
+          if (hm.lastCalcX !== undefined && (Math.abs(w.x - hm.lastCalcX) > 1 || Math.abs(w.y - hm.lastCalcY) > 1)) {
+            hm.anchorX += (w.x - hm.lastCalcX);
+            hm.anchorY += (w.y - hm.lastCalcY);
+          }
+
+          // A. Type 5: Progress Bars (Steps Bar sub=1 @ #71..81, Battery Bars sub=0 @ #47..57 & #58..68)
+          if (hm.type === 5) {
+            const ratio = (hm.sub === 1) ? Math.min(1, Math.max(0, curSteps / 10000)) : Math.min(1, Math.max(0, curBat / 100));
+            const frameIdx = Math.round(ratio * 10);
+            const sp = M.sprites.find(s => s.id === (hm.a + frameIdx) && s.dec && s.canvas);
+            if (sp) {
+              w.spriteId = sp.id;
+              w.spriteCanvas = sp.canvas;
+              w.x = hm.anchorX + Math.round(sp.w / 2);
+              w.y = hm.anchorY + Math.round(sp.h / 2);
+              hm.lastCalcX = w.x; hm.lastCalcY = w.y;
+            }
+          }
+          // B. Type 6: Weather Condition Icon (sub=2, base #94)
+          else if (hm.type === 6 && hm.sub === 2) {
+            const sp = M.sprites.find(s => s.id === (hm.a + condOff) && s.dec && s.canvas) || M.sprites.find(s => s.id === hm.a && s.dec);
+            if (sp) {
+              w.spriteId = sp.id;
+              w.spriteCanvas = sp.canvas;
+              w.x = hm.anchorX + Math.round(sp.w / 2);
+              w.y = hm.anchorY + Math.round(sp.h / 2);
+              hm.lastCalcX = w.x; hm.lastCalcY = w.y;
+            }
+          }
+          // C. Type 4: Localized Labels & Weekday (sub=0 is Weekday #107..120, sub=2 is KM/Mi #86..89)
+          else if (hm.type === 4) {
+            let targetId = hm.a;
+            if (hm.sub === 0 && hm.a === 107) {
+              targetId = 107 + (dayIdx * 2) + (isEnglish ? 1 : 0);
+            } else if (hm.a === 86) {
+              targetId = isImperial ? (isEnglish ? 89 : 88) : (isEnglish ? 87 : 86);
+            } else if ([82, 84, 88, 90, 92].includes(hm.a)) {
+              targetId = hm.a + (isEnglish ? 1 : 0);
+            }
+            const sp = M.sprites.find(s => s.id === targetId && s.dec && s.canvas);
+            if (sp) {
+              w.spriteId = sp.id;
+              w.spriteCanvas = sp.canvas;
+              w.x = hm.anchorX + Math.round(sp.w / 2);
+              w.y = hm.anchorY + Math.round(sp.h / 2);
+              hm.lastCalcX = w.x; hm.lastCalcY = w.y;
+            }
+          }
+          // D. Types 2 & 3: Dynamic Font Numbers
+          else if (hm.type === 2 || hm.type === 3) {
+            const valMap = {
+              0:  { str: String(Math.round(curSteps)).padStart(5, '0'), label: 'Steps' },
+              2:  { str: curHour,  label: 'Hour' },
+              3:  { str: curMin,   label: 'Minute' },
+              6:  { str: distStr,  label: 'Distance' },
+              7:  { str: kcalStr,  label: 'Kcal' },
+              8:  { str: String(Math.round(curHr)), label: 'BPM' },
+              11: { str: tempStr,  label: 'Temp' },
+              13: { str: curDate,  label: 'Date' }
+            };
+            const info = valMap[hm.sub] || { str: '80', label: `Sub_${hm.sub}` };
+            const built = window.buildBinFontCanvas(M, hm.a, info.str);
+            if (built) {
+              w.spriteCanvas = built.canvas;
+              w.spriteId = built.firstSpriteId;
+              w.text = info.str;
+              w.name = `🔢 ${info.label} "${info.str}" (b=${hm.b})`;
+              let cx = hm.anchorX + Math.round(built.w / 2);
+              if (hm.b === 2) cx = hm.anchorX - Math.round(built.w / 2);
+              else if (hm.b === 1) cx = hm.anchorX;
+              w.x = cx;
+              w.y = hm.anchorY + Math.round(built.h / 2);
+              hm.lastCalcX = w.x; hm.lastCalcY = w.y;
+            }
+          }
+        });
       };
 
       M.widgets.forEach(hw => {
         if ([0, 4, 5, 6].includes(hw.type)) {
-          const targetSpriteId = cnToEnSpriteMap[hw.a] !== undefined ? cnToEnSpriteMap[hw.a] : hw.a;
-          const sp = M.sprites.find(s => s.id === targetSpriteId && s.dec);
+          const sp = M.sprites.find(s => s.id === hw.a && s.dec);
           if (sp && sp.canvas && !(sp.w >= 350 && sp.h >= 350) && !(sp.w === 240 && sp.h === 240)) {
+            const cx = hw.x + Math.round(sp.w / 2), cy = hw.y + Math.round(sp.h / 2);
             widgets.push({
               id: 'hw_widget_' + hw.i + '_' + Date.now() + '_' + added,
               type: 'customText',
               name: `🖼️ HW #${hw.id} (Spr #${sp.id})`,
-              x: hw.x + Math.round(sp.w / 2),
-              y: hw.y + Math.round(sp.h / 2),
+              x: cx, y: cy,
               scale: 1.0, opacity: 1.0, visible: true, locked: false,
               color: '#00e5ff', accent: '#ffffff', text: `W_${hw.id}`,
               fwId: '0x' + hw.type.toString(16).padStart(2, '0'),
-              spriteId: sp.id, spriteCanvas: sp.canvas
+              spriteId: sp.id, spriteCanvas: sp.canvas,
+              hwMeta: { i: hw.i, id: hw.id, type: hw.type, sub: hw.sub, a: hw.a, b: hw.b, anchorX: hw.x, anchorY: hw.y, lastCalcX: cx, lastCalcY: cy }
             });
             added++;
           }
         } else if ((hw.type === 2 || hw.type === 3) && M.fonts && M.fonts.length > 0) {
-          const fl = M.fonts[hw.a] || M.fonts[0];
-          if (fl && fl.pairs && fl.pairs.length > 0) {
-            const subInfo = subSampleMap[hw.sub] || { str: '80', label: `Sub_${hw.sub}` };
-            const sampleStr = subInfo.str;
-
-            const digitSprites = Array.from(sampleStr).map(ch => {
-              const asciiCode = ch.charCodeAt(0);
-              const pair = fl.pairs.find(p => p.ch === asciiCode) || fl.pairs[0];
-              return pair ? M.sprites.find(s => s.id === pair.sprite && s.dec && s.canvas) : null;
-            }).filter(Boolean);
-
-            if (digitSprites.length > 0) {
-              const totalW = digitSprites.reduce((sum, s) => sum + s.w, 0);
-              const maxH = Math.max(...digitSprites.map(s => s.h));
-              const compCv = document.createElement('canvas');
-              compCv.width = totalW; compCv.height = maxH;
-              const ctx = compCv.getContext('2d');
-              let dx = 0;
-              digitSprites.forEach(s => { ctx.drawImage(s.canvas, dx, 0); dx += s.w; });
-
-              // Apply TBUI horizontal alignment flag (b: 0=Left, 1=Center, 2=Right)
-              let alignedCenterX = hw.x + Math.round(totalW / 2);
-              if (hw.b === 2) alignedCenterX = hw.x - Math.round(totalW / 2);
-              else if (hw.b === 1) alignedCenterX = hw.x;
-
-              widgets.push({
-                id: 'hw_font_' + hw.i + '_' + Date.now() + '_' + added,
-                type: 'customText',
-                name: `🔢 ${subInfo.label} "${sampleStr}" (b=${hw.b})`,
-                x: alignedCenterX,
-                y: hw.y + Math.round(maxH / 2),
-                scale: 1.0, opacity: 1.0, visible: true, locked: false,
-                color: '#f59e0b', accent: '#ffffff', text: sampleStr,
-                fwId: '0x' + hw.type.toString(16).padStart(2, '0'),
-                spriteId: digitSprites[0].id, spriteCanvas: compCv
-              });
-              added++;
-            }
+          const built = window.buildBinFontCanvas(M, hw.a, '0');
+          if (built) {
+            const cx = hw.x + Math.round(built.w / 2), cy = hw.y + Math.round(built.h / 2);
+            widgets.push({
+              id: 'hw_font_' + hw.i + '_' + Date.now() + '_' + added,
+              type: 'customText',
+              name: `🔢 HW #${hw.id}`,
+              x: cx, y: cy,
+              scale: 1.0, opacity: 1.0, visible: true, locked: false,
+              color: '#f59e0b', accent: '#ffffff', text: '0',
+              fwId: '0x' + hw.type.toString(16).padStart(2, '0'),
+              spriteId: built.firstSpriteId, spriteCanvas: built.canvas,
+              hwMeta: { i: hw.i, id: hw.id, type: hw.type, sub: hw.sub, a: hw.a, b: hw.b, anchorX: hw.x, anchorY: hw.y, lastCalcX: cx, lastCalcY: cy }
+            });
+            added++;
           }
         }
       });
+
+      window.syncBinWidgetsWithSensors();
       if (typeof renderLayerList === 'function') renderLayerList();
       if (typeof syncInspector === 'function') syncInspector();
       if (typeof log === 'function') log(`✨ Cleared old widgets & auto-assembled .BIN background + ${added} sprite layers!`, 'ok');
     };
 
     searchIn.oninput = renderGallery;
+
+    // Hook native updateLiveSensorReadout so any slider drag immediately updates .BIN widgets
+    if (typeof window.updateLiveSensorReadout === 'function' && !window.updateLiveSensorReadout._binHooked) {
+      const origUpdateReadout = window.updateLiveSensorReadout;
+      window.updateLiveSensorReadout = function() {
+        const res = origUpdateReadout.apply(this, arguments);
+        if (typeof window.syncBinWidgetsWithSensors === 'function') window.syncBinWidgetsWithSensors();
+        return res;
+      };
+      window.updateLiveSensorReadout._binHooked = true;
+    }
+
+    const locSel = document.getElementById('decompLocaleSelect');
+    if (locSel) locSel.addEventListener('change', () => { if (window.syncBinWidgetsWithSensors) window.syncBinWidgetsWithSensors(); });
+
+    const secSim = document.getElementById('secSensorWeatherBody');
+    if (secSim && !document.getElementById('simClockTime')) {
+      const extraSim = document.createElement('div');
+      extraSim.style.cssText = 'display:flex; flex-direction:column; gap:6px; margin-top:4px; padding-top:6px; border-top:1px solid #1e293b;';
+      extraSim.innerHTML = `
+        <div class="compact-slider-row" style="display:flex; align-items:center; gap:6px;">
+          <label style="width:75px; font-size:11px;">❤️ Heart BPM</label>
+          <input type="range" id="simHrBin" min="40" max="200" value="86" style="flex:1;" />
+          <span id="valHrBin" style="width:36px; text-align:right; font-size:11px; font-family:monospace;">86</span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; width:100%;">
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <label style="font-size:9px; color:#94a3b8; font-weight:700;">🕓 TIME (HH:MM)</label>
+            <input type="text" id="simClockTime" value="09:40" maxlength="5" style="width:100%; height:26px; background:#111827; color:#38bdf8; border:1px solid #334155; text-align:center; font-family:monospace; font-size:11px;" />
+          </div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <label style="font-size:9px; color:#94a3b8; font-weight:700;">📆 DATE (MM/DD)</label>
+            <input type="text" id="simDateInput" value="06/28" maxlength="5" style="width:100%; height:26px; background:#111827; color:#38bdf8; border:1px solid #334155; text-align:center; font-family:monospace; font-size:11px;" />
+          </div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <label style="font-size:9px; color:#94a3b8; font-weight:700;">📅 WEEKDAY</label>
+            <select id="simWeekdaySelect" style="width:100%; height:26px; background:#111827; color:#e2e8f0; border:1px solid #334155; font-size:11px; padding:2px;">
+              <option value="0" selected>MON</option>
+              <option value="1">TUE</option>
+              <option value="2">WED</option>
+              <option value="3">THU</option>
+              <option value="4">FRI</option>
+              <option value="5">SAT</option>
+              <option value="6">SUN</option>
+            </select>
+          </div>
+        </div>
+      `;
+      secSim.appendChild(extraSim);
+
+      const hrSlider = extraSim.querySelector('#simHrBin');
+      const hrVal = extraSim.querySelector('#valHrBin');
+      hrSlider.addEventListener('input', () => {
+        if (typeof sensors !== 'undefined') sensors.hr = Number(hrSlider.value);
+        hrVal.textContent = hrSlider.value;
+        if (typeof updateLiveSensorReadout === 'function') updateLiveSensorReadout();
+        if (window.syncBinWidgetsWithSensors) window.syncBinWidgetsWithSensors();
+      });
+    }
+
+    ['simSteps', 'simBat', 'simBaro', 'simWeatherTemp', 'simWeatherCond', 'simClockTime', 'simDateInput', 'simWeekdaySelect'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', () => { if (window.syncBinWidgetsWithSensors) window.syncBinWidgetsWithSensors(); });
+        el.addEventListener('change', () => { if (window.syncBinWidgetsWithSensors) window.syncBinWidgetsWithSensors(); });
+      }
+    });
     typeSel.onchange = renderGallery;
   }
 
@@ -5333,6 +5494,9 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 <!-- HT37_DECOMPILER_MODULE_END -->
 </body>
 </html>
+
+
+
 
 
 
