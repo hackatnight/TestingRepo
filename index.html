@@ -4614,34 +4614,6 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 <!-- STUDIO_TAB_SYSTEM_END -->
 <!-- HT37_DECOMPILER_MODULE_START -->
-<!-- ==========================================================================
-     HT37 STUDIO ARCHITECTURE & ROADMAP BREADCRUMBS (FOR AI SESSION CONTINUITY)
-     ==========================================================================
-     [SOLVED & ACTIVE]:
-     1. 3-Tab Studio Workspace:
-        - Tab 1 (Watch Studio): Left Toolbox (0. Canvas Tools, 1. Add Widget, 2. Screen/BG, 3. Live Sensors),
-          Center 360x360 Zoomable Stage + Bottom-Right PREVIEW (150px <-> 240px),
-          Right Dock (#studioRightToolbox: 0. .BIN Decompiler & Categorized Sprite Folders, 1. Active Layers [collapsed], 2. Inspector [collapsed]).
-        - Tab 2 (Alerts & Commands): 0. Master Command Station (43 Known Commands + CMD/KEY/PAYLOAD + ALL TEST),
-          1. Telephony, 2. Social (2-col grid), 3. Weather (0x36 Hex HUD + Push Weather + C/F Converter + 12 Presets + Send All), 4. Dial Switcher (02/70).
-        - Tab 3 (DFU Flashing): 0. Handshake/Triggers, 1. Config TLVs, 2. Progress.
-     2. TOPSTEP / TBUI .BIN & .PA Format (100% Decoded):
-        - .PA RLE + 7-bit (2-3-2) Signed RGB565 Delta Token (0x00..0x7F): dr=((c>>5)&3)-2, dg=((c>>2)&7)-4, db=(c&3)-2.
-        - Widget Table (M.widgets): Types [0,4,5,6] = Sprite widgets (hw.a = spriteId; #69=360x360 BG, #70=240x240 Preview).
-          Types [2,3] = Font/Number widgets (hw.a = M.fonts index; hw.b = Alignment [0=Left, 1=Center, 2=Right];
-          hw.sub: 0=Steps, 2=Hour, 3=Min, 6=Dist, 7=Kcal, 8=BPM, 11=Temp, 13=Date).
-        - Bilingual [CN, EN] Sprite Pairs (+1 offset for EN): 82/83 BPM, 84/85 KCAL, 86/87 KM, 88/89 Mi, 90/91 STEP, 92/93 TEMP, 107..120 MON..SUN.
-
-     [TODO / NOT YET CONNECTED IN WATCHFACE EDITOR]:
-     1. Left Tool 1 (Add Widget Layer) <-> .BIN Hardware Widgets:
-        - Clicking widget cards in Left Tool 1 currently spawns legacy vector widgets instead of TBUI .bin sprite/font widgets linked to M.widgets & M.fonts.
-     2. Right Tool 2 (Layer Inspector) <-> .BIN Widget Properties (hwMeta):
-        - Selecting a decompiled .bin widget on the canvas needs Inspector controls to change its FontList (M.fonts[0..3]), Alignment (b=0/1/2), Data Sub-Type (hw.sub), and write (X, Y) changes back to M.widgets[hwMeta.i].
-     3. Left Tool 2 (Watch Screen & BG) & Sprite Replacement <-> M.sprites (#69 BG & #70 Preview):
-        - Uploading a custom background image or replacing a sprite card with a custom PNG needs to update s.canvas / s.dec.rgba and auto-generate the 240x240 preview sprite (#70).
-     4. True TOPSTEP / TBUI .BIN Re-Compiler (#btnCompileBin "Export .BIN" & #btnFlashWatch):
-        - Needs to re-encode modified sprites via window.encodePA(rgba, w, h, alpha, 2) (4-byte aligned), write updated M.widgets coordinates, update TBUI+0x0C, file+0x0C, and file+0x28 sizes, append "TBUI" footer, and export/flash the rebuilt .bin.
-     ========================================================================== -->
 <style id="ht37-decompiler-styles">
   #studioRightCol {
     position: sticky !important;
@@ -5709,7 +5681,6 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 <!-- HT37_DECOMPILER_MODULE_END -->
 </body>
 </html>
-
 
 
 
