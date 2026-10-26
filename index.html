@@ -4613,8 +4613,740 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 </script>
 <!-- STUDIO_TAB_SYSTEM_END -->
+<!-- HT37_DECOMPILER_MODULE_START -->
+<style id="ht37-decompiler-styles">
+  #studioRightCol {
+    position: sticky !important;
+    top: 50px !important;
+    align-self: start !important;
+  }
+  .decomp-sprite-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 4px 2px;
+    scrollbar-width: thin;
+    scrollbar-color: #38bdf8 #090d16;
+  }
+  .decomp-card {
+    background: #111827;
+    border: 1px solid #1e293b;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 5px;
+    gap: 4px;
+    box-sizing: border-box;
+  }
+  .decomp-card:hover {
+    border-color: #38bdf8;
+  }
+  .decomp-pic {
+    height: 104px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #090d16;
+    background-image: linear-gradient(45deg, #151d2d 25%, transparent 25%), linear-gradient(-45deg, #151d2d 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #151d2d 75%), linear-gradient(-45deg, transparent 75%, #151d2d 75%);
+    background-size: 12px 12px;
+    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    overflow: hidden;
+    border: 1px solid #1e293b;
+  }
+  .decomp-meta {
+    font-size: 10px;
+    color: #94a3b8;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: monospace;
+  }
+  .decomp-meta b {
+    color: #e2e8f0;
+  }
+  .decomp-tag {
+    font-size: 9px;
+    padding: 1px 4px;
+    background: #1e293b;
+    color: #38bdf8;
+    border: 1px solid #334155;
+  }
+  .decomp-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 3px;
+  }
+  .decomp-actions button {
+    height: 22px !important;
+    padding: 2px 3px !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #334155 !important;
+    border-radius: 0 !important;
+    cursor: pointer !important;
+  }
+  .decomp-actions button:hover {
+    background: #334155 !important;
+    color: #38bdf8 !important;
+    border-color: #38bdf8 !important;
+  }
+</style>
+
+<script id="ht37-decompiler-runtime">
+/* ==========================================================================
+   [TAB-1 / RIGHT DOCK]: TOPSTEP / TBUI .BIN DECOMPILER & SPRITE VAULT
+   - Decodes RGB565 & ARGB8565 (.PA RLE format) sprites & widget coordinate tables.
+   - Integrates directly with 360x360 WYSIWYG Background & Widget Layers.
+   ========================================================================== */
+(function initHt37DecompilerVault() {
+  window.decompiledBinData = null;
+
+  function decompAscii(u, o, n) {
+    let s = '';
+    for (let i = 0; i < n && o + i < u.length; i++) {
+      const c = u[o + i];
+      s += (c >= 32 && c < 127) ? String.fromCharCode(c) : '.';
+    }
+    return s;
+  }
+  function decompHex(n, w = 4) { return '0x' + (n >>> 0).toString(16).padStart(w, '0'); }
+  function decompRgb565(lo, hi) {
+    const v = lo | (hi << 8);
+    return [((v >> 11) & 31) * 255 / 31 | 0, ((v >> 5) & 63) * 255 / 63 | 0, (v & 31) * 255 / 31 | 0];
+  }
+
+  // PA RLE + 7-Bit (2-3-2) RGB565 Delta Decoder
+  window.decodePA = function(u, start, expW, expH) {
+    if (u[start] !== 0x50 || u[start + 1] !== 0x41) throw new Error('Missing PA magic at ' + decompHex(start));
+    const dv = new DataView(u.buffer, u.byteOffset);
+    const alpha = u[start + 3], w = dv.getUint16(start + 4, true), h = dv.getUint16(start + 6, true), es = u[start + 9], bias = dv.getUint16(start + 10, true);
+    if (es !== 1 && es !== 2) throw new Error('Unsupported row-table width ' + es);
+    const tab = start + 16, data0 = tab + (h + 1) * es;
+    const rgba = new Uint8ClampedArray(w * h * 4);
+    let p = data0, r5 = 0, g6 = 0, b5 = 0, lastA = 255;
+    let lastR = 0, lastG = 0, lastB = 0;
+    for (let y = 0; y < h; y++) {
+      let x = 0;
+      while (x < w) {
+        if (p >= u.length) throw new Error('EOF in row ' + y);
+        const c = u[p++], n = c & 0x3f;
+        if (c < 0x80) {
+          // 7-bit (2-3-2) signed RGB565 delta token: dr(2b)=bits 6..5 - 2, dg(3b)=bits 4..2 - 4, db(2b)=bits 1..0 - 2
+          r5 = (r5 + (((c >> 5) & 3) - 2)) & 31;
+          g6 = (g6 + (((c >> 2) & 7) - 4)) & 63;
+          b5 = (b5 + ((c & 3) - 2)) & 31;
+          lastR = (r5 * 255 / 31) | 0;
+          lastG = (g6 * 255 / 63) | 0;
+          lastB = (b5 * 255 / 31) | 0;
+          const i = (y * w + x++) * 4;
+          rgba[i] = lastR; rgba[i + 1] = lastG; rgba[i + 2] = lastB; rgba[i + 3] = lastA;
+        } else if (c < 0xc0) {
+          let a = 255, lo, hi;
+          if (alpha) { a = u[p]; lo = u[p + 1]; hi = u[p + 2]; p += 3; }
+          else { lo = u[p]; hi = u[p + 1]; p += 2; }
+          const v = lo | (hi << 8);
+          r5 = (v >> 11) & 31; g6 = (v >> 5) & 63; b5 = v & 31; lastA = a;
+          lastR = (r5 * 255 / 31) | 0; lastG = (g6 * 255 / 63) | 0; lastB = (b5 * 255 / 31) | 0;
+          for (let k = 0; k < n; k++) {
+            const i = (y * w + x++) * 4;
+            rgba[i] = lastR; rgba[i + 1] = lastG; rgba[i + 2] = lastB; rgba[i + 3] = lastA;
+          }
+        } else {
+          for (let k = 0; k < n; k++) {
+            const v = u[p] | (u[p + 1] << 8); p += 2;
+            r5 = (v >> 11) & 31; g6 = (v >> 5) & 63; b5 = v & 31; lastA = 255;
+            lastR = (r5 * 255 / 31) | 0; lastG = (g6 * 255 / 63) | 0; lastB = (b5 * 255 / 31) | 0;
+            const i = (y * w + x++) * 4;
+            rgba[i] = lastR; rgba[i + 1] = lastG; rgba[i + 2] = lastB; rgba[i + 3] = 255;
+          }
+        }
+      }
+    }
+    return { w, h, alpha, es, bias, rgba, len: p - start };
+  };
+
+  // Lossless PA Encoder
+  window.encodePA = function(rgba, w, h, alpha, es = 2) {
+    const q = new Uint16Array(w * h), al = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) {
+      const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
+      q[i] = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+      al[i] = alpha ? rgba[i * 4 + 3] : 255;
+    }
+    const rows = [];
+    for (let y = 0; y < h; y++) {
+      const out = []; let x = 0; const o = y * w;
+      while (x < w) {
+        let n = 1;
+        while (x + n < w && n < 63 && q[o + x + n] === q[o + x] && al[o + x + n] === al[o + x]) n++;
+        const same = (a, b) => q[o + a] === q[o + b] && al[o + a] === al[o + b];
+        if (alpha) {
+          if (al[o + x] === 255 && n < 2) {
+            let m = 0, k = x;
+            while (k < w && m < 63 && al[o + k] === 255) { if (k + 1 < w && same(k, k + 1) && k + 2 < w && same(k, k + 2)) break; m++; k++; }
+            if (m === 0) m = 1;
+            out.push(0xc0 | m);
+            for (let i = 0; i < m; i++) { const v = q[o + x + i]; out.push(v & 255, v >> 8); }
+            x += m; continue;
+          }
+          if (al[o + x] === 255 && n >= 2) { out.push(0x80 | n, 255, q[o + x] & 255, q[o + x] >> 8); x += n; continue; }
+          out.push(0x80 | n, al[o + x], q[o + x] & 255, q[o + x] >> 8); x += n;
+        } else {
+          if (n >= 3) { out.push(0x80 | n, q[o + x] & 255, q[o + x] >> 8); x += n; continue; }
+          let m = 0, k = x;
+          while (k < w && m < 63) { if (k + 2 < w && same(k, k + 1) && same(k, k + 2)) break; m++; k++; }
+          if (m === 0) m = 1;
+          out.push(0xc0 | m);
+          for (let i = 0; i < m; i++) { const v = q[o + x + i]; out.push(v & 255, v >> 8); }
+          x += m;
+        }
+      }
+      rows.push(out);
+    }
+    let total = 0; const starts = [];
+    for (const r of rows) { starts.push(total); total += r.length; }
+    starts.push(total);
+    if (es === 1 && total > 255) es = 2;
+    const bias = Math.round(total / h) & 0xffff, m2 = es === 1 ? 255 : 65535;
+    const buf = new Uint8Array(16 + (h + 1) * es + total), dv = new DataView(buf.buffer);
+    buf[0] = 0x50; buf[1] = 0x41; buf[3] = alpha ? 1 : 0;
+    dv.setUint16(4, w, true); dv.setUint16(6, h, true); buf[9] = es; dv.setUint16(10, bias, true);
+    for (let i = 0; i <= h; i++) {
+      const v = (starts[i] - bias * i) & m2;
+      if (es === 1) buf[16 + i] = v; else dv.setUint16(16 + i * 2, v, true);
+    }
+    let p = 16 + (h + 1) * es;
+    for (const r of rows) { buf.set(r, p); p += r.length; }
+    return buf;
+  };
+
+  // TOPSTEP / TBUI Container Parser
+  window.parseTopstepBin = function(buf, name = 'watchface.bin') {
+    const u = new Uint8Array(buf), dv = new DataView(buf);
+    if (u.length < 0x500) throw new Error('File too small (' + u.length + ' B)');
+    if (decompAscii(u, 0, 7) !== 'TOPSTEP') throw new Error('Not a TOPSTEP .bin container');
+    const U32 = o => dv.getUint32(o, true), U16 = o => dv.getUint16(o, true);
+    const B = U32(0x24);
+    if (B >= u.length - 0x70 || decompAscii(u, B, 4) !== 'TBUI') throw new Error('TBUI header not found');
+    const T = { dialId: U32(B + 8) & 0xffffff, w: U16(B + 0x20), h: U16(B + 0x22) };
+    const dir = [
+      { name: 'widgets', o: B + 0x40 },
+      { name: 'sprites', o: B + 0x48 },
+      { name: 'fonts',   o: B + 0x50 }
+    ].map(d => ({ name: d.name, off: U32(d.o), count: U16(d.o + 4), size: U16(d.o + 6) }));
+    const [dw, ds, dl] = dir;
+
+    const widgets = [];
+    for (let i = 0; i < dw.count; i++) {
+      const o = B + dw.off + i * dw.size;
+      if (o + dw.size > u.length) break;
+      widgets.push({ i, id: u[o], type: u[o + 1], flag: u[o + 2], sub: u[o + 3], x: U16(o + 4), y: U16(o + 6), a: U16(o + 0x0c), b: U16(o + 0x0e) });
+    }
+
+    const fonts = [];
+    const stride = dl.size * 4;
+    for (let i = 0; i < dl.count; i++) {
+      const o = B + dl.off + i * stride;
+      if (o + 4 > u.length) break;
+      const cnt = U32(o), pairs = [];
+      for (let k = 0; k < cnt && k < (stride - 4) / 4; k++) {
+        pairs.push({ ch: U16(o + 4 + k * 4), sprite: U16(o + 6 + k * 4) });
+      }
+      fonts.push({ i, count: cnt, pairs });
+    }
+    const sprites = [];
+    for (let i = 0; i < ds.count; i++) {
+      const o = B + ds.off + i * ds.size;
+      if (o + ds.size > u.length) break;
+      const d = { index: i, id: U16(o), fmt: u[o + 2], flag: u[o + 3], w: U16(o + 4), h: U16(o + 6), offset: U32(o + 8) };
+      d.absOff = B + d.offset;
+      try {
+        d.dec = window.decodePA(u, d.absOff, d.w, d.h);
+        if ((d.id === 69 || d.id === 70) && typeof log === 'function') {
+          const dv2 = new DataView(u.buffer, u.byteOffset);
+          const es = u[d.absOff + 9], bias = dv2.getUint16(d.absOff + 10, true), tab = d.absOff + 16, data0 = tab + (d.h + 1) * es;
+          const tEnd = es === 1 ? u[tab + d.h] : dv2.getUint16(tab + d.h * 2, true);
+          log(`🔬 Sprite #${d.id} (${d.w}x${d.h}): alpha=${d.dec.alpha} es=${es} bias=${bias} decodedLen=${d.dec.len} tableEnd=${(tEnd + bias * d.h) & (es===1?255:65535)}`, 'warn');
+        }
+        const cv = document.createElement('canvas');
+        cv.width = d.w; cv.height = d.h;
+        cv.getContext('2d').putImageData(new ImageData(d.dec.rgba, d.w, d.h), 0, 0);
+        d.canvas = cv;
+      } catch (e) { d.error = e.message; }
+      sprites.push(d);
+    }
+
+    return { fileName: name, fileSize: u.length, tbui: T, widgets, fonts, sprites };
+  };
+
+  // Hook drawWidget & getWidgetBounds so any widget with w.spriteCanvas renders its decoded .BIN sprite
+  function hookCanvasRenderer() {
+    if (typeof window.drawWidget === 'function' && !window.drawWidget._decompHooked) {
+      const origDrawWidget = window.drawWidget;
+      window.drawWidget = function(c, w) {
+        if (w && w.spriteCanvas) {
+          c.drawImage(w.spriteCanvas, -w.spriteCanvas.width / 2, -w.spriteCanvas.height / 2);
+          return;
+        }
+        return origDrawWidget.apply(this, arguments);
+      };
+      window.drawWidget._decompHooked = true;
+    }
+
+    if (typeof window.getWidgetBounds === 'function' && !window.getWidgetBounds._decompHooked) {
+      const origBounds = window.getWidgetBounds;
+      window.getWidgetBounds = function(w) {
+        if (w && w.spriteCanvas) {
+          return { w: w.spriteCanvas.width * (w.scale || 1), h: w.spriteCanvas.height * (w.scale || 1) };
+        }
+        return origBounds.apply(this, arguments);
+      };
+      window.getWidgetBounds._decompHooked = true;
+    }
+  }
+
+  function setupRightDecompilerDock() {
+    hookCanvasRenderer();
+    const rightCol = document.getElementById('studioRightCol');
+    if (!rightCol || document.getElementById('studioRightToolbox')) return;
+
+    const rightToolbox = document.createElement('div');
+    rightToolbox.id = 'studioRightToolbox';
+    rightToolbox.className = 'unified-toolbox-window';
+
+    function makeRightCard(num, title, bodyEl) {
+      const card = document.createElement('div');
+      card.className = 'toolbox-tool-card';
+      card.id = 'toolCard_' + num + '_right';
+      const header = document.createElement('div');
+      header.className = 'toolbox-tool-header';
+      header.innerHTML = `<span>${num}. ${title}</span><span class="tool-chevron">▾</span>`;
+      const bodyWrap = document.createElement('div');
+      bodyWrap.className = 'toolbox-tool-body';
+      bodyWrap.appendChild(bodyEl);
+      const chev = header.querySelector('.tool-chevron');
+      header.addEventListener('click', () => {
+        const isClosed = bodyWrap.classList.toggle('is-collapsed');
+        chev.textContent = isClosed ? '▸' : '▾';
+      });
+      card.appendChild(header);
+      card.appendChild(bodyWrap);
+      return card;
+    }
+
+    // TOOL 0 (Right): .BIN Decompiler & Sprite Vault
+    const decompBody = document.createElement('div');
+    decompBody.style.cssText = 'display:flex; flex-direction:column; gap:8px; width:100%; box-sizing:border-box;';
+    decompBody.innerHTML = `
+      <input type="file" id="decompBinFileInput" accept=".bin,application/octet-stream" style="display:none;" />
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; width:100%;">
+        <button type="button" id="btnDecompOpenFile" class="dock-btn">📂 Load .BIN File</button>
+        <button type="button" id="btnDecompUseTemplate" class="dock-btn">☁️ Load Template</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; width:100%;">
+        <label style="font-size:9px; color:#94a3b8; font-weight:700; text-transform:uppercase; white-space:nowrap;">LOCALE / UNITS:</label>
+        <select id="decompLocaleSelect" style="flex:1; height:26px; background:#111827; color:#e2e8f0; border:1px solid #334155; font-size:11px; padding:2px 4px;">
+          <option value="EN_IMPERIAL" selected>🇺🇸 English (Mi / °F)</option>
+          <option value="EN_METRIC">🇬🇧 English (KM / °C)</option>
+          <option value="CN_METRIC">🇨🇳 Chinese (KM / °C)</option>
+        </select>
+      </div>
+      <button type="button" id="btnDecompAutoAssemble" class="dock-btn" style="width:100% !important; color:#38bdf8 !important;">✨ Auto-Load BG & Layout to Canvas</button>
+      <div style="display:grid; grid-template-columns:1fr 95px; gap:6px; width:100%;">
+        <input type="text" id="decompSearchInput" placeholder="Filter ID or WxH (e.g. 360x360)" style="width:100%; height:28px; background:#111827; color:#e2e8f0; border:1px solid #334155; font-size:11px; padding:4px 6px; box-sizing:border-box;" />
+        <select id="decompTypeSelect" style="width:100%; height:28px; background:#111827; color:#e2e8f0; border:1px solid #334155; font-size:11px; padding:2px 4px; box-sizing:border-box;">
+          <option value="">All Types</option>
+          <option value="alpha">ARGB8565</option>
+          <option value="opaque">RGB565</option>
+        </select>
+      </div>
+      <div id="decompStatusInfo" style="font-size:10px; color:#94a3b8; font-family:monospace; padding:4px 6px; background:#05080f; border:1px solid #1e293b;">
+        Ready. Load a TOPSTEP .bin file to extract sprites.
+      </div>
+      <div id="decompSpriteGallery" class="decomp-sprite-grid"></div>
+    `;
+
+    const cardDecomp = makeRightCard('0', '.BIN Decompiler & Sprite Vault', decompBody);
+    rightToolbox.appendChild(cardDecomp);
+
+    // Move Active Widget Layers & Layer Inspector into Tool 1 & Tool 2 of Right Dock
+    const secLayers = document.getElementById('secWidgetLayersBody');
+    const secInsp = document.getElementById('inspectorBody');
+    const oldCardLayers = secLayers ? secLayers.closest('.section-card, .card') : null;
+    const oldCardInsp = secInsp ? secInsp.closest('.section-card, .card') : null;
+
+    if (secLayers) {
+      const card1R = makeRightCard('1', 'Active Widget Layers', secLayers);
+      rightToolbox.appendChild(card1R);
+      if (oldCardLayers && oldCardLayers.parentElement) oldCardLayers.style.display = 'none';
+    }
+    if (secInsp) {
+      const card2R = makeRightCard('2', 'Layer Inspector & Properties', secInsp);
+      rightToolbox.appendChild(card2R);
+      if (oldCardInsp && oldCardInsp.parentElement) oldCardInsp.style.display = 'none';
+    }
+
+    rightCol.insertBefore(rightToolbox, rightCol.firstChild);
+
+    // Render Gallery Function
+    const gallery = decompBody.querySelector('#decompSpriteGallery');
+    const statusBox = decompBody.querySelector('#decompStatusInfo');
+    const searchIn = decompBody.querySelector('#decompSearchInput');
+    const typeSel = decompBody.querySelector('#decompTypeSelect');
+
+    function clearDefaultPlaceholders() {
+      // Remove the 7 startup vector placeholder widgets & turn off tick guides when assigning .bin assets
+      for (let i = widgets.length - 1; i >= 0; i--) {
+        if (String(widgets[i].id).startsWith('layer_')) {
+          widgets.splice(i, 1);
+        }
+      }
+      selectedWidgetId = widgets.length ? widgets[widgets.length - 1].id : null;
+      const guidesChk = document.getElementById('chkShowGuides');
+      if (guidesChk) guidesChk.checked = false;
+    }
+
+    function renderGallery() {
+      const M = window.decompiledBinData;
+      if (!M) return;
+      const q = searchIn.value.trim().toLowerCase();
+      const ft = typeSel.value;
+
+      let list = M.sprites.filter(s => s.dec && s.canvas);
+      if (q) list = list.filter(s => String(s.id).includes(q) || `${s.w}x${s.h}`.includes(q));
+      if (ft === 'alpha') list = list.filter(s => s.dec.alpha === 1);
+      if (ft === 'opaque') list = list.filter(s => s.dec.alpha === 0);
+
+      gallery.innerHTML = '';
+      list.forEach(s => {
+        const card = document.createElement('div');
+        card.className = 'decomp-card';
+
+        const pic = document.createElement('div');
+        pic.className = 'decomp-pic';
+        pic.style.cursor = 'zoom-in';
+        pic.title = 'Click image to toggle large view';
+        const previewCv = document.createElement('canvas');
+        previewCv.width = s.w; previewCv.height = s.h;
+        previewCv.getContext('2d').drawImage(s.canvas, 0, 0);
+        const scale = Math.min(1, 130 / s.w, 96 / s.h);
+        previewCv.style.width = Math.max(1, Math.round(s.w * scale)) + 'px';
+        previewCv.style.height = Math.max(1, Math.round(s.h * scale)) + 'px';
+        pic.appendChild(previewCv);
+
+        // Click sprite image in gallery to toggle expanded 2-col view
+        pic.onclick = () => {
+          const isExpanded = card.dataset.expanded === '1';
+          card.dataset.expanded = isExpanded ? '0' : '1';
+          card.style.gridColumn = isExpanded ? '' : 'span 2';
+          pic.style.height = isExpanded ? '104px' : '220px';
+          const newScale = isExpanded ? Math.min(1, 130 / s.w, 96 / s.h) : Math.min(1.5, 280 / s.w, 210 / s.h);
+          previewCv.style.width = Math.max(1, Math.round(s.w * newScale)) + 'px';
+          previewCv.style.height = Math.max(1, Math.round(s.h * newScale)) + 'px';
+        };
+
+        const meta = document.createElement('div');
+        meta.className = 'decomp-meta';
+        meta.innerHTML = `<b>#${s.id} (${s.w}×${s.h})</b><span class="decomp-tag">${s.dec.alpha ? 'ARGB' : 'RGB'}</span>`;
+
+        const actions = document.createElement('div');
+        actions.className = 'decomp-actions';
+
+        // Action 1: Set as Watch Background (Clears default startup widgets so watchface is clean)
+        const btnBg = document.createElement('button');
+        btnBg.textContent = '🖼️ BG';
+        btnBg.title = 'Clear default widgets and set this sprite as the 360x360 Watch Background';
+        btnBg.onclick = () => {
+          clearDefaultPlaceholders();
+          customBgImage = s.canvas;
+          bgTheme = 'image';
+          const delBtn = document.getElementById('btnDeleteBg');
+          if (delBtn) delBtn.disabled = false;
+          if (typeof renderLayerList === 'function') renderLayerList();
+          if (typeof syncInspector === 'function') syncInspector();
+          if (typeof log === 'function') log(`🖼️ Cleared default widgets & set Sprite #${s.id} (${s.w}×${s.h}) as Watch Background.`, 'ok');
+        };
+
+        // Action 2: Add as New Movable Layer on Canvas
+        const btnAdd = document.createElement('button');
+        btnAdd.textContent = '➕ Layer';
+        btnAdd.title = 'Add this sprite onto the 360x360 canvas as a draggable widget layer';
+        btnAdd.onclick = () => {
+          const newW = {
+            id: 'sprite_' + s.id + '_' + Date.now(),
+            type: 'customText',
+            name: `🧩 Sprite #${s.id} (${s.w}×${s.h})`,
+            x: 180,
+            y: 180,
+            scale: 1.0,
+            opacity: 1.0,
+            visible: true,
+            locked: false,
+            color: '#00e5ff',
+            accent: '#ffffff',
+            text: `SPR_${s.id}`,
+            fwId: '0x20',
+            spriteId: s.id,
+            spriteCanvas: s.canvas
+          };
+          widgets.push(newW);
+          selectedWidgetId = newW.id;
+          if (typeof renderLayerList === 'function') renderLayerList();
+          if (typeof syncInspector === 'function') syncInspector();
+          if (typeof log === 'function') log(`➕ Added Sprite #${s.id} (${s.w}×${s.h}) as a canvas layer.`, 'ok');
+        };
+
+        // Action 3: Map to Currently Selected Widget
+        const btnMap = document.createElement('button');
+        btnMap.textContent = '🔗 Map';
+        btnMap.title = 'Attach this sprite to the currently selected widget layer';
+        btnMap.onclick = () => {
+          const w = widgets.find(x => x.id === selectedWidgetId);
+          if (!w) {
+            if (typeof log === 'function') log('⚠️ Select a widget layer first to map this sprite to it.', 'warn');
+            return;
+          }
+          w.spriteCanvas = s.canvas;
+          w.spriteId = s.id;
+          w.name = `${w.name.split(' [')[0]} [Spr #${s.id}]`;
+          if (typeof renderLayerList === 'function') renderLayerList();
+          if (typeof syncInspector === 'function') syncInspector();
+          if (typeof log === 'function') log(`🔗 Mapped Sprite #${s.id} (${s.w}×${s.h}) to layer "${w.name}".`, 'ok');
+        };
+
+        actions.append(btnBg, btnAdd, btnMap);
+        card.append(pic, meta, actions);
+        gallery.appendChild(card);
+      });
+    }
+
+    function updateStagePreviewBox(M) {
+      const wysiwygStage = document.getElementById('studioWysiwygViewport');
+      if (!wysiwygStage || !M || !M.sprites) return;
+      let prevBox = document.getElementById('wysiwygBinPreviewBox');
+      if (prevBox) prevBox.remove();
+
+      prevBox = document.createElement('div');
+      prevBox.id = 'wysiwygBinPreviewBox';
+      prevBox.style.cssText = 'position:absolute; bottom:12px; right:12px; z-index:90; background:rgba(13,19,31,0.96); border:1px solid #38bdf8; padding:6px; display:flex; flex-direction:column; align-items:center; gap:4px; box-shadow:0 6px 20px rgba(0,0,0,0.8); cursor:pointer; user-select:none;';
+      prevBox.title = 'Click to toggle size (150x150 <-> 240x240)';
+      prevBox.innerHTML = `
+        <span id="wysiwygBinPreviewLabel" style="font-size:10px; font-weight:700; color:#38bdf8; text-transform:uppercase; letter-spacing:0.5px;">PREVIEW (CLICK TO ENLARGE)</span>
+        <div id="wysiwygBinPreviewCanvasWrap" style="width:150px; height:150px; background:#05080f; border:1px solid #1e293b; display:flex; align-items:center; justify-content:center; overflow:hidden; transition:width 0.15s ease, height 0.15s ease;"></div>
+      `;
+      wysiwygStage.appendChild(prevBox);
+
+      const previewSpr = M.sprites.find(s => s.dec && s.id === 70) || M.sprites.find(s => s.dec && s.w === 240 && s.h === 240);
+      const wrap = prevBox.querySelector('#wysiwygBinPreviewCanvasWrap');
+      const lbl = prevBox.querySelector('#wysiwygBinPreviewLabel');
+      if (previewSpr && previewSpr.canvas && wrap) {
+        const pCv = document.createElement('canvas');
+        pCv.width = previewSpr.w; pCv.height = previewSpr.h;
+        pCv.getContext('2d').drawImage(previewSpr.canvas, 0, 0);
+        pCv.style.cssText = 'width:100%; height:100%; object-fit:contain; pointer-events:none;';
+        wrap.appendChild(pCv);
+      }
+
+      prevBox.onclick = (e) => {
+        e.stopPropagation();
+        const isLarge = prevBox.dataset.large === '1';
+        prevBox.dataset.large = isLarge ? '0' : '1';
+        wrap.style.width = isLarge ? '150px' : '240px';
+        wrap.style.height = isLarge ? '150px' : '240px';
+        if (lbl) lbl.textContent = isLarge ? 'PREVIEW (CLICK TO ENLARGE)' : 'PREVIEW (240×240 1:1)';
+      };
+    }
+
+    function loadBinBuffer(buf, name) {
+      try {
+        const M = window.parseTopstepBin(buf, name);
+        window.decompiledBinData = M;
+        const okCount = M.sprites.filter(s => s.dec).length;
+        statusBox.innerHTML = `<span style="color:#10b981;">✓ ${M.fileName}</span> • <b>${okCount}</b> sprites • <b>${M.widgets.length}</b> widgets • ID: 0x${M.tbui.dialId.toString(16).toUpperCase()}`;
+        renderGallery();
+        updateStagePreviewBox(M);
+        if (typeof log === 'function') log(`📦 Decompiled ${name}: ${okCount} sprites, ${M.widgets.length} hardware widgets.`, 'ok');
+      } catch (err) {
+        statusBox.innerHTML = `<span style="color:#ef4444;">✗ Error: ${err.message}</span>`;
+        if (typeof log === 'function') log(`✗ .BIN Decompile failed: ${err.message}`, 'err');
+      }
+    }
+
+    // Wire File Input
+    const fileIn = decompBody.querySelector('#decompBinFileInput');
+    decompBody.querySelector('#btnDecompOpenFile').onclick = () => fileIn.click();
+    fileIn.onchange = async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      loadBinBuffer(await f.arrayBuffer(), f.name);
+    };
+
+    // Wire Template Load
+    decompBody.querySelector('#btnDecompUseTemplate').onclick = async () => {
+      if (typeof loadedTemplateBin !== 'undefined' && loadedTemplateBin) {
+        loadBinBuffer(loadedTemplateBin.buffer || loadedTemplateBin, 'HT37_Template.bin');
+      } else {
+        try {
+          statusBox.textContent = 'Fetching HT37_Template.bin...';
+          const resp = await fetch('HT37_Template.bin');
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          const buf = await resp.arrayBuffer();
+          loadBinBuffer(buf, 'HT37_Template.bin');
+        } catch (err) {
+          statusBox.innerHTML = `<span style="color:#f59e0b;">Click "📂 Load .BIN File" to select a local .bin file.</span>`;
+        }
+      }
+    };
+
+    // Wire Auto-Assemble BG & Layout (Wipes old widgets & background first!)
+    decompBody.querySelector('#btnDecompAutoAssemble').onclick = () => {
+      const M = window.decompiledBinData;
+      if (!M) {
+        if (typeof log === 'function') log('⚠️ Load a .BIN file first before auto-assembling.', 'warn');
+        return;
+      }
+      // 1. Wipe all existing widgets & turn off default background/guides so watchface starts blank
+      widgets.length = 0;
+      selectedWidgetId = null;
+      customBgImage = null;
+      bgTheme = 'none';
+      const guidesChk = document.getElementById('chkShowGuides');
+      if (guidesChk) guidesChk.checked = false;
+
+      // 2. Find 360x360 background sprite and assign it
+      const bgSpr = M.sprites.find(s => s.dec && s.w >= 300 && s.h >= 300);
+      if (bgSpr && bgSpr.canvas) {
+        customBgImage = bgSpr.canvas;
+        bgTheme = 'image';
+        const delBtn = document.getElementById('btnDeleteBg');
+        if (delBtn) delBtn.disabled = false;
+      }
+
+      // 3. Load authentic .bin sprite widgets (with Locale/Mi option) & b-aligned font digit widgets
+      let added = 0;
+      const localeMode = (document.getElementById('decompLocaleSelect') || {}).value || 'EN_IMPERIAL';
+      const isEnglish = localeMode.startsWith('EN_');
+      const isImperial = localeMode === 'EN_IMPERIAL';
+
+      // Bilingual sprite map: 86=CN_KM, 87=EN_KM, 88=CN_Mi, 89=EN_Mi
+      const cnToEnSpriteMap = {
+        82: isEnglish ? 83 : 82,
+        84: isEnglish ? 85 : 84,
+        86: isImperial ? (isEnglish ? 89 : 88) : (isEnglish ? 87 : 86),
+        88: isEnglish ? 89 : 88,
+        90: isEnglish ? 91 : 90,
+        92: isEnglish ? 93 : 92,
+        107: isEnglish ? 108 : 107
+      };
+
+      const subSampleMap = {
+        0:  { str: '06840', label: 'Steps' },
+        2:  { str: '09',    label: 'Hour' },
+        3:  { str: '40',    label: 'Minute' },
+        6:  { str: '3.25',  label: 'Distance' },
+        7:  { str: '103.4', label: 'Kcal' },
+        8:  { str: '86',    label: 'BPM' },
+        11: { str: isImperial ? '72F' : '22C', label: 'Temp' },
+        13: { str: '06/28', label: 'Date' }
+      };
+
+      M.widgets.forEach(hw => {
+        if ([0, 4, 5, 6].includes(hw.type)) {
+          const targetSpriteId = cnToEnSpriteMap[hw.a] !== undefined ? cnToEnSpriteMap[hw.a] : hw.a;
+          const sp = M.sprites.find(s => s.id === targetSpriteId && s.dec);
+          if (sp && sp.canvas && !(sp.w >= 350 && sp.h >= 350) && !(sp.w === 240 && sp.h === 240)) {
+            widgets.push({
+              id: 'hw_widget_' + hw.i + '_' + Date.now() + '_' + added,
+              type: 'customText',
+              name: `🖼️ HW #${hw.id} (Spr #${sp.id})`,
+              x: hw.x + Math.round(sp.w / 2),
+              y: hw.y + Math.round(sp.h / 2),
+              scale: 1.0, opacity: 1.0, visible: true, locked: false,
+              color: '#00e5ff', accent: '#ffffff', text: `W_${hw.id}`,
+              fwId: '0x' + hw.type.toString(16).padStart(2, '0'),
+              spriteId: sp.id, spriteCanvas: sp.canvas
+            });
+            added++;
+          }
+        } else if ((hw.type === 2 || hw.type === 3) && M.fonts && M.fonts.length > 0) {
+          const fl = M.fonts[hw.a] || M.fonts[0];
+          if (fl && fl.pairs && fl.pairs.length > 0) {
+            const subInfo = subSampleMap[hw.sub] || { str: '80', label: `Sub_${hw.sub}` };
+            const sampleStr = subInfo.str;
+
+            const digitSprites = Array.from(sampleStr).map(ch => {
+              const asciiCode = ch.charCodeAt(0);
+              const pair = fl.pairs.find(p => p.ch === asciiCode) || fl.pairs[0];
+              return pair ? M.sprites.find(s => s.id === pair.sprite && s.dec && s.canvas) : null;
+            }).filter(Boolean);
+
+            if (digitSprites.length > 0) {
+              const totalW = digitSprites.reduce((sum, s) => sum + s.w, 0);
+              const maxH = Math.max(...digitSprites.map(s => s.h));
+              const compCv = document.createElement('canvas');
+              compCv.width = totalW; compCv.height = maxH;
+              const ctx = compCv.getContext('2d');
+              let dx = 0;
+              digitSprites.forEach(s => { ctx.drawImage(s.canvas, dx, 0); dx += s.w; });
+
+              // Apply TBUI horizontal alignment flag (b: 0=Left, 1=Center, 2=Right)
+              let alignedCenterX = hw.x + Math.round(totalW / 2);
+              if (hw.b === 2) alignedCenterX = hw.x - Math.round(totalW / 2);
+              else if (hw.b === 1) alignedCenterX = hw.x;
+
+              widgets.push({
+                id: 'hw_font_' + hw.i + '_' + Date.now() + '_' + added,
+                type: 'customText',
+                name: `🔢 ${subInfo.label} "${sampleStr}" (b=${hw.b})`,
+                x: alignedCenterX,
+                y: hw.y + Math.round(maxH / 2),
+                scale: 1.0, opacity: 1.0, visible: true, locked: false,
+                color: '#f59e0b', accent: '#ffffff', text: sampleStr,
+                fwId: '0x' + hw.type.toString(16).padStart(2, '0'),
+                spriteId: digitSprites[0].id, spriteCanvas: compCv
+              });
+              added++;
+            }
+          }
+        }
+      });
+      if (typeof renderLayerList === 'function') renderLayerList();
+      if (typeof syncInspector === 'function') syncInspector();
+      if (typeof log === 'function') log(`✨ Cleared old widgets & auto-assembled .BIN background + ${added} sprite layers!`, 'ok');
+    };
+
+    searchIn.oninput = renderGallery;
+    typeSel.onchange = renderGallery;
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(setupRightDecompilerDock, 50));
+  } else {
+    setTimeout(setupRightDecompilerDock, 50);
+  }
+})();
+</script>
+<!-- HT37_DECOMPILER_MODULE_END -->
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
