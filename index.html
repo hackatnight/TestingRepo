@@ -135,8 +135,320 @@
     .hex-inspector { border-left:none; border-top:1px solid var(--panel-border); height:auto; }
     input[type="text"], input[type="number"], select { max-width:62vw; }
   }
+    /* ==========================================================================
+     UNIVERSAL STANDARDIZED TOOLBOX BUTTON SYSTEM:
+     - Guarantees all 2-column button grids across all tools pull identical width.
+     - Enforces identical height (28px), padding (5px 6px), font (11px, 600),
+       colors (#1e293b / #334155), and cyan hover.
+     ========================================================================== */
+
+  /* 1. Ensure toolbox-tool-body is always a single-column flex parent */
+  .toolbox-tool-body {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 2. Standard 2-Column Grid Container across all tools (Tool 0, 1, 2, 3) */
+  .toolbox-tool-body .canvas-tools-grid,
+  .toolbox-tool-body [style*="grid-template-columns"],
+  #tab-alerts [id*="toolCard_2"] .toolbox-tool-body > div,
+  #tab-alerts [id*="toolCard_1"] .toolbox-tool-body > div[style*="grid"],
+  #toolCard_0_studio .toolbox-tool-body > div:first-child {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 3. Universal Button Parameters for all tool action buttons */
+  .toolbox-tool-body button:not(#btnSendIcon):not(#btnSendCommandMaster):not(.warn):not([style*="background:#ef4444"]):not([style*="background:#10b981"]):not([style*="background:#f59e0b"]):not(#btnReceiveWeatherWatch) {
+    width: 100% !important;
+    height: 28px !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    padding: 5px 6px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #334155 !important;
+    border-radius: 0 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease !important;
+  }
+
+  .toolbox-tool-body button:not(#btnSendIcon):not(#btnSendCommandMaster):not(.warn):not([style*="background:#ef4444"]):not([style*="background:#10b981"]):not([style*="background:#f59e0b"]):hover {
+    background: #334155 !important;
+    color: #38bdf8 !important;
+    border-color: #38bdf8 !important;
+  }
+  /* Universal Tactile Click Feedback: Highlights while clicked/pressed, reverts on release */
+  .toolbox-tool-body button:active,
+  .studio-tab-btn:active,
+  header button:active,
+  .dock-btn:active {
+    background: #38bdf8 !important;
+    color: #030712 !important;
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.7) !important;
+    transform: scale(0.97) !important;
+  }
+  /* Enforce consistent 6px spacing across all form rows, button grids, and inputs */
+  .toolbox-tool-body {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    padding: 10px !important;
+  }
+  
+  .toolbox-tool-body input[type="text"],
+  .toolbox-tool-body select {
+    margin-bottom: 0 !important;
+  }
+  /* Tool 0 Automatic Equidistant Spacing */
+  #toolCard_0_alerts .toolbox-tool-body,
+  #toolCard_0_alerts .toolbox-tool-body > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  /* [TAB-2 / TOOL-1]: Automatic 8px Spacing for Inputs, Dropdowns & Call Buttons */
+  #tab-alerts [id*="toolCard_1"] .toolbox-tool-body,
+  #tab-alerts [id*="toolCard_1"] .toolbox-tool-body > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  #tab-alerts [id*="toolCard_1"] .form-row,
+  #tab-alerts [id*="toolCard_1"] .toolbox-tool-body > div > div:not([style*="grid"]) {
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+  }
+  #tab-alerts [id*="toolCard_1"] .toolbox-tool-body [style*="grid"] {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    margin: 0 !important;
+  }  /* [TAB-2 / TOOL-3]: Strict 8px vertical gap between Push Weather, Presets Grid, and Send All */
+  #toolCard_3_alerts .toolbox-tool-body,
+  #toolCard_3_alerts .toolbox-tool-body > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  #toolCard_3_alerts .toolbox-tool-body > div > div[style*="grid"] {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    margin: 0 !important;
+  }
+    /* ==========================================================================
+     ULTIMATE COLLAPSE OVERRIDE (2-ID Specificity beats any child grid !important)
+     ========================================================================== */
+  #tab-alerts [id*="toolCard"] .toolbox-tool-body.is-collapsed,
+  #tab-alerts [id*="toolCard"] .toolbox-tool-body.is-collapsed *,
+  #tab-studio [id*="toolCard"] .toolbox-tool-body.is-collapsed,
+  #tab-studio [id*="toolCard"] .toolbox-tool-body.is-collapsed *,
+  #tab-dfu [id*="toolCard"] .toolbox-tool-body.is-collapsed,
+  #tab-dfu [id*="toolCard"] .toolbox-tool-body.is-collapsed * {
+    display: none !important;
+  }
+  /* [TAB-1 / TOOL-0]: Enforce Universal Standard on Canvas & Layer Tools */
+  #tab-studio [id*="toolCard_0"] .toolbox-tool-body {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 10px !important;
+  }
+  #tab-studio [id*="toolCard_0"] .toolbox-tool-body > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  #tab-studio [id*="toolCard_0"] .toolbox-tool-body > div > div:last-child {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  #tab-studio [id*="toolCard_0"] button {
+    width: 100% !important;
+    height: 28px !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    padding: 5px 6px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #334155 !important;
+    border-radius: 0 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease !important;
+  }
+  #tab-studio [id*="toolCard_0"] button:hover {
+    background: #334155 !important;
+    color: #38bdf8 !important;
+    border-color: #38bdf8 !important;
+  }
+  /* [TAB-1 / TOOL-1]: Enforce Universal Square Standard on Widget Cards */
+  #tab-studio [id*="toolCard_1"] .toolbox-tool-body .widget-grid,
+  #tab-studio [id*="toolCard_1"] .toolbox-tool-body > div > div {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  #tab-studio [id*="toolCard_1"] .widget-card {
+    border-radius: 0 !important;
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    margin: 0 !important;
+    padding: 6px 8px !important;
+    cursor: pointer !important;
+    transition: background 0.12s ease, border-color 0.12s ease !important;
+    box-sizing: border-box !important;
+  }
+  #tab-studio [id*="toolCard_1"] .widget-card:hover {
+    background: #334155 !important;
+    border-color: #38bdf8 !important;
+  }
+  #tab-studio [id*="toolCard_1"] .widget-card:active {
+    background: #38bdf8 !important;
+    color: #030712 !important;
+    transform: scale(0.98) !important;
+  }
 </style>
-  <script src="ht37-commands.js"></script>
+  <script src="ht37-commands.js">// [TAB-2 / TOOL-0]: Dedicated Initializer for Universal Command Dropdown + Send Trigger
+(function initTool0Catalog() {
+  function applyTool0() {
+    const card0 = document.getElementById('toolCard_0_alerts');
+    if (!card0) return;
+    const body0 = card0.querySelector('.toolbox-tool-body');
+    if (!body0 || document.getElementById('selAllKnownCommands')) return;
+
+    // 1. Universal Command Catalog Dropdown
+    const select = document.createElement('select');
+    select.id = 'selAllKnownCommands';
+    select.style.cssText = 'width:100% !important; height:28px !important; background:#111827 !important; color:#e2e8f0 !important; border:1px solid #334155 !important; font-size:11px !important; padding:4px 6px !important; margin-bottom:4px !important; box-sizing:border-box !important;';
+    select.innerHTML = `
+      <optgroup label="📞 Telephony (0x04)">
+        <option value="0x01">04.01 - Call (Incoming Ring)</option>
+        <option value="0x02">04.02 - End Call</option>
+        <option value="0x03">04.03 - Mute Call</option>
+      </optgroup>
+      <optgroup label="💬 Social & App Notifications (0x04)">
+        <option value="0x04">04.04 - SMS</option>
+        <option value="0x05">04.05 - QQ</option>
+        <option value="0x06">04.06 - WeChat</option>
+        <option value="0x07">04.07 - Facebook</option>
+        <option value="0x08">04.08 - Twitter / X</option>
+        <option value="0x09">04.09 - LinkedIn</option>
+        <option value="0x0a">04.0A - Instagram</option>
+        <option value="0x0b">04.0B - System Notice</option>
+        <option value="0x0c">04.0C - WhatsApp</option>
+        <option value="0x0d" selected>04.0D - LINE</option>
+        <option value="0x0e">04.0E - Messenger</option>
+        <option value="0x0f">04.0F - KakaoTalk</option>
+        <option value="0x10">04.10 - Skype</option>
+        <option value="0x11">04.11 - Email</option>
+        <option value="0x12">04.12 - Telegram</option>
+        <option value="0x13">04.13 - Viber</option>
+        <option value="0x15">04.15 - Snapchat</option>
+      </optgroup>
+      <optgroup label="🌤️ Weather Telemetry (0x05)">
+        <option value="weather_01">05.01 - Sunny</option>
+        <option value="weather_02">05.02 - Cloudy</option>
+        <option value="weather_03">05.03 - Overcast</option>
+        <option value="weather_04">05.04 - Shower</option>
+        <option value="weather_05">05.05 - Thunder</option>
+        <option value="weather_06">05.06 - Light Rain</option>
+        <option value="weather_07">05.07 - Moderate Rain</option>
+        <option value="weather_08">05.08 - Sleet</option>
+        <option value="weather_09">05.09 - Light Snow</option>
+        <option value="weather_0a">05.0A - Moderate Snow</option>
+        <option value="weather_0b">05.0B - Sand / Dust</option>
+        <option value="weather_0c">05.0C - Foggy</option>
+      </optgroup>
+      <optgroup label="⚙️ System & Hardware (0x02)">
+        <option value="02_3B">02.3B - Find Watch Chime</option>
+      </optgroup>
+    `;
+
+    // 2. Green Send Button with Send Arrow
+    const btn = document.createElement('button');
+    btn.id = 'btnSendCommandMaster';
+    btn.innerHTML = '➤ Send Command';
+    btn.style.cssText = 'width:100% !important; margin:2px 0 8px 0 !important; padding:6px 8px !important; font-size:11px !important; font-weight:700 !important; background:#10b981 !important; color:#fff !important; border:none !important; border-radius:0 !important; cursor:pointer !important; box-sizing:border-box !important;';
+
+    btn.onclick = async () => {
+      const val = select.value;
+      if (val.startsWith('weather_')) {
+        const code = parseInt(val.replace('weather_', ''), 16);
+        if (typeof sendWeather === 'function') sendWeather(code);
+      } else if (val === '02_3B') {
+        const chimeBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Find Watch Chime'));
+        if (chimeBtn) chimeBtn.click();
+      } else {
+        const appCode = parseInt(val, 16);
+        if (typeof sendWatchAlert === 'function') {
+          const msgInput = document.querySelector('input[id*="msg" i]') || Array.from(document.querySelectorAll('input')).find(i => (i.value && i.value.includes('Watch link ok')));
+          const msg = msgInput ? msgInput.value : 'Test Alert';
+          sendWatchAlert(appCode, msg);
+        }
+      }
+    };
+
+    // Insert at the top of Tool 0
+    body0.insertBefore(btn, body0.firstChild);
+    body0.insertBefore(select, btn);
+
+    // Isolate Reset at the very bottom
+    const resetBtn = Array.from(body0.querySelectorAll('button')).find(b => b.textContent.includes('Reset'));
+    if (resetBtn) {
+      resetBtn.style.cssText = 'width:100% !important; margin:6px 0 0 0 !important; padding:5px 8px !important; font-size:11px !important; background:#ef4444 !important; color:#fff !important; border:none !important;';
+      body0.appendChild(resetBtn);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyTool0);
+  } else {
+    setTimeout(applyTool0, 150);
+  }
+})();
+</script>
+</script>
 </head>
 <body>
 
@@ -157,6 +469,13 @@
     <button id="btnStopBle" class="danger">🛑 Stop</button>
   </div>
 </header>
+<!-- STUDIO_TAB_NAV_START -->
+<nav id="studioTabNav" class="studio-tab-nav">
+  <button type="button" class="studio-tab-btn active" data-tab="tab-studio">Tab 1: 🎨 Watch Studio</button>
+  <button type="button" class="studio-tab-btn" data-tab="tab-alerts">Tab 2: 🔔 Alerts & Commands</button>
+  <button type="button" class="studio-tab-btn" data-tab="tab-dfu">Tab 3: 🚀 DFU Flashing</button>
+</nav>
+<!-- STUDIO_TAB_NAV_END -->
 
 <div class="workspace">
   <div class="panel">
@@ -248,18 +567,18 @@
       <div class="field-row" style="margin-top:1px;">
         <label>🌦️ Sky Condition</label>
         <select id="simWeatherCond" onchange="sensors.weatherCond = this.value; updateLiveSensorReadout();">
-          <option value="SUNNY" selected>☀️ 0x01 - Sunny</option>
-          <option value="CLOUDY">⛅ 0x02 - Cloudy</option>
-          <option value="OVERCAST">☁️ 0x03 - Overcast</option>
-          <option value="SHOWER">🌦️ 0x04 - Shower</option>
-          <option value="THUNDER">⛈️ 0x05 - Thundershower</option>
+          <option value=" Sunny (05/01)" selected>☀️ 0x01 - Sunny</option>
+          <option value=" Cloudy (05/02)">⛅ 0x02 - Cloudy</option>
+          <option value=" Overcast (05/03)">☁️ 0x03 - Overcast</option>
+          <option value=" Shower (05/04)">🌦️ 0x04 - Shower</option>
+          <option value=" Thunder (05/05)">⛈️ 0x05 - Thundershower</option>
           <option value="LIGHTRAIN">🌧️ 0x06 - Light Rain</option>
-          <option value="MODRAIN">🌧️ 0x07 - Moderate Rain</option>
-          <option value="SLEET">🌨️ 0x08 - Sleet</option>
+          <option value=" ModRain (05/07)">🌧️ 0x07 - Moderate Rain</option>
+          <option value=" Sleet (05/08)">🌨️ 0x08 - Sleet</option>
           <option value="LIGHTSNOW">🌨️ 0x09 - Light Snow</option>
-          <option value="MODSNOW">❄️ 0x0A - Moderate Snow</option>
+          <option value=" ModSnow (05/0A)">❄️ 0x0A - Moderate Snow</option>
           <option value="SANDSTORM">🌪️ 0x0B - Sandstorm</option>
-          <option value="FOGGY">🌫️ 0x0C - Foggy</option>
+          <option value=" Foggy (05/0C)">🌫️ 0x0C - Foggy</option>
           <option value="UNKNOWN">❓ 0x00 - Unknown</option>
         </select>
       </div>
@@ -299,18 +618,18 @@
           <button class="warn" onclick="cycleAllSkyCodes()" title="Cycles SkyCode 0x01..0x0C on 0x02/0x36" style="padding:4px 6px;font-size:10px;">🎞️ Sky</button>
         </div>
         <div class="alert-grid" style="grid-template-columns:repeat(4,1fr);gap:2px;margin-top:2px;">
-          <button onclick="setAndPushSky('SUNNY', 0x01, 'Sunny')" style="font-size:9px;padding:3px 2px;">☀️ 01 Sunny</button>
-          <button onclick="setAndPushSky('CLOUDY', 0x02, 'Cloudy')" style="font-size:9px;padding:3px 2px;">⛅ 02 Cloudy</button>
-          <button onclick="setAndPushSky('OVERCAST', 0x03, 'Overcast')" style="font-size:9px;padding:3px 2px;">☁️ 03 Overcast</button>
-          <button onclick="setAndPushSky('SHOWER', 0x04, 'Shower')" style="font-size:9px;padding:3px 2px;">🌦️ 04 Shower</button>
-          <button onclick="setAndPushSky('THUNDER', 0x05, 'Thundershower')" style="font-size:9px;padding:3px 2px;">⛈️ 05 Thunder</button>
-          <button onclick="setAndPushSky('LIGHTRAIN', 0x06, 'Light Rain')" style="font-size:9px;padding:3px 2px;">🌧️ 06 LtRain</button>
-          <button onclick="setAndPushSky('MODRAIN', 0x07, 'Moderate Rain')" style="font-size:9px;padding:3px 2px;">🌧️ 07 ModRain</button>
-          <button onclick="setAndPushSky('SLEET', 0x08, 'Sleet')" style="font-size:9px;padding:3px 2px;">🌨️ 08 Sleet</button>
-          <button onclick="setAndPushSky('LIGHTSNOW', 0x09, 'Light Snow')" style="font-size:9px;padding:3px 2px;">🌨️ 09 LtSnow</button>
-          <button onclick="setAndPushSky('MODSNOW', 0x0a, 'Moderate Snow')" style="font-size:9px;padding:3px 2px;">❄️ 0A ModSnow</button>
-          <button onclick="setAndPushSky('SANDSTORM', 0x0b, 'Sandstorm')" style="font-size:9px;padding:3px 2px;">🌪️ 0B Sand</button>
-          <button onclick="setAndPushSky('FOGGY', 0x0c, 'Foggy')" style="font-size:9px;padding:3px 2px;">🌫️ 0C Foggy</button>
+          <button onclick="setAndPushSky(' Sunny (05/01)', 0x01, ' Sunny (05/01)')" style="font-size:9px;padding:3px 2px;">☀️ Sunny (05/01)</button>
+          <button onclick="setAndPushSky(' Cloudy (05/02)', 0x02, ' Cloudy (05/02)')" style="font-size:9px;padding:3px 2px;">⛅ Cloudy (05/02)</button>
+          <button onclick="setAndPushSky(' Overcast (05/03)', 0x03, ' Overcast (05/03)')" style="font-size:9px;padding:3px 2px;">☁️ Overcast (05/03)</button>
+          <button onclick="setAndPushSky(' Shower (05/04)', 0x04, ' Shower (05/04)')" style="font-size:9px;padding:3px 2px;">🌦️ Shower (05/04)</button>
+          <button onclick="setAndPushSky(' Thunder (05/05)', 0x05, 'Thundershower')" style="font-size:9px;padding:3px 2px;">⛈️ Thunder (05/05)</button>
+          <button onclick="setAndPushSky('LIGHTRAIN', 0x06, 'Light Rain')" style="font-size:9px;padding:3px 2px;">🌧️ LtRain (05/06)</button>
+          <button onclick="setAndPushSky(' ModRain (05/07)', 0x07, 'Moderate Rain')" style="font-size:9px;padding:3px 2px;">🌧️ ModRain (05/07)</button>
+          <button onclick="setAndPushSky(' Sleet (05/08)', 0x08, ' Sleet (05/08)')" style="font-size:9px;padding:3px 2px;">🌨️ Sleet (05/08)</button>
+          <button onclick="setAndPushSky('LIGHTSNOW', 0x09, 'Light Snow')" style="font-size:9px;padding:3px 2px;">🌨️ LtSnow (05/09)</button>
+          <button onclick="setAndPushSky(' ModSnow (05/0A)', 0x0a, 'Moderate Snow')" style="font-size:9px;padding:3px 2px;">❄️ ModSnow (05/0A)</button>
+          <button onclick="setAndPushSky('SANDSTORM', 0x0b, 'Sandstorm')" style="font-size:9px;padding:3px 2px;">🌪️ Sand (05/0B)</button>
+          <button onclick="setAndPushSky(' Foggy (05/0C)', 0x0c, ' Foggy (05/0C)')" style="font-size:9px;padding:3px 2px;">🌫️ Foggy (05/0C)</button>
         </div>
       </div>
     </div>
@@ -689,7 +1008,7 @@ const canvas = document.getElementById('watchCanvas');
 const ctx = canvas.getContext('2d');
 let screenConfig = { width: 360, height: 360, isRect: false, previewWidth: 220, previewHeight: 220 };
 let bgTheme = 'tactical', customBgImage = null, loadedTemplateBin = null;
-const sensors = { heading: 42, hr: 76, steps: 6840, stepGoal: 10000, baro: 1013, altitude: 148, battery: 50, tempC: 36.6, weatherTemp: 22, weatherCond: 'CLOUDY', ecgPhase: 0 };
+const sensors = { heading: 42, hr: 76, steps: 6840, stepGoal: 10000, baro: 1013, altitude: 148, battery: 50, tempC: 36.6, weatherTemp: 22, weatherCond: ' Cloudy (05/02)', ecgPhase: 0 };
 let widgets = [], selectedWidgetId = null, isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
 
 function createDefaultWidgets() {
@@ -2356,129 +2675,814 @@ createDefaultWidgets();
 requestAnimationFrame(animateLoop);
 log('HT37 Web Bluetooth WYSIWYG Watchface Studio Initialized.', 'ok');
 log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1 ("Test 0x7C/0xAD/0xB0 Dial Keys + Bumped OTA")!', 'rx');
+// [TAB-2 / TOOL-0]: Dedicated Initializer for Universal Command Dropdown + Send Trigger
+(function initTool0Catalog() {
+  function applyTool0() {
+    const card0 = document.getElementById('toolCard_0_alerts');
+    if (!card0) return;
+    const body0 = card0.querySelector('.toolbox-tool-body');
+    if (!body0 || document.getElementById('selAllKnownCommands')) return;
+
+    // 1. Universal Command Catalog Dropdown
+    const select = document.createElement('select');
+    select.id = 'selAllKnownCommands';
+    select.style.cssText = 'width:100% !important; height:28px !important; background:#111827 !important; color:#e2e8f0 !important; border:1px solid #334155 !important; font-size:11px !important; padding:4px 6px !important; margin-bottom:4px !important; box-sizing:border-box !important;';
+    select.innerHTML = `
+      <optgroup label="📞 Telephony (0x04)">
+        <option value="0x01">04.01 - Call (Incoming Ring)</option>
+        <option value="0x02">04.02 - End Call</option>
+        <option value="0x03">04.03 - Mute Call</option>
+      </optgroup>
+      <optgroup label="💬 Social & App Notifications (0x04)">
+        <option value="0x04">04.04 - SMS</option>
+        <option value="0x05">04.05 - QQ</option>
+        <option value="0x06">04.06 - WeChat</option>
+        <option value="0x07">04.07 - Facebook</option>
+        <option value="0x08">04.08 - Twitter / X</option>
+        <option value="0x09">04.09 - LinkedIn</option>
+        <option value="0x0a">04.0A - Instagram</option>
+        <option value="0x0b">04.0B - System Notice</option>
+        <option value="0x0c">04.0C - WhatsApp</option>
+        <option value="0x0d" selected>04.0D - LINE</option>
+        <option value="0x0e">04.0E - Messenger</option>
+        <option value="0x0f">04.0F - KakaoTalk</option>
+        <option value="0x10">04.10 - Skype</option>
+        <option value="0x11">04.11 - Email</option>
+        <option value="0x12">04.12 - Telegram</option>
+        <option value="0x13">04.13 - Viber</option>
+        <option value="0x15">04.15 - Snapchat</option>
+      </optgroup>
+      <optgroup label="🌤️ Weather Telemetry (0x05)">
+        <option value="weather_01">05.01 - Sunny</option>
+        <option value="weather_02">05.02 - Cloudy</option>
+        <option value="weather_03">05.03 - Overcast</option>
+        <option value="weather_04">05.04 - Shower</option>
+        <option value="weather_05">05.05 - Thunder</option>
+        <option value="weather_06">05.06 - Light Rain</option>
+        <option value="weather_07">05.07 - Moderate Rain</option>
+        <option value="weather_08">05.08 - Sleet</option>
+        <option value="weather_09">05.09 - Light Snow</option>
+        <option value="weather_0a">05.0A - Moderate Snow</option>
+        <option value="weather_0b">05.0B - Sand / Dust</option>
+        <option value="weather_0c">05.0C - Foggy</option>
+      </optgroup>
+      <optgroup label="⚙️ System & Hardware (0x02)">
+        <option value="02_3B">02.3B - Find Watch Chime</option>
+      </optgroup>
+    `;
+
+    // 2. Green Send Button with Send Arrow
+    const btn = document.createElement('button');
+    btn.id = 'btnSendCommandMaster';
+    btn.innerHTML = '➤ Send Command';
+    btn.style.cssText = 'width:100% !important; margin:2px 0 8px 0 !important; padding:6px 8px !important; font-size:11px !important; font-weight:700 !important; background:#10b981 !important; color:#fff !important; border:none !important; border-radius:0 !important; cursor:pointer !important; box-sizing:border-box !important;';
+
+    btn.onclick = async () => {
+      const val = select.value;
+      if (val.startsWith('weather_')) {
+        const code = parseInt(val.replace('weather_', ''), 16);
+        if (typeof sendWeather === 'function') sendWeather(code);
+      } else if (val === '02_3B') {
+        const chimeBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Find Watch Chime'));
+        if (chimeBtn) chimeBtn.click();
+      } else {
+        const appCode = parseInt(val, 16);
+        if (typeof sendWatchAlert === 'function') {
+          const msgInput = document.querySelector('input[id*="msg" i]') || Array.from(document.querySelectorAll('input')).find(i => (i.value && i.value.includes('Watch link ok')));
+          const msg = msgInput ? msgInput.value : 'Test Alert';
+          sendWatchAlert(appCode, msg);
+        }
+      }
+    };
+
+    // Insert at the top of Tool 0
+    body0.insertBefore(btn, body0.firstChild);
+    body0.insertBefore(select, btn);
+
+    // Isolate Reset at the very bottom
+    const resetBtn = Array.from(body0.querySelectorAll('button')).find(b => b.textContent.includes('Reset'));
+    if (resetBtn) {
+      resetBtn.style.cssText = 'width:100% !important; margin:6px 0 0 0 !important; padding:5px 8px !important; font-size:11px !important; background:#ef4444 !important; color:#fff !important; border:none !important;';
+      body0.appendChild(resetBtn);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyTool0);
+  } else {
+    setTimeout(applyTool0, 150);
+  }
+})();
+</script>
 </script>
 <!-- STUDIO_TAB_SYSTEM_START -->
-<style id="studio-tab-styles">
-  /* Studio Navigation Bar */
+<style id="studio-workspace-styles">
+  :root {
+    --top-bars-height: 86px;
+    --dock-height: 220px;
+  }
+  body.dock-collapsed {
+    --dock-height: 38px;
+  }
+
+  header {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    margin: 0 !important;
+    z-index: 100 !important;
+  }
+  body {
+    padding-top: 0 !important;
+    padding-bottom: var(--dock-height) !important;
+    margin: 0 !important;
+    overflow-x: hidden !important;
+    transition: padding-bottom 0.2s ease !important;
+  }
+
+  /* Square Navigation Ribbon */
   .studio-tab-nav {
-    display: flex;
-    gap: 8px;
-    padding: 10px 16px;
-    background: #111827;
-    border-bottom: 1px solid #1f2937;
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    overflow-x: auto;
-    scrollbar-width: thin;
+    display: flex !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 99999 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #0d121d !important;
+    border-bottom: 2px solid #1e293b !important;
+    border-top: 1px solid #1e293b !important;
+    overflow-x: auto !important;
+    min-height: 44px !important;
+    width: 100% !important;
   }
   .studio-tab-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background: #1f2937;
-    color: #9ca3af;
-    border: 1px solid #374151;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    white-space: nowrap;
-    transition: all 0.2s ease;
+    flex: 0 0 auto !important;
+    padding: 12px 24px !important;
+    background: #151c2c !important;
+    color: #94a3b8 !important;
+    border: none !important;
+    border-right: 1px solid #1e293b !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    transition: all 0.15s ease-in-out !important;
   }
   .studio-tab-btn:hover {
-    color: #f3f4f6;
-    background: #374151;
-    border-color: #4b5563;
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
   }
   .studio-tab-btn.active {
-    color: #38bdf8;
-    background: #0f172a;
-    border-color: #38bdf8;
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+    background: #0b0f19 !important;
+    color: #38bdf8 !important;
+    border-bottom: 3px solid #38bdf8 !important;
+    box-shadow: inset 0 -2px 8px rgba(56, 189, 248, 0.25) !important;
   }
-  
-  /* Tab Viewport & Panes */
+
+  /* Full-width Workspace */
   .studio-tab-container {
-    padding: 16px;
-    max-width: 1400px;
-    margin: 0 auto;
+    padding: 8px 12px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
   }
   .studio-tab-pane {
     display: none;
-    animation: studioFadeIn 0.2s ease;
+    animation: studioFade 0.2s ease;
   }
   .studio-tab-pane.active {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    display: block;
   }
-  
-  /* Watch Studio Responsive Split View */
-  #tab-studio.active {
+
+  /* Tab 1: 3-Column Grid */
+  .studio-grid-3col {
     display: grid;
-    grid-template-columns: minmax(320px, 460px) 1fr;
-    gap: 20px;
+    grid-template-columns: 360px 1fr 340px;
+    gap: 12px;
     align-items: start;
+    width: 100%;
+  }
+  @media (max-width: 1300px) {
+    .studio-grid-3col {
+      grid-template-columns: 340px 1fr;
+    }
   }
   @media (max-width: 900px) {
-    #tab-studio.active {
+    .studio-grid-3col {
       grid-template-columns: 1fr;
     }
   }
-  .studio-col-chassis, .studio-col-tools {
+
+  /* Tab 2 & 3: 2-Column Grid (Toolbox + Stage) */
+  .studio-2col-layout {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 12px;
+    align-items: start;
+    width: 100%;
+  }
+  @media (max-width: 900px) {
+    .studio-2col-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .studio-col-left {
+    position: sticky !important;
+    top: 50px !important;
+    align-self: start !important;
+  }
+
+  /* Standardized Left Toolbox */
+  .unified-toolbox-window {
+    display: flex !important;
+    flex-direction: column !important;
+    background: #0d131f !important;
+    border: 1px solid #1e293b !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    height: auto !important;
+    max-height: calc(100vh - var(--top-bars-height) - var(--dock-height) - 16px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: #38bdf8 #090d16 !important;
+    transition: max-height 0.2s ease !important;
+  }
+  .unified-toolbox-window::-webkit-scrollbar {
+    width: 6px !important;
+  }
+  .unified-toolbox-window::-webkit-scrollbar-track {
+    background: #090d16 !important;
+  }
+  .unified-toolbox-window::-webkit-scrollbar-thumb {
+    background: #334155 !important;
+    border-radius: 0 !important;
+  }
+  .unified-toolbox-window::-webkit-scrollbar-thumb:hover {
+    background: #38bdf8 !important;
+  }
+
+  /* Tool Cards */
+  .toolbox-tool-card {
+    border-radius: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-bottom: 1px solid #1e293b !important;
+    background: transparent !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  /* Compact Headers */
+  .toolbox-tool-header {
+    padding: 6px 10px !important;
+    background: #131b2a !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: #cbd5e1 !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    transition: background 0.12s ease !important;
+  }
+  .toolbox-tool-header:hover {
+    background: #1e293b !important;
+    color: #38bdf8 !important;
+  }
+  .toolbox-tool-header .tool-chevron {
+    font-size: 9px !important;
+    color: #64748b !important;
+    font-weight: bold !important;
+  }
+
+  /* Tool Body */
+  .toolbox-tool-body {
+    background: #080d16 !important;
+    border-top: 1px solid #1a2333 !important;
+    padding: 10px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toolbox-tool-body.is-collapsed {
+    display: none !important;
+  }
+
+  /* Clean Input, Select, and Form Label Styles */
+  .toolbox-tool-body label {
+    font-size: 11px !important;
+    color: #94a3b8 !important;
+    font-weight: 600 !important;
+    margin-bottom: 2px !important;
+    display: block !important;
+  }
+  .toolbox-tool-body input[type="text"],
+  .toolbox-tool-body select {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    background: #111827 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #334155 !important;
+    border-radius: 0 !important;
+    padding: 5px 8px !important;
+    font-size: 11px !important;
+    height: 28px !important;
+  }
+  .toolbox-tool-body input[type="text"]:focus,
+  .toolbox-tool-body select:focus {
+    border-color: #38bdf8 !important;
+    outline: none !important;
+  }
+
+  /* Clean Progress Bar for DFU */
+  .progress-wrap {
+    background: #111827 !important;
+    border: 1px solid #1e293b !important;
+    border-radius: 0 !important;
+    height: 18px !important;
+    overflow: hidden !important;
+    position: relative !important;
+    margin: 6px 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .progress-bar {
+    background: linear-gradient(90deg, #0284c7, #38bdf8) !important;
+    height: 100% !important;
+    transition: width 0.15s ease !important;
+  }
+  .progress-label {
+    font-size: 10px !important;
+    color: #cbd5e1 !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    line-height: 18px !important;
+    position: absolute !important;
+    top: 0; left: 0; right: 0; bottom: 0;
+  }
+
+  /* Center Stage Areas */
+  .studio-wysiwyg-viewport {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    background: radial-gradient(circle at center, #111827 0%, #070a10 100%);
+    border: 1px solid #1e293b;
+    border-radius: 0 !important;
+    position: relative;
+    height: calc(100vh - var(--top-bars-height) - var(--dock-height) - 16px);
+    overflow: hidden;
+    width: 100%;
+  }
+  .stage-info-panel {
+    background: #090d16;
+    border: 1px solid #1e293b;
+    padding: 20px;
+    min-height: calc(100vh - var(--top-bars-height) - var(--dock-height) - 16px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-sizing: border-box;
+  }
+
+  /* Zoom Bar */
+  .wysiwyg-zoom-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid #1e293b;
+    border-radius: 0 !important;
+    margin-top: 8px;
+    z-index: 50;
+  }
+  .zoom-btn {
+    background: #1e293b;
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    border-radius: 0 !important;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .zoom-btn:hover {
+    background: #334155;
+    color: #38bdf8;
+  }
+  .zoom-indicator {
+    font-size: 11px;
+    font-weight: 700;
+    color: #38bdf8;
+    min-width: 38px;
+    text-align: center;
+    cursor: pointer;
+  }
+  .resolution-badge {
+    font-size: 10px;
+    color: #64748b;
+    font-weight: 600;
+    padding-left: 6px;
+    border-left: 1px solid #334155;
+  }
+  .wysiwyg-scroll-stage {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    scrollbar-width: thin;
+  }
+  .watch-zoom-wrapper {
+    transform-origin: center center;
+    transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #watchChassis {
+    position: relative !important;
+    margin: auto !important;
+    background: transparent !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+  }
+
+  .studio-col-right {
     display: flex;
     flex-direction: column;
     gap: 16px;
   }
-  @keyframes studioFadeIn {
+
+  /* Persistent Bottom Dock */
+  .studio-bottom-dock {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--dock-height);
+    background: #0b0f19;
+    border-top: 2px solid #1e293b;
+    z-index: 2000;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.7);
+    transition: height 0.2s ease;
+    overflow: hidden;
+  }
+  .dock-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: #111827;
+    border-bottom: 1px solid #1e293b;
+    cursor: pointer;
+    user-select: none;
+    height: 38px;
+    box-sizing: border-box;
+  }
+  .dock-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+  }
+  .dock-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    display: inline-block;
+  }
+  .dock-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dock-btn {
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    background: #1e293b;
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    border-radius: 0 !important;
+    cursor: pointer;
+  }
+  .dock-btn:hover {
+    background: #334155;
+    color: #38bdf8;
+  }
+  .dock-body {
+    height: calc(var(--dock-height) - 38px);
+    overflow-y: auto;
+    padding: 8px 12px;
+    background: #05080f;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  @keyframes studioFade {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
   }
+    /* ==========================================================================
+     UNIVERSAL STANDARDIZED TOOLBOX BUTTON SYSTEM:
+     - Guarantees all 2-column button grids across all tools pull identical width.
+     - Enforces identical height (28px), padding (5px 6px), font (11px, 600),
+       colors (#1e293b / #334155), and cyan hover.
+     ========================================================================== */
+
+  /* 1. Ensure toolbox-tool-body is always a single-column flex parent */
+  .toolbox-tool-body {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 2. Standard 2-Column Grid Container across all tools (Tool 0, 1, 2, 3) */
+  .toolbox-tool-body .canvas-tools-grid,
+  .toolbox-tool-body [style*="grid-template-columns"],
+  #tab-alerts [id*="toolCard_2"] .toolbox-tool-body > div,
+  #tab-alerts [id*="toolCard_1"] .toolbox-tool-body > div[style*="grid"],
+  #toolCard_0_studio .toolbox-tool-body > div:first-child {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 3. Universal Button Parameters for all tool action buttons */
+  .toolbox-tool-body button:not(#btnSendIcon):not(#btnSendCommandMaster):not(.warn):not([style*="background:#ef4444"]):not([style*="background:#10b981"]):not([style*="background:#f59e0b"]):not(#btnReceiveWeatherWatch) {
+    width: 100% !important;
+    height: 28px !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    padding: 5px 6px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #334155 !important;
+    border-radius: 0 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease !important;
+  }
+
+  .toolbox-tool-body button:not(#btnSendIcon):not(#btnSendCommandMaster):not(.warn):not([style*="background:#ef4444"]):not([style*="background:#10b981"]):not([style*="background:#f59e0b"]):hover {
+    background: #334155 !important;
+    color: #38bdf8 !important;
+    border-color: #38bdf8 !important;
+  }
+  /* Universal Tactile Click Feedback: Highlights while clicked/pressed, reverts on release */
+  .toolbox-tool-body button:active,
+  .studio-tab-btn:active,
+  header button:active,
+  .dock-btn:active {
+    background: #38bdf8 !important;
+    color: #030712 !important;
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.7) !important;
+    transform: scale(0.97) !important;
+  }
+  /* Enforce consistent 6px spacing across all form rows, button grids, and inputs */
+  .toolbox-tool-body {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    padding: 10px !important;
+  }
+  
+  .toolbox-tool-body input[type="text"],
+  .toolbox-tool-body select {
+    margin-bottom: 0 !important;
+  }
+  /* Tool 0 Automatic Equidistant Spacing */
+  #toolCard_0_alerts .toolbox-tool-body,
+  #toolCard_0_alerts .toolbox-tool-body > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  /* [TAB-2 / TOOL-1]: Automatic 8px Spacing for Inputs, Dropdowns & Call Buttons */
+  #tab-alerts [id*="toolCard_1"] .toolbox-tool-body,
+  #tab-alerts [id*="toolCard_1"] .toolbox-tool-body > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  #tab-alerts [id*="toolCard_1"] .form-row,
+  #tab-alerts [id*="toolCard_1"] .toolbox-tool-body > div > div:not([style*="grid"]) {
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+  }
+  #tab-alerts [id*="toolCard_1"] .toolbox-tool-body [style*="grid"] {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    margin: 0 !important;
+  }  /* [TAB-2 / TOOL-3]: Strict 8px vertical gap between Push Weather, Presets Grid, and Send All */
+  #toolCard_3_alerts .toolbox-tool-body,
+  #toolCard_3_alerts .toolbox-tool-body > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  #toolCard_3_alerts .toolbox-tool-body > div > div[style*="grid"] {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    margin: 0 !important;
+  }
+    /* ==========================================================================
+     ULTIMATE COLLAPSE OVERRIDE (2-ID Specificity beats any child grid !important)
+     ========================================================================== */
+  #tab-alerts [id*="toolCard"] .toolbox-tool-body.is-collapsed,
+  #tab-alerts [id*="toolCard"] .toolbox-tool-body.is-collapsed *,
+  #tab-studio [id*="toolCard"] .toolbox-tool-body.is-collapsed,
+  #tab-studio [id*="toolCard"] .toolbox-tool-body.is-collapsed *,
+  #tab-dfu [id*="toolCard"] .toolbox-tool-body.is-collapsed,
+  #tab-dfu [id*="toolCard"] .toolbox-tool-body.is-collapsed * {
+    display: none !important;
+  }
+  /* [TAB-1 / TOOL-0]: Enforce Universal Standard on Canvas & Layer Tools */
+  #tab-studio [id*="toolCard_0"] .toolbox-tool-body {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 10px !important;
+  }
+  #tab-studio [id*="toolCard_0"] .toolbox-tool-body > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  #tab-studio [id*="toolCard_0"] .toolbox-tool-body > div > div:last-child {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  #tab-studio [id*="toolCard_0"] button {
+    width: 100% !important;
+    height: 28px !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    padding: 5px 6px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #334155 !important;
+    border-radius: 0 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease !important;
+  }
+  #tab-studio [id*="toolCard_0"] button:hover {
+    background: #334155 !important;
+    color: #38bdf8 !important;
+    border-color: #38bdf8 !important;
+  }
+  /* [TAB-1 / TOOL-1]: Enforce Universal Square Standard on Widget Cards */
+  #tab-studio [id*="toolCard_1"] .toolbox-tool-body .widget-grid,
+  #tab-studio [id*="toolCard_1"] .toolbox-tool-body > div > div {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  #tab-studio [id*="toolCard_1"] .widget-card {
+    border-radius: 0 !important;
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    margin: 0 !important;
+    padding: 6px 8px !important;
+    cursor: pointer !important;
+    transition: background 0.12s ease, border-color 0.12s ease !important;
+    box-sizing: border-box !important;
+  }
+  #tab-studio [id*="toolCard_1"] .widget-card:hover {
+    background: #334155 !important;
+    border-color: #38bdf8 !important;
+  }
+  #tab-studio [id*="toolCard_1"] .widget-card:active {
+    background: #38bdf8 !important;
+    color: #030712 !important;
+    transform: scale(0.98) !important;
+  }
 </style>
 
-<script id="studio-tab-runtime">
-(function initStudioWorkspace() {
-  function setupTabs() {
-    if (document.getElementById('studioTabNav')) return;
-
-    // 1. Create Sticky Workspace Tab Bar
-    const nav = document.createElement('nav');
-    nav.id = 'studioTabNav';
-    nav.className = 'studio-tab-nav';
-    nav.innerHTML = 
-      <button type="button" class="studio-tab-btn active" data-tab="tab-studio">🎨 Watch Studio</button>
-      <button type="button" class="studio-tab-btn" data-tab="tab-alerts">🔔 Alerts & Commands</button>
-      <button type="button" class="studio-tab-btn" data-tab="tab-weather">🌤️ Weather & Sensors</button>
-      <button type="button" class="studio-tab-btn" data-tab="tab-dfu">🚀 DFU Flashing</button>
-      <button type="button" class="studio-tab-btn" data-tab="tab-diagnostics">🔬 Logs & Terminal</button>
-    ;
-
-    // 2. Position Tab Bar directly under Header
+<script id="studio-workspace-runtime">
+(function initStudioArchitecture() {
+  function setupStudio() {
+    const nav = document.getElementById('studioTabNav');
+    if (!nav) return;
     const header = document.querySelector('header');
-    if (header && header.nextSibling) {
-      header.parentNode.insertBefore(nav, header.nextSibling);
-    } else {
-      document.body.insertBefore(nav, document.body.firstChild);
+
+    // 1. Build Viewport Panes
+    let container = document.getElementById('studioMainContainer');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'studioMainContainer';
+      container.className = 'studio-tab-container';
+      container.innerHTML = `
+        <!-- TAB 1: WATCH STUDIO -->
+        <div id="tab-studio" class="studio-tab-pane active">
+          <div class="studio-grid-3col">
+            <div class="studio-col-left" id="studioLeftCol"></div>
+            <div class="studio-col-center" id="studioCenterCol"></div>
+            <div class="studio-col-right" id="studioRightCol"></div>
+          </div>
+        </div>
+
+        <!-- TAB 2: ALERTS & COMMANDS -->
+        <div id="tab-alerts" class="studio-tab-pane">
+          <div class="studio-2col-layout">
+            <div class="studio-col-left" id="alertsLeftCol"></div>
+            <div class="studio-col-center">
+              <div class="stage-info-panel">
+                <div style="font-size:12px; font-weight:700; color:#38bdf8; text-transform:uppercase;">
+                  📡 Real-Time Command & Alert Telemetry
+                </div>
+                <div style="font-size:11px; color:#64748b;">
+                  Select any tool on the left toolbox to dispatch telephony alerts, app notifications, weather telemetry, or custom BLE commands.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: DFU FLASHING -->
+        <div id="tab-dfu" class="studio-tab-pane">
+          <div class="studio-2col-layout">
+            <div class="studio-col-left" id="dfuLeftCol"></div>
+            <div class="studio-col-center">
+              <div class="stage-info-panel">
+                <div style="font-size:12px; font-weight:700; color:#38bdf8; text-transform:uppercase;">
+                  🚀 TopStep HT37 DFU & Dial Flashing Engine
+                </div>
+                <div style="font-size:11px; color:#64748b;">
+                  Trigger White Arrow upload mode (FFB1) or probe step 2 to flash custom watch face dials (.bin) and firmware updates directly over Web Bluetooth.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      nav.parentNode.insertBefore(container, nav.nextSibling);
     }
 
-    // 3. Build Tab Container Viewport
-    const container = document.createElement('div');
-    container.className = 'studio-tab-container';
-    container.innerHTML = 
-      <div id="tab-studio" class="studio-tab-pane active">
-        <div class="studio-col-chassis" id="studioChassisCol"></div>
-        <div class="studio-col-tools" id="studioToolsCol"></div>
-      </div>
-      <div id="tab-alerts" class="studio-tab-pane"></div>
-      <div id="tab-weather" class="studio-tab-pane"></div>
-      <div id="tab-dfu" class="studio-tab-pane"></div>
-      <div id="tab-diagnostics" class="studio-tab-pane"></div>
-    ;
-    nav.parentNode.insertBefore(container, nav.nextSibling);
-
-    // Dynamic card resolver
     function getCard(id) {
       const el = document.getElementById(id);
       if (!el) return null;
@@ -2490,41 +3494,1000 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
       return el;
     }
 
-    const chassisCol = document.getElementById('studioChassisCol');
-    const toolsCol = document.getElementById('studioToolsCol');
+    function makeToolCard(num, title, bodyElement) {
+      if (!bodyElement) return null;
+      const card = document.createElement('div');
+      card.className = 'toolbox-tool-card';
+      card.id = 'toolCard_' + num.replace(/[^a-zA-Z0-9]/g, '_');
+      
+      const header = document.createElement('div');
+      header.className = 'toolbox-tool-header';
+      header.innerHTML = `<span>${num}. ${title}</span><span class="tool-chevron">▾</span>`;
+      
+      const bodyWrap = document.createElement('div');
+      bodyWrap.className = 'toolbox-tool-body';
+      bodyWrap.appendChild(bodyElement);
+      bodyElement.style.display = 'block';
 
-    // Tab 1: Studio (Chassis on left, Layers/Inspector/BG on right)
-    const chassisCard = getCard('watchChassis');
-    if (chassisCard) chassisCol.appendChild(chassisCard);
+      const chev = header.querySelector('.tool-chevron');
+      header.addEventListener('click', () => {
+        const isNowCollapsed = bodyWrap.classList.toggle('is-collapsed');
+        chev.textContent = isNowCollapsed ? '▸' : '▾';
+      });
 
-    ['secScreenBgBody', 'secAddWidgetBody', 'secWidgetLayersBody', 'inspectorBody'].forEach(id => {
-      const c = getCard(id);
-      if (c && !toolsCol.contains(c) && !chassisCol.contains(c)) toolsCol.appendChild(c);
-    });
+      card.appendChild(header);
+      card.appendChild(bodyWrap);
+      return card;
+    }
 
-    // Tab 2: Alerts & Commands
-    const alertsTab = document.getElementById('tab-alerts');
-    const alertCard = getCard('secAlertTesterBody');
-    if (alertCard) alertsTab.appendChild(alertCard);
+    const studioLeft = document.getElementById('studioLeftCol');
+    const studioCenter = document.getElementById('studioCenterCol');
+    const studioRight = document.getElementById('studioRightCol');
+    const alertsLeft = document.getElementById('alertsLeftCol');
+    const dfuLeft = document.getElementById('dfuLeftCol');
 
-    // Tab 3: Weather & Sensors
-    const weatherTab = document.getElementById('tab-weather');
-    const weatherCard = getCard('secSensorWeatherBody');
-    if (weatherCard) weatherTab.appendChild(weatherCard);
+    // ==========================================
+    // 1. POPULATE TAB 1: WATCH STUDIO TOOLBOX
+    // ==========================================
+    try {
+      let studioToolbox = document.getElementById('studioToolboxWindow');
+      if (!studioToolbox) {
+        studioToolbox = document.createElement('div');
+        studioToolbox.id = 'studioToolboxWindow';
+        studioToolbox.className = 'unified-toolbox-window';
+        studioLeft.appendChild(studioToolbox);
+      }
 
-    // Tab 4: DFU Flashing
-    const dfuTab = document.getElementById('tab-dfu');
-    const dfuCard = getCard('secDfuEngineBody');
-    if (dfuCard) dfuTab.appendChild(dfuCard);
+      // Tool 0: Canvas & Layer Tools (Export .BIN Full-Width on Top + Deduplicated 2x2 Grid)
+      if (!document.getElementById('toolCard_0_studio')) {
+        const body0 = document.createElement('div');
+        body0.style.cssText = 'display:flex; flex-direction:column; gap:8px; margin:0; padding:0; width:100%; box-sizing:border-box;';
 
-    // Tab 5: Logs & Diagnostics
-    const diagTab = document.getElementById('tab-diagnostics');
-    ['commandExplorer', 'hexInspector', 'logTerminal'].forEach(id => {
-      const c = getCard(id);
-      if (c && !diagTab.contains(c)) diagTab.appendChild(c);
-    });
+        // 1. 📦 Export .BIN Full-Width on Top
+        const btnBin = document.getElementById('btnCompileBin') || document.createElement('button');
+        btnBin.className = 'dock-btn';
+        btnBin.removeAttribute('style');
+        btnBin.innerHTML = '📦 Export .BIN';
+        btnBin.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; font-size:11px !important; font-weight:700 !important; background:#1e293b !important; color:#38bdf8 !important; border:1px solid #334155 !important; border-radius:0 !important; box-sizing:border-box !important; cursor:pointer !important;';
+        body0.appendChild(btnBin);
 
-    // 4. Tab switching logic
+        // 2. Deduplicated 2x2 Grid Below
+        const grid0 = document.createElement('div');
+        grid0.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0; width:100%; box-sizing:border-box;';
+
+        const btnCenter = Array.from(document.querySelectorAll('button')).find(b => b.getAttribute('onclick') && b.getAttribute('onclick').includes('centerSelectedWidget')) || document.createElement('button');
+        btnCenter.innerHTML = '🎯 Center';
+        btnCenter.onclick = () => { if (typeof centerSelectedWidget === 'function') centerSelectedWidget(); };
+
+        const btnDup = Array.from(document.querySelectorAll('button')).find(b => b.getAttribute('onclick') && b.getAttribute('onclick').includes('duplicateSelectedWidget')) || document.createElement('button');
+        btnDup.innerHTML = '⧉ Duplicate';
+        btnDup.onclick = () => { if (typeof duplicateSelectedWidget === 'function') duplicateSelectedWidget(); };
+
+        const btnRemove = Array.from(document.querySelectorAll('button')).find(b => b.getAttribute('onclick') && b.getAttribute('onclick').includes('deleteSelectedWidget')) || document.createElement('button');
+        btnRemove.innerHTML = '🗑️ Remove';
+        btnRemove.onclick = () => { if (typeof deleteSelectedWidget === 'function') deleteSelectedWidget(); };
+
+        const btnReset = Array.from(document.querySelectorAll('button')).find(b => b.getAttribute('onclick') && (b.getAttribute('onclick').includes('resetDefault') || b.textContent.includes('Reset'))) || document.createElement('button');
+        btnReset.innerHTML = '🔄 Reset';
+        btnReset.onclick = () => { if (typeof resetDefaultWatchface === 'function') resetDefaultWatchface(); };
+
+        [btnCenter, btnDup, btnRemove, btnReset].forEach(b => {
+          b.className = 'dock-btn';
+          b.removeAttribute('style');
+          b.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; padding:5px 6px !important; font-size:11px !important; font-weight:600 !important; background:#1e293b !important; color:#e2e8f0 !important; border:1px solid #334155 !important; border-radius:0 !important; cursor:pointer !important; box-sizing:border-box !important; text-align:center !important;';
+          grid0.appendChild(b);
+        });
+
+        body0.appendChild(grid0);
+
+        const card0 = makeToolCard('0', 'Canvas & Layer Tools', body0);
+        card0.id = 'toolCard_0_studio';
+        if (card0) studioToolbox.appendChild(card0);
+      }
+
+      // Tool 1: Add Widget Layer
+      const cardAddWidget = getCard('secAddWidgetBody');
+      const bodyAddWidget = document.getElementById('secAddWidgetBody');
+      if (bodyAddWidget && !studioToolbox.querySelector('#toolCard_1_studio')) {
+        const card1 = makeToolCard('1', 'Add Widget Layer', bodyAddWidget);
+        card1.id = 'toolCard_1_studio';
+        if (card1) studioToolbox.appendChild(card1);
+        if (cardAddWidget && cardAddWidget !== card1 && cardAddWidget.parentElement) cardAddWidget.style.display = 'none';
+      }
+
+      // Tool 2: Watch Screen & Background Layer
+      const cardScreenBg = getCard('secScreenBgBody');
+      const bodyScreenBg = document.getElementById('secScreenBgBody');
+      if (bodyScreenBg && !studioToolbox.querySelector('#toolCard_2_studio')) {
+        const card2 = makeToolCard('2', 'Watch Screen & Background Layer', bodyScreenBg);
+        card2.id = 'toolCard_2_studio';
+        if (card2) studioToolbox.appendChild(card2);
+        if (cardScreenBg && cardScreenBg !== card2 && cardScreenBg.parentElement) cardScreenBg.style.display = 'none';
+      }
+
+      // Tool 3: Live Sensors & Simulation
+      const cardSensorWeather = getCard('secSensorWeatherBody');
+      const bodySensorWeather = document.getElementById('secSensorWeatherBody');
+      if (bodySensorWeather && !studioToolbox.querySelector('#toolCard_3_studio')) {
+        const card3 = makeToolCard('3', 'Live Sensors & Simulation', bodySensorWeather);
+        card3.id = 'toolCard_3_studio';
+        if (card3) studioToolbox.appendChild(card3);
+        if (cardSensorWeather && cardSensorWeather !== card3 && cardSensorWeather.parentElement) cardSensorWeather.style.display = 'none';
+      }
+    } catch(err) { console.warn('Studio Toolbox error:', err); }
+
+            // ==========================================
+    // 2. POPULATE TAB 2: ALERTS & COMMANDS TOOLBOX
+    // ==========================================
+    try {
+      let alertsToolbox = document.getElementById('alertsToolboxWindow');
+      if (!alertsToolbox) {
+        alertsToolbox = document.createElement('div');
+        alertsToolbox.id = 'alertsToolboxWindow';
+        alertsToolbox.className = 'unified-toolbox-window';
+        alertsLeft.appendChild(alertsToolbox);
+      }
+
+      const alertCard = getCard('secAlertTesterBody');
+      const alertBody = document.getElementById('secAlertTesterBody');
+
+      if (alertBody) {
+        const allButtons = Array.from(alertBody.querySelectorAll('button'));
+        const allInputs = Array.from(alertBody.querySelectorAll('input'));
+        const allSelects = Array.from(alertBody.querySelectorAll('select'));
+
+        // TOOL 0: Master Command Station (With 3 Custom Command Fields: CMD, KEY, PAYLOAD)
+        if (!document.getElementById('toolCard_0_alerts')) {
+          const body0A = document.createElement('div');
+          body0A.style.cssText = 'display:flex; flex-direction:column; gap:8px; margin:0; padding:0;';
+
+          // 1. Label
+          const lbl = document.createElement('label');
+          lbl.style.cssText = 'font-size:10px; font-weight:700; color:#38bdf8; text-transform:uppercase; margin:0; display:block;';
+          lbl.textContent = 'KNOWN COMMANDS (MASTER REGISTRY)';
+          body0A.appendChild(lbl);
+
+          // 2. Master Dropdown (All 43 Verified Commands)
+          const cmdSelect = document.createElement('select');
+          cmdSelect.id = 'selAllKnownCommands';
+          cmdSelect.style.cssText = 'width:100% !important; height:28px !important; background:#111827 !important; color:#e2e8f0 !important; border:1px solid #334155 !important; font-size:11px !important; padding:4px 6px !important; margin:0 !important; box-sizing:border-box !important;';
+          cmdSelect.innerHTML = `
+            <optgroup label="⌚ Dial Slots & Watch Faces (0x02/0x70)">
+              <option value="0x02|0x70|00|🎨 02/70=[00] Switch to Dial Slot 0|Swaps active watch face to Slot 0 (Default).">🎨 02/70=[00] WF 0 (Default Slot)</option>
+              <option value="0x02|0x70|01|🎨 02/70=[01] Switch to Dial Slot 1|Swaps active watch face to Slot 1.">🎨 02/70=[01] WF 1</option>
+              <option value="0x02|0x70|02|🎨 02/70=[02] Switch to Dial Slot 2|Swaps active watch face to Slot 2.">🎨 02/70=[02] WF 2</option>
+              <option value="0x02|0x70|03|🎨 02/70=[03] Switch to Dial Slot 3|Swaps active watch face to Slot 3.">🎨 02/70=[03] WF 3</option>
+              <option value="0x02|0x70|04|🎨 02/70=[04] Switch to Dial Slot 4|Swaps active watch face to Slot 4.">🎨 02/70=[04] WF 4</option>
+              <option value="0x02|0x70|05|🎨 02/70=[05] Switch to Dial Slot 5|Swaps active watch face to Slot 5.">🎨 02/70=[05] WF 5</option>
+              <option value="0x02|0xC8||🗂️ 02/C8 Query All Dial Slots|Reads active and installed dial slot map.">🗂️ 02/C8 Query Dial Slots</option>
+            </optgroup>
+            <optgroup label="🏃 Health & Activity Records (Cmd 0x03)">
+              <option value="0x03|0x01||🏃 03/01 Sync Live Steps & Activity|Asks watch to dump current live step counter, calories, and distance.">🏃 03/01 Sync Live Steps & Activity</option>
+              <option value="0x03|0x02||📊 03/02 Sync Hourly Steps Data|Requests hourly activity records stored in watch flash.">📊 03/02 Sync Hourly Steps Data</option>
+              <option value="0x03|0x03||💤 03/03 Sync Sleep Analysis|Requests deep/light sleep duration records.">💤 03/03 Sync Sleep Analysis</option>
+              <option value="0x03|0x04||❤️ 03/04 Sync Heart Rate Records|Requests recent heart rate measurement logs from watch.">❤️ 03/04 Sync Heart Rate Records</option>
+              <option value="0x03|0x06||🩸 03/06 Sync SpO2 Records|Requests blood oxygen spot checks stored on watch.">🩸 03/06 Sync SpO2 Records</option>
+            </optgroup>
+            <optgroup label="📞 Telephony Commands (Cmd 0x04)">
+              <option value="0x04|0x01||📞 04/01 Incoming Call Ring|Fires incoming call ringing popup with contact name.">📞 04/01 Incoming Call Ring</option>
+              <option value="0x04|0x02||☎️ 04/02 End Call / Hangup|Dismisses active call popup on watch screen.">☎️ 04/02 End Call (Hangup)</option>
+              <option value="0x04|0x03||🔇 04/03 Mute Call|Mutes vibration / audio ring on watch.">🔇 04/03 Mute Call</option>
+            </optgroup>
+            <optgroup label="💬 Social & App Notifications (Cmd 0x04)">
+              <option value="0x04|0x04||💬 04/04 SMS Alert|Fires SMS notification popup with text payload.">💬 04/04 SMS</option>
+              <option value="0x04|0x05||🐧 04/05 QQ Alert|Fires QQ app notification.">🐧 04/05 QQ</option>
+              <option value="0x04|0x06||🟢 04/06 WeChat Alert|Fires WeChat notification.">🟢 04/06 WeChat</option>
+              <option value="0x04|0x07||📘 04/07 Facebook Alert|Fires Facebook notification.">📘 04/07 Facebook</option>
+              <option value="0x04|0x08||𝕏 04/08 Twitter / X Alert|Fires Twitter/X notification.">𝕏 04/08 Twitter / X</option>
+              <option value="0x04|0x09||💼 04/09 LinkedIn Alert|Fires LinkedIn notification.">💼 04/09 LinkedIn</option>
+              <option value="0x04|0x0A||📸 04/0A Instagram Alert|Fires Instagram notification.">📸 04/0A Instagram</option>
+              <option value="0x04|0x0B||🔔 04/0B System Notice Alert|Fires generic system notice popup.">🔔 04/0B System Notice</option>
+              <option value="0x04|0x0C||📲 04/0C WhatsApp Alert|Fires WhatsApp notification.">📲 04/0C WhatsApp</option>
+              <option value="0x04|0x0D||🟢 04/0D LINE Alert|Fires LINE notification." selected>🟢 04/0D LINE (Default)</option>
+              <option value="0x04|0x0E||💬 04/0E Messenger Alert|Fires Facebook Messenger notification.">💬 04/0E Messenger</option>
+              <option value="0x04|0x0F||💛 04/0F KakaoTalk Alert|Fires KakaoTalk notification.">💛 04/0F KakaoTalk</option>
+              <option value="0x04|0x10||🌐 04/10 Skype Alert|Fires Skype notification.">🌐 04/10 Skype</option>
+              <option value="0x04|0x11||✉️ 04/11 Email Alert|Fires Email notification.">✉️ 04/11 Email</option>
+              <option value="0x04|0x12||✈️ 04/12 Telegram Alert|Fires Telegram notification.">✈️ 04/12 Telegram</option>
+              <option value="0x04|0x13||💜 04/13 Viber Alert|Fires Viber notification.">💜 04/13 Viber</option>
+              <option value="0x04|0x15||👻 04/15 Snapchat Alert|Fires Snapchat notification.">👻 04/15 Snapchat</option>
+            </optgroup>
+            <optgroup label="⚙️ Device Registers & Settings (Cmd 0x01 / 0x02)">
+              <option value="0x02|0x20|01|📋 02/20=[01] Master Config & Register Dump|Triggers the full 164B hardware register dump (SoC, FW, MAC, Dials).">📋 02/20 Master Config & Register Dump</option>
+              <option value="0x02|0x3B|01|🔊 02/3B=[01] Find Watch Chime & Screen Alert|Fires the internal audio amplifier chime and lights screen.">🔊 02/3B Find Watch Chime</option>
+              <option value="0x02|0x18|03 EB|🕒 02/18=[03 EB] Set 24H Clock + °C Units|Writes unit mode to 24-hour time and Celsius.">🕒 02/18 Set 24H + °C Units</option>
+              <option value="0x02|0x18|03 EF|🕒 02/18=[03 EF] Set 12H Clock + °C Units|Writes unit mode to 12-hour time and Celsius.">🕒 02/18 Set 12H + °C Units</option>
+              <option value="0x02|0x03|10 27 00 00|🎯 02/03=[10 27 00 00] Set Step Goal (10,000)|Writes 10k daily step target; watch returns Key=0x04 ACK.">🎯 02/03 Set Step Goal (10k)</option>
+              <option value="0x01|0x03||🎯 01/03 Query Step Goal Status|Queries step target; verified to return Key=0x04=[01].">🎯 01/03 Query Step Goal Status</option>
+              <option value="0x01|0x01||📱 01/01 Query Firmware / OTA Status|Queries firmware state; verified to return Key=0x02=[00 00].">📱 01/01 Query Firmware / OTA Status</option>
+              <option value="0x01|0x15||📄 01/15 Read Screen / Page Display List|Reads the active page bitmask (Write=0x15).">📄 01/15 Read Active Screen Pages</option>
+            </optgroup>
+            <optgroup label="📡 Telemetry Streaming & Optical Probes (Cmd 0x06)">
+              <option value="0x06|0x01|01|📡 06/01=[01] Live PPG Stream (Cmd=0x06)|Probes the dedicated live telemetry stream bus.">📡 06/01=[01] Live Stream Bus</option>
+              <option value="0x06|0x02|01|📡 06/02=[01] Live Sensor Stream (Cmd=0x06)|Probes secondary sensor stream channel.">📡 06/02=[01] Live Sensor Channel</option>
+            </optgroup>
+            <optgroup label="🌤️ Weather Telemetry Presets (Cmd 0x02)">
+              <option value="0x02|0x36|16 10 1A 01 01 01 01|🌤️ 02/36 Push Weather 22°C Sunny|Broadcasts full current weather telemetry payload.">🌤️ 02/36 Push Weather 22°C Sunny</option>
+            </optgroup>
+          `;
+          body0A.appendChild(cmdSelect);
+
+          // 3. The 3 Custom Command Fields: CMD, KEY, PAYLOAD
+          const fieldsRow = document.createElement('div');
+          fieldsRow.style.cssText = 'display:flex; gap:6px; width:100%; box-sizing:border-box; margin:0;';
+
+          // Field 1: CMD
+          const colCmd = document.createElement('div');
+          colCmd.style.cssText = 'width:62px; display:flex; flex-direction:column; gap:2px;';
+          colCmd.innerHTML = '<label style="font-size:9px; color:#94a3b8; font-weight:700;">CMD (0x)</label>';
+          const inputCmd = document.createElement('input');
+          inputCmd.type = 'text';
+          inputCmd.id = 'masterCmdId';
+          inputCmd.value = '04';
+          inputCmd.maxLength = 4;
+          inputCmd.style.cssText = 'width:100%; height:26px; font-family:monospace; font-size:11px; font-weight:700; text-align:center; background:#111827; color:#38bdf8; border:1px solid #334155; padding:2px; box-sizing:border-box;';
+          colCmd.appendChild(inputCmd);
+          fieldsRow.appendChild(colCmd);
+
+          // Field 2: KEY
+          const colKey = document.createElement('div');
+          colKey.style.cssText = 'width:62px; display:flex; flex-direction:column; gap:2px;';
+          colKey.innerHTML = '<label style="font-size:9px; color:#94a3b8; font-weight:700;">KEY (0x)</label>';
+          const inputKey = document.createElement('input');
+          inputKey.type = 'text';
+          inputKey.id = 'masterKeyId';
+          inputKey.value = '0D';
+          inputKey.maxLength = 4;
+          inputKey.style.cssText = 'width:100%; height:26px; font-family:monospace; font-size:11px; font-weight:700; text-align:center; background:#111827; color:#38bdf8; border:1px solid #334155; padding:2px; box-sizing:border-box;';
+          colKey.appendChild(inputKey);
+          fieldsRow.appendChild(colKey);
+
+          // Field 3: PAYLOAD
+          const colPayload = document.createElement('div');
+          colPayload.style.cssText = 'flex:1; display:flex; flex-direction:column; gap:2px;';
+          colPayload.innerHTML = '<label style="font-size:9px; color:#94a3b8; font-weight:700;">PAYLOAD (HEX / TEXT)</label>';
+          const inputPayload = document.createElement('input');
+          inputPayload.type = 'text';
+          inputPayload.id = 'masterCmdPayload';
+          inputPayload.value = 'Watch link ok!';
+          inputPayload.placeholder = 'e.g. 01 or message';
+          inputPayload.style.cssText = 'width:100%; height:26px; font-family:monospace; font-size:11px; background:#111827; color:#fff; border:1px solid #334155; padding:2px 6px; box-sizing:border-box;';
+          colPayload.appendChild(inputPayload);
+          fieldsRow.appendChild(colPayload);
+
+          body0A.appendChild(fieldsRow);
+
+          // 4. Full-Width Green Send Command Button
+          const sendBtn = document.createElement('button');
+          sendBtn.id = 'btnSendMasterCmd';
+          sendBtn.innerHTML = '⚡ Send Command';
+          sendBtn.style.cssText = 'width:100%; height:28px; font-size:11px; font-weight:700; background:#10b981; color:#fff; border:none; border-radius:0; cursor:pointer; margin:0; box-sizing:border-box;';
+          body0A.appendChild(sendBtn);
+
+          // 5. Quick Action Row: Advance Next | SIG Battery
+          const actionRow = document.createElement('div');
+          actionRow.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0; width:100%; box-sizing:border-box;';
+
+          const nextBtn = document.createElement('button');
+          nextBtn.id = 'btnAdvanceMasterNext';
+          nextBtn.innerHTML = '⏭️ Next Command';
+          nextBtn.className = 'dock-btn';
+          nextBtn.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; font-size:11px !important;';
+          actionRow.appendChild(nextBtn);
+
+          const sigBatBtn = document.createElement('button');
+          sigBatBtn.id = 'btnSigBatteryMaster';
+          sigBatBtn.innerHTML = '🔋 SIG Battery';
+          sigBatBtn.className = 'dock-btn';
+          sigBatBtn.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; font-size:11px !important; color:#10b981 !important;';
+          actionRow.appendChild(sigBatBtn);
+          body0A.appendChild(actionRow);
+
+          // 6. Dynamic Prediction Callout Box
+          const predictionBox = document.createElement('div');
+          predictionBox.id = 'masterCmdPrediction';
+          predictionBox.style.cssText = 'font-size:10px; color:#94a3b8; line-height:1.3; padding:5px 7px; background:#05080f; border:1px solid #1e293b; margin:0; box-sizing:border-box;';
+          predictionBox.innerHTML = '💡 <b>[0x04/0x0D]:</b> Fires LINE notification popup on watch.';
+          body0A.appendChild(predictionBox);
+
+          // Dynamic Selection Handler: Auto-populates all 3 text fields
+          cmdSelect.onchange = () => {
+            const val = cmdSelect.value;
+            const parts = val.split('|');
+            const cmd = (parts[0] || '').replace('0x', '').toUpperCase();
+            const key = (parts[1] || '').replace('0x', '').toUpperCase();
+            const defaultPayload = parts[2] || '';
+            const title = parts[3] || '';
+            const desc = parts[4] || title;
+
+            inputCmd.value = cmd;
+            inputKey.value = key;
+            inputPayload.value = defaultPayload || (cmd === '04' ? 'Watch link ok!' : '');
+            predictionBox.innerHTML = `💡 <b>[0x${cmd}/0x${key}]:</b> ${desc || 'Ready to dispatch.'}`;
+          };
+
+          nextBtn.onclick = () => {
+            const nextIdx = (cmdSelect.selectedIndex + 1) % cmdSelect.options.length;
+            cmdSelect.selectedIndex = nextIdx;
+            cmdSelect.onchange();
+          };
+
+          sigBatBtn.onclick = () => {
+            if (typeof readSigBattery === 'function') readSigBattery();
+          };
+
+          // Universal Dispatch Trigger (Reads from the 3 text fields)
+          sendBtn.onclick = async () => {
+            const cmdHex = inputCmd.value.trim();
+            const keyHex = inputKey.value.trim();
+            const payloadVal = inputPayload.value.trim();
+
+            if (cmdHex === '04' || cmdHex === '4') {
+              const appCode = parseInt(keyHex, 16);
+              if (typeof sendWatchAlert === 'function') {
+                sendWatchAlert(appCode, payloadVal || 'Watch link ok!');
+              }
+            } else if (cmdHex === '02' && (keyHex === '36' || keyHex === '37')) {
+              if (typeof sendWeather === 'function') sendWeather(1);
+            } else if (typeof buildFitCloudFrame === 'function' && typeof enqueueBleWrite === 'function') {
+              const cmd = parseInt(cmdHex, 16);
+              const key = parseInt(keyHex, 16);
+              const payloadBytes = payloadVal ? payloadVal.split(/\s+/).map(b => parseInt(b, 16)).filter(n => !isNaN(n)) : [];
+              const { frame, seq } = buildFitCloudFrame(cmd, key, payloadBytes, 0x00);
+              await enqueueBleWrite(cmdChar, frame, `CustomCmd(0x${cmdHex}/0x${keyHex}) seq=${seq}`);
+            }
+          };
+
+          // 7. 🔓 Enable All Alerts
+          allButtons.filter(b => b.textContent.includes('Enable All Alerts')).forEach(b => {
+            b.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; padding:5px 8px !important; font-size:11px !important; box-sizing:border-box !important;';
+            body0A.appendChild(b);
+          });
+
+          // 8. 🔊 Find Watch Chime
+          allButtons.filter(b => b.textContent.includes('Find Watch Chime')).forEach(b => {
+            b.className = 'dock-btn';
+            b.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; padding:5px 8px !important; font-size:11px !important; background:#1e293b !important; color:#e2e8f0 !important; border:1px solid #334155 !important; box-sizing:border-box !important;';
+            body0A.appendChild(b);
+          });
+
+          // 9. 🎞️ ALL TEST
+          const allTestBtn = allButtons.find(b => b.textContent.includes('ALL TEST')) || document.createElement('button');
+          allTestBtn.innerHTML = '🎞️ ALL TEST';
+          allTestBtn.className = 'warn';
+          allTestBtn.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; padding:5px 8px !important; font-size:11px !important; background:#f59e0b !important; color:#111 !important; font-weight:700 !important; border:none !important; border-radius:0 !important; box-sizing:border-box !important; cursor:pointer !important;';
+          
+          allTestBtn.onclick = async () => {
+            if (typeof abortBleOperation !== 'undefined') abortBleOperation = false;
+            if (typeof log === 'function') log('🚀 Starting Comprehensive ALL TEST (Excluding Reset)...', 'ok');
+
+            const testSequence = [
+              { name: '🔊 Find Watch Chime', fn: () => { const cb = allButtons.find(b => b.textContent.includes('Find Watch Chime')); if (cb) cb.click(); } },
+              { name: '🔋 02/1B Read Battery %', val: '0x02|0x1b||🔋 Query Watch Battery %|' },
+              { name: '📱 01/01 Query Firmware OTA', val: '0x01|0x01||📱 01/01 Query Firmware OTA|' },
+              { name: '📄 01/15 Read Screen Pages', val: '0x01|0x15||📄 01/15 Read Screen Pages|' },
+              { name: '🏃 03/01 Sync Live Steps', val: '0x03|0x01||🏃 03/01 Sync Live Steps|' },
+              { name: '❤️ 03/04 Sync Heart Rate', val: '0x03|0x04||❤️ 03/04 Sync Heart Rate|' },
+              { name: '🩸 03/06 Sync SpO2', val: '0x03|0x06||🩸 03/06 Sync SpO2|' },
+              { name: '📞 04/01 Incoming Call Ring', fn: () => sendWatchAlert(0x01, 'Call Ring Test') },
+              { name: '☎️ 04/02 End Call', fn: () => sendWatchAlert(0x02, 'End Call') },
+              { name: '💬 04/04 SMS Alert', fn: () => sendWatchAlert(0x04, 'SMS Test') },
+              { name: '🟢 04/06 WeChat Alert', fn: () => sendWatchAlert(0x06, 'WeChat Test') },
+              { name: '📘 04/07 Facebook Alert', fn: () => sendWatchAlert(0x07, 'FB Test') },
+              { name: '𝕏 04/08 Twitter/X Alert', fn: () => sendWatchAlert(0x08, 'X Test') },
+              { name: '📲 04/0C WhatsApp Alert', fn: () => sendWatchAlert(0x0C, 'WhatsApp Test') },
+              { name: '🟢 04/0D LINE Alert', fn: () => sendWatchAlert(0x0D, 'LINE Test') },
+              { name: '✈️ 04/12 Telegram Alert', fn: () => sendWatchAlert(0x12, 'Telegram Test') },
+              { name: '🎨 02/70=[01] Switch Dial Slot 1', val: '0x02|0x70|01|🎨 02/70=[01] Switch Dial 1|' },
+              { name: '🎨 02/70=[00] Switch Dial Slot 0 (Default)', val: '0x02|0x70|00|🎨 02/70=[00] Switch Dial 0|' }
+            ];
+
+            for (let i = 0; i < testSequence.length; i++) {
+              if (typeof abortBleOperation !== 'undefined' && abortBleOperation) {
+                if (typeof log === 'function') log('🛑 ALL TEST aborted by user.', 'warn');
+                break;
+              }
+              const item = testSequence[i];
+              if (typeof log === 'function') log(`[ALL TEST ${i+1}/${testSequence.length}] Running: ${item.name}`, 'ok');
+
+              try {
+                if (item.fn) {
+                  await item.fn();
+                } else if (item.val) {
+                  cmdSelect.value = item.val;
+                  cmdSelect.onchange();
+                  sendBtn.click();
+                }
+              } catch (err) {
+                console.warn('ALL TEST item error:', err);
+              }
+              await new Promise(r => setTimeout(r, 1600));
+            }
+            if (typeof log === 'function') log('🏁 ALL TEST completed successfully!', 'ok');
+          };
+          body0A.appendChild(allTestBtn);
+
+          // 10. ⚠️ Reset (Safely isolated at bottom)
+          allButtons.filter(b => b.textContent.includes('Reset')).forEach(b => {
+            b.className = 'danger';
+            b.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; padding:5px 8px !important; font-size:11px !important; background:#ef4444 !important; color:#fff !important; border:none !important; border-radius:0 !important; box-sizing:border-box !important; cursor:pointer !important; font-weight:700 !important;';
+            body0A.appendChild(b);
+          });
+
+          const card0A = makeToolCard('0', 'Master Command Station', body0A);
+          card0A.id = 'toolCard_0_alerts';
+          if (card0A) alertsToolbox.appendChild(card0A);
+        }
+
+        // TOOL 1: Call & Telephony Dispatcher
+        if (!document.getElementById('toolCard_1_alerts')) {
+          const body1A = document.createElement('div');
+          body1A.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+
+          const callerInput = allInputs.find(i => (i.value && i.value.includes('HT37')) || (i.id && i.id.toLowerCase().includes('caller')));
+          if (callerInput) {
+            const rowCaller = (callerInput.parentElement && callerInput.parentElement !== alertBody) ? callerInput.parentElement : callerInput;
+            body1A.appendChild(rowCaller);
+          }
+
+          const msgInput = allInputs.find(i => (i.value && i.value.includes('Watch link ok')) || (i.id && i.id.toLowerCase().includes('msg')));
+          if (msgInput) {
+            const rowMsg = (msgInput.parentElement && msgInput.parentElement !== alertBody) ? msgInput.parentElement : msgInput;
+            body1A.appendChild(rowMsg);
+          }
+
+          const encSelect = allSelects.find(s => Array.from(s.options).some(o => o.text.includes('UTF') || o.text.includes('GBK') || o.text.includes('Encoding')));
+          if (encSelect) {
+            const rowEnc = (encSelect.parentElement && encSelect.parentElement !== alertBody) ? encSelect.parentElement : encSelect;
+            body1A.appendChild(rowEnc);
+          }
+
+          const callGrid = document.createElement('div');
+          callGrid.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;';
+          allButtons.filter(b => {
+            const t = b.textContent;
+            return t.includes('Call') || t.includes('End Call') || t.includes('Mute');
+          }).forEach(b => {
+            b.style.cssText = 'width:100%; margin:0; padding:5px 8px; font-size:11px;';
+            callGrid.appendChild(b);
+          });
+          body1A.appendChild(callGrid);
+
+          const card1A = makeToolCard('1', 'Call & Telephony Dispatcher', body1A);
+          card1A.id = 'toolCard_1_alerts';
+          if (card1A) alertsToolbox.appendChild(card1A);
+        }
+
+        // TOOL 2: Social & App Notifications (2-Column Grid matching standard)
+        if (!document.getElementById('toolCard_2_alerts')) {
+          const body2A = document.createElement('div');
+          body2A.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:6px;';
+
+          const appOrder = ['04/04','04/05','04/06','04/07','04/08','04/09','04/0A','04/0B','04/0C','04/0D','04/0E','04/0F','04/10','04/11','04/12','04/13','04/15'];
+          const socialBtns = allButtons.filter(b => {
+            return appOrder.some(code => b.textContent.includes(code));
+          }).sort((a, b) => {
+            const codeA = appOrder.findIndex(code => a.textContent.includes(code));
+            const codeB = appOrder.findIndex(code => b.textContent.includes(code));
+            return codeA - codeB;
+          });
+
+          socialBtns.forEach(b => {
+            b.className = 'dock-btn';
+            b.style.cssText = 'width:100% !important; margin:0 !important; padding:5px 6px !important; font-size:11px !important; background:#1e293b !important; color:#e2e8f0 !important; border:1px solid #334155 !important; border-radius:0 !important; cursor:pointer !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important;';
+            body2A.appendChild(b);
+          });
+
+          const card2A = makeToolCard('2', 'Social & App Notifications', body2A);
+          card2A.id = 'toolCard_2_alerts';
+          if (card2A) alertsToolbox.appendChild(card2A);
+        }
+
+        if (alertCard && alertCard !== alertBody) {
+          alertCard.style.display = 'none';
+        }
+      }
+
+      // TOOL 3: Weather & Sky Dispatch (Push Weather Top Full-Width, Presets Middle, Send All Bottom)
+      if (!document.getElementById('toolCard_3_alerts')) {
+        const bodyWeather = document.createElement('div');
+        bodyWeather.style.cssText = 'display:flex; flex-direction:column; gap:8px; margin:0; padding:0;';
+
+        // A. Sky Condition Control (at top if present)
+        const secSensors = document.getElementById('secSensorWeatherBody');
+        if (secSensors) {
+          const skyLeaf = secSensors.querySelector('input[id*="sky" i], select[id*="sky" i]');
+          if (skyLeaf) {
+            const skyRow = (skyLeaf.parentElement && skyLeaf.parentElement !== secSensors) ? skyLeaf.parentElement : skyLeaf;
+            skyRow.style.margin = '0';
+            bodyWeather.appendChild(skyRow);
+          }
+        }
+
+        // B. 🌤️ Push Weather Button (Stretched 100% full-width on top)
+        const pushBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Push Weather')) || document.createElement('button');
+        pushBtn.innerHTML = '🌤️ Push Weather';
+        pushBtn.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; padding:5px 8px !important; font-size:11px !important; font-weight:700; background:#1e293b; color:#38bdf8; border:1px solid #334155; border-radius:0; cursor:pointer;';
+        // Relocate liveSensorHex directly above Push Weather with a clean label
+        const hexInput = document.getElementById('liveSensorHex');
+        if (hexInput) {
+          // Clean up leftover orphaned label / container in Tab 1
+          const oldParentRow = hexInput.closest('.field-row, .compact-slider-row') || hexInput.parentElement;
+          if (oldParentRow && oldParentRow.id !== 'weatherDispatchBody') {
+            const oldLabel = oldParentRow.querySelector('label') || Array.from(document.querySelectorAll('label')).find(l => l.textContent.includes('Weather Hex') || l.textContent.includes('Sensor Hex'));
+            if (oldLabel) oldLabel.remove();
+          }
+        }
+        if (hexInput) {
+          const hexWrap = document.createElement('div');
+          hexWrap.style.cssText = 'display:flex; flex-direction:column; gap:2px; width:100%; box-sizing:border-box; margin:0;';
+          hexWrap.innerHTML = '<label style="font-size:9px; color:#94a3b8; font-weight:700; text-transform:uppercase;">LIVE 0x36 PACKET TELEMETRY</label>';
+          
+          hexInput.style.cssText = 'width:100% !important; height:28px !important; font-family:monospace !important; font-size:11px !important; font-weight:700 !important; background:#111827 !important; color:#38bdf8 !important; border:1px solid #334155 !important; border-radius:0 !important; padding:4px 8px !important; box-sizing:border-box !important; text-align:center !important;';
+          hexInput.readOnly = true;
+          hexWrap.appendChild(hexInput);
+          bodyWeather.appendChild(hexWrap);
+        }
+
+        bodyWeather.appendChild(pushBtn);
+
+        // Move Cur/Min/Max row from Tab 1 directly underneath Push Weather
+        const tempInput = document.getElementById('liveTempCur');
+        if (tempInput) {
+          const tempRow = tempInput.closest('.field-row') || tempInput.parentElement;
+          if (tempRow) {
+            tempRow.style.cssText = 'display:flex; align-items:center; justify-content:center; gap:3px; margin:0 auto; padding:2px 0; width:100%; box-sizing:border-box; font-size:11px;';
+            const inCur = document.getElementById('liveTempCur');
+            const inMin = document.getElementById('liveTempMin');
+            const inMax = document.getElementById('liveTempMax');
+            if (inCur && inMin && inMax) {
+              tempRow.innerHTML = `
+                <span style="font-size:12px; line-height:1; margin-right:3px;">🌡️</span>
+                <span style="color:#94a3b8; font-size:10px; font-weight:700;">Cur:</span>
+              `;
+              tempRow.appendChild(inCur);
+              tempRow.insertAdjacentHTML('beforeend', '<span style="color:#94a3b8; font-size:10px; font-weight:700; margin-left:3px;">Min:</span>');
+              tempRow.appendChild(inMin);
+              tempRow.insertAdjacentHTML('beforeend', '<span style="color:#94a3b8; font-size:10px; font-weight:700; margin-left:3px;">Max:</span>');
+              tempRow.appendChild(inMax);
+              tempRow.insertAdjacentHTML('beforeend', '<span style="color:#38bdf8; font-size:11px; font-weight:700; margin-left:1px;">°C</span>');
+              [inCur, inMin, inMax].forEach(inp => {
+                inp.style.cssText = 'width:36px; height:24px; font-size:11px; font-weight:600; text-align:center; background:#111827; color:#fff; border:1px solid #334155; padding:2px; box-sizing:border-box;';
+              });
+            }
+            // Relocate Unit Mode & Weather Format dropdowns directly above Cur/Min/Max
+            const unitSel = document.getElementById('watchTimeUnitSelect');
+            const fmtSel = document.getElementById('weatherFmtSelect');
+            if (unitSel && fmtSel) {
+              const cfgRow = unitSel.closest('.field-row, div') || unitSel.parentElement;
+              if (cfgRow) {
+                cfgRow.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0; width:100%; box-sizing:border-box;';
+                cfgRow.innerHTML = '';
+
+                // Column 1: Time & Temp Unit Mode
+                const colUnit = document.createElement('div');
+                colUnit.style.cssText = 'display:flex; flex-direction:column; gap:2px;';
+                colUnit.innerHTML = '<label style="font-size:9px; color:#94a3b8; font-weight:700; text-transform:uppercase;">TIME & TEMP UNIT</label>';
+                colUnit.appendChild(unitSel);
+
+                // Column 2: 0x36 Weather Packet Format
+                const colFmt = document.createElement('div');
+                colFmt.style.cssText = 'display:flex; flex-direction:column; gap:2px;';
+                colFmt.innerHTML = '<label style="font-size:9px; color:#94a3b8; font-weight:700; text-transform:uppercase;">WEATHER PKT FORMAT</label>';
+                colFmt.appendChild(fmtSel);
+
+                cfgRow.appendChild(colUnit);
+                cfgRow.appendChild(colFmt);
+
+                [unitSel, fmtSel].forEach(s => {
+                  s.style.cssText = 'width:100% !important; height:28px !important; font-size:11px !important; background:#111827 !important; color:#e2e8f0 !important; border:1px solid #334155 !important; border-radius:0 !important; padding:3px 4px !important; box-sizing:border-box !important;';
+                });
+                bodyWeather.appendChild(cfgRow);
+              }
+
+              // Dynamic C <-> F Unit and Value Conversion Hook
+              let lastUnitMode = unitSel.value;
+              const origUnitChange = unitSel.onchange;
+              unitSel.onchange = function(e) {
+                if (typeof origUnitChange === 'function') origUnitChange.call(this, e);
+                const curMode = this.value;
+                const isF = curMode.endsWith('_F');
+                const wasF = lastUnitMode.endsWith('_F');
+                lastUnitMode = curMode;
+
+                // 1. Update Unit Badge
+                const unitBadge = tempRow.querySelector('span[style*="#38bdf8"]');
+                if (unitBadge) unitBadge.textContent = isF ? '°F' : '°C';
+
+                // 2. Convert Cur, Min, Max values if scale flipped
+                if (isF !== wasF) {
+                  const inCur = document.getElementById('liveTempCur');
+                  const inMin = document.getElementById('liveTempMin');
+                  const inMax = document.getElementById('liveTempMax');
+                  [inCur, inMin, inMax].forEach(inp => {
+                    if (inp && inp.value !== '') {
+                      const v = Number(inp.value);
+                      if (!isNaN(v)) {
+                        inp.value = isF ? Math.round((v * 9/5) + 32) : Math.round((v - 32) * 5/9);
+                      }
+                    }
+                  });
+                }
+              };
+            }
+
+            bodyWeather.appendChild(tempRow);
+          }
+        }
+
+        // C. 12 Weather Preset Buttons (Clean 2-Column Grid in the middle)
+        const weatherGrid = document.createElement('div');
+        weatherGrid.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0; width:100%; box-sizing:border-box;';
+
+        const weatherKeywords = ['Sunny', 'Cloudy', 'Overcast', 'Shower', 'Thunder', 'LtRain', 'ModRain', 'Sleet', 'LtSnow', 'ModSnow', 'Sand', 'Foggy'];
+        Array.from(document.querySelectorAll('button')).filter(b => weatherKeywords.some(kw => b.textContent.includes(kw))).forEach(b => {
+          b.className = 'dock-btn';
+          b.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; padding:5px 6px !important; font-size:11px !important; background:#1e293b !important; color:#e2e8f0 !important; border:1px solid #334155 !important; border-radius:0 !important; cursor:pointer !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; box-sizing:border-box !important; text-align:center !important;';
+          weatherGrid.appendChild(b);
+        });
+        bodyWeather.appendChild(weatherGrid);
+
+        // D. ⚡ Send All Button (Yellow Accent at bottom of preset buttons)
+        const skyBtn = Array.from(document.querySelectorAll('button')).find(b => (b.textContent.includes('Send All') || b.textContent.includes('Sky')) && b !== pushBtn) || document.createElement('button');
+        skyBtn.innerHTML = '⚡ Send All';
+        skyBtn.className = 'warn';
+        skyBtn.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; padding:5px 8px !important; font-size:11px !important; font-weight:700 !important; background:#f59e0b !important; color:#111 !important; border:none !important; border-radius:0 !important; cursor:pointer !important;';
+        bodyWeather.appendChild(skyBtn);
+
+        // E. Receive State Button
+        const receiveBtn = document.createElement('button');
+        receiveBtn.type = 'button';
+        receiveBtn.id = 'btnReceiveWeatherWatch';
+        receiveBtn.className = 'dock-btn';
+        receiveBtn.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; padding:5px 6px !important; background:#1e293b !important; color:#94a3b8 !important; border:1px dashed #475569 !important; font-weight:600 !important; font-size:11px !important;';
+        receiveBtn.textContent = '📥 Receive State from Watch (Planned)';
+        bodyWeather.appendChild(receiveBtn);
+
+        const card3A = makeToolCard('3', 'Weather & Sky Dispatch', bodyWeather);
+        card3A.id = 'toolCard_3_alerts';
+        if (card3A) alertsToolbox.appendChild(card3A);
+
+        // TOOL 4: Dial Slot Switcher (02/70) - Moved from Tab 1, Tool 2
+        if (!document.getElementById('toolCard_4_dial_alerts')) {
+          const bodyDial = document.createElement('div');
+          bodyDial.style.cssText = 'display:flex; flex-direction:column; gap:8px; margin:0; padding:0; width:100%; box-sizing:border-box;';
+
+          // 1. Move Watchface (02/70) Dropdown & Switch Button Row
+          const dialSel = document.getElementById('dialSlotSelect');
+          if (dialSel) {
+            const dialRow = dialSel.closest('.field-row') || dialSel.parentElement;
+            if (dialRow) {
+              dialRow.style.cssText = 'display:flex; flex-direction:column; gap:4px; margin:0; width:100%; box-sizing:border-box;';
+              const lbl = dialRow.querySelector('label');
+              if (lbl) lbl.style.cssText = 'font-size:9px; color:#94a3b8; font-weight:700; text-transform:uppercase; margin:0;';
+              
+              const innerFlex = dialSel.parentElement;
+              if (innerFlex && innerFlex !== dialRow) {
+                innerFlex.style.cssText = 'display:flex; gap:6px; width:100%; box-sizing:border-box;';
+              }
+              dialSel.style.cssText = 'flex:1 !important; height:28px !important; font-size:11px !important; background:#111827 !important; color:#e2e8f0 !important; border:1px solid #334155 !important; padding:4px 6px !important; box-sizing:border-box !important;';
+              
+              const switchBtn = dialRow.querySelector('button');
+              if (switchBtn) {
+                switchBtn.className = 'dock-btn';
+                switchBtn.style.cssText = 'width:auto !important; padding:0 12px !important; height:28px !important; font-size:11px !important; font-weight:700 !important; background:#1e293b !important; color:#38bdf8 !important; border:1px solid #334155 !important; cursor:pointer !important;';
+              }
+              bodyDial.appendChild(dialRow);
+            }
+          }
+
+          // 2. Move the 6 WF Buttons into a Standardized 2-Column Grid
+          const wfBtns = Array.from(document.querySelectorAll('button')).filter(b => {
+            const oc = b.getAttribute('onclick') || '';
+            return oc.includes('switchWatchfaceByIndex');
+          });
+          if (wfBtns.length > 0) {
+            const oldGrid = wfBtns[0].parentElement;
+            const wfGrid = document.createElement('div');
+            wfGrid.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0; width:100%; box-sizing:border-box;';
+            
+            wfBtns.forEach((b, idx) => {
+              b.className = 'dock-btn';
+              b.removeAttribute('style');
+              const hexIdx = idx.toString(16).padStart(2, '0').toUpperCase();
+              b.innerHTML = `⌚ WF ${idx} (02/70=${hexIdx})`;
+              b.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; padding:5px 6px !important; font-size:11px !important; font-weight:600 !important; background:#1e293b !important; color:#e2e8f0 !important; border:1px solid #334155 !important; border-radius:0 !important; cursor:pointer !important; box-sizing:border-box !important; text-align:center !important;';
+              wfGrid.appendChild(b);
+            });
+            bodyDial.appendChild(wfGrid);
+            if (oldGrid && oldGrid.children.length === 0) oldGrid.remove();
+          }
+
+          const card4A = makeToolCard('4', 'Dial Slot Switcher (02/70)', bodyDial);
+          card4A.id = 'toolCard_4_dial_alerts';
+          if (card4A) alertsToolbox.appendChild(card4A);
+        }
+
+        // TOOL 4: Dial Slot Switcher (02/70) - Moved from Tab 1, Tool 2
+        if (!document.getElementById('toolCard_4_dial_alerts')) {
+          const bodyDial = document.createElement('div');
+          bodyDial.style.cssText = 'display:flex; flex-direction:column; gap:8px; margin:0; padding:0; width:100%; box-sizing:border-box;';
+
+          // 1. Move Watchface (02/70) Dropdown & Switch Button Row
+          const dialSel = document.getElementById('dialSlotSelect');
+          if (dialSel) {
+            const dialRow = dialSel.closest('.field-row') || dialSel.parentElement;
+            if (dialRow) {
+              dialRow.style.cssText = 'display:flex; flex-direction:column; gap:4px; margin:0; width:100%; box-sizing:border-box;';
+              const lbl = dialRow.querySelector('label');
+              if (lbl) lbl.style.cssText = 'font-size:9px; color:#94a3b8; font-weight:700; text-transform:uppercase; margin:0;';
+              
+              const innerFlex = dialSel.parentElement;
+              if (innerFlex && innerFlex !== dialRow) {
+                innerFlex.style.cssText = 'display:flex; gap:6px; width:100%; box-sizing:border-box;';
+              }
+              dialSel.style.cssText = 'flex:1 !important; height:28px !important; font-size:11px !important; background:#111827 !important; color:#e2e8f0 !important; border:1px solid #334155 !important; padding:4px 6px !important; box-sizing:border-box !important;';
+              
+              const switchBtn = dialRow.querySelector('button');
+              if (switchBtn) {
+                switchBtn.className = 'dock-btn';
+                switchBtn.style.cssText = 'width:auto !important; padding:0 12px !important; height:28px !important; font-size:11px !important; font-weight:700 !important; background:#1e293b !important; color:#38bdf8 !important; border:1px solid #334155 !important; cursor:pointer !important;';
+              }
+              bodyDial.appendChild(dialRow);
+            }
+          }
+
+          // 2. Move the 6 WF Buttons into a Standardized 2-Column Grid
+          const wfBtns = Array.from(document.querySelectorAll('button')).filter(b => {
+            const oc = b.getAttribute('onclick') || '';
+            return oc.includes('switchWatchfaceByIndex');
+          });
+          if (wfBtns.length > 0) {
+            const oldGrid = wfBtns[0].parentElement;
+            const wfGrid = document.createElement('div');
+            wfGrid.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0; width:100%; box-sizing:border-box;';
+            
+            wfBtns.forEach((b, idx) => {
+              b.className = 'dock-btn';
+              b.removeAttribute('style');
+              const hexIdx = idx.toString(16).padStart(2, '0').toUpperCase();
+              b.innerHTML = `⌚ WF ${idx} (02/70=${hexIdx})`;
+              b.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; padding:5px 6px !important; font-size:11px !important; font-weight:600 !important; background:#1e293b !important; color:#e2e8f0 !important; border:1px solid #334155 !important; border-radius:0 !important; cursor:pointer !important; box-sizing:border-box !important; text-align:center !important;';
+              wfGrid.appendChild(b);
+            });
+            bodyDial.appendChild(wfGrid);
+            if (oldGrid && oldGrid.children.length === 0) oldGrid.remove();
+          }
+
+          const card4A = makeToolCard('4', 'Dial Slot Switcher (02/70)', bodyDial);
+          card4A.id = 'toolCard_4_dial_alerts';
+          if (card4A) alertsToolbox.appendChild(card4A);
+        }
+      }
+
+      // Hide original raw command explorer in DOM so it never leaks
+      const cmdExplorerOriginal = document.getElementById('commandExplorer');
+      if (cmdExplorerOriginal) {
+        cmdExplorerOriginal.style.display = 'none';
+      }
+    } catch(err) { console.warn('Alerts Toolbox error:', err); }
+
+    // ==========================================
+    // 3. POPULATE TAB 3: DFU FLASHING TOOLBOX
+    // ==========================================
+    try {
+      let dfuToolbox = document.getElementById('dfuToolboxWindow');
+      if (!dfuToolbox) {
+        dfuToolbox = document.createElement('div');
+        dfuToolbox.id = 'dfuToolboxWindow';
+        dfuToolbox.className = 'unified-toolbox-window';
+        dfuLeft.appendChild(dfuToolbox);
+      }
+
+      const dfuBody = document.getElementById('secDfuEngineBody');
+      const dfuCard = getCard('secDfuEngineBody');
+
+      if (dfuBody) {
+        const dfuButtons = Array.from(dfuBody.querySelectorAll('button'));
+
+        // Tool 0: Flashing Handshake & Upload Triggers
+        if (!document.getElementById('toolCard_0_dfu')) {
+          const body0D = document.createElement('div');
+          body0D.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+          dfuButtons.filter(b => {
+            const t = b.textContent;
+            return t.includes('White Arrow') || t.includes('Probe FFB1');
+          }).forEach(b => {
+            b.style.width = '100%';
+            b.style.margin = '0';
+            b.style.padding = '6px 8px';
+            b.style.fontSize = '11px';
+            body0D.appendChild(b);
+          });
+          const card0D = makeToolCard('0', 'Flashing Handshake & Triggers', body0D);
+          card0D.id = 'toolCard_0_dfu';
+          if (card0D) dfuToolbox.appendChild(card0D);
+        }
+
+        // Tool 1: Config TLVs & Firmware Tools
+        if (!document.getElementById('toolCard_1_dfu')) {
+          const body1D = document.createElement('div');
+          body1D.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+          
+          dfuButtons.filter(b => b.textContent.includes('Clean Config TLVs')).forEach(b => {
+            b.style.width = '100%';
+            b.style.margin = '0';
+            b.style.padding = '6px 8px';
+            b.style.fontSize = '11px';
+            body1D.appendChild(b);
+          });
+
+          // Fetch HT37 Template button (moved from alerts)
+          const templateBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Fetch HT37 Template'));
+          if (templateBtn) {
+            templateBtn.style.width = '100%';
+            templateBtn.style.margin = '0';
+            templateBtn.style.padding = '6px 8px';
+            templateBtn.style.fontSize = '11px';
+            body1D.appendChild(templateBtn);
+          }
+
+          const card1D = makeToolCard('1', 'Config TLVs & Dial Tools', body1D);
+          card1D.id = 'toolCard_1_dfu';
+          if (card1D) dfuToolbox.appendChild(card1D);
+        }
+
+        // Tool 2: Flashing Progress & Status
+        if (!document.getElementById('toolCard_2_dfu')) {
+          const body2D = document.createElement('div');
+          body2D.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+
+          const progWrap = document.getElementById('dfuProgressWrap');
+          if (progWrap) body2D.appendChild(progWrap);
+
+          const clearBtn = dfuButtons.find(b => b.textContent.includes('Clear All'));
+          if (clearBtn) {
+            clearBtn.style.width = '100%';
+            clearBtn.style.margin = '0';
+            clearBtn.style.padding = '5px 8px';
+            clearBtn.style.fontSize = '11px';
+            body2D.appendChild(clearBtn);
+          }
+
+          const card2D = makeToolCard('2', 'Flashing Progress & Status', body2D);
+          card2D.id = 'toolCard_2_dfu';
+          if (card2D) dfuToolbox.appendChild(card2D);
+        }
+
+        // Hide original card wrapper so it never leaks
+        if (dfuCard && dfuCard !== dfuBody) {
+          dfuCard.style.display = 'none';
+        }
+      }
+    } catch(err) { console.warn('DFU Toolbox error:', err); }
+
+    // ==========================================
+    // 4. WATCH STUDIO CENTER STAGE & RIGHT INSPECTOR
+    // ==========================================
+    try {
+      let wysiwygViewport = document.getElementById('studioWysiwygViewport');
+      if (!wysiwygViewport) {
+        wysiwygViewport = document.createElement('div');
+        wysiwygViewport.id = 'studioWysiwygViewport';
+        wysiwygViewport.className = 'studio-wysiwyg-viewport';
+        wysiwygViewport.innerHTML = `
+          <div class="wysiwyg-zoom-bar">
+            <button type="button" class="zoom-btn" id="btnZoomOut" title="Zoom Out (Ctrl -)">🔍 -</button>
+            <span class="zoom-indicator" id="zoomLevelIndicator" title="Click to Reset">100%</span>
+            <button type="button" class="zoom-btn" id="btnZoomIn" title="Zoom In (Ctrl +)">🔍 +</button>
+            <button type="button" class="zoom-btn" id="btnZoomReset" title="Reset Zoom">Fit 100%</button>
+            <span class="resolution-badge">360 × 360</span>
+          </div>
+          <div class="wysiwyg-scroll-stage" id="wysiwygScrollStage">
+            <div class="watch-zoom-wrapper" id="watchZoomWrapper"></div>
+          </div>
+        `;
+        studioCenter.appendChild(wysiwygViewport);
+
+        const zoomWrapper = wysiwygViewport.querySelector('#watchZoomWrapper');
+        const scrollStage = wysiwygViewport.querySelector('#wysiwygScrollStage');
+        const chassis = document.getElementById('watchChassis');
+        if (chassis) {
+          zoomWrapper.appendChild(chassis);
+        }
+
+        let zoomLevel = 1.0;
+        const zoomIndicator = wysiwygViewport.querySelector('#zoomLevelIndicator');
+
+        function updateZoom(newZoom) {
+          zoomLevel = Math.max(0.4, Math.min(3.0, Math.round(newZoom * 100) / 100));
+          zoomWrapper.style.transform = 'scale(' + zoomLevel + ')';
+          zoomIndicator.textContent = Math.round(zoomLevel * 100) + '%';
+        }
+
+        wysiwygViewport.querySelector('#btnZoomIn').addEventListener('click', () => updateZoom(zoomLevel + 0.25));
+        wysiwygViewport.querySelector('#btnZoomOut').addEventListener('click', () => updateZoom(zoomLevel - 0.25));
+        wysiwygViewport.querySelector('#btnZoomReset').addEventListener('click', () => updateZoom(1.0));
+        zoomIndicator.addEventListener('click', () => updateZoom(1.0));
+
+        scrollStage.addEventListener('wheel', (e) => {
+          if (e.ctrlKey) {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 0.15 : -0.15;
+            updateZoom(zoomLevel + delta);
+          }
+        }, { passive: false });
+      }
+
+      ['secWidgetLayersBody', 'inspectorBody'].forEach(id => {
+        const c = getCard(id);
+        if (c && !studioRight.contains(c)) studioRight.appendChild(c);
+      });
+    } catch(err) { console.warn('Stage viewport error:', err); }
+
+    // ==========================================
+    // 5. PERSISTENT BOTTOM DOCK
+    // ==========================================
+    try {
+      let dock = document.getElementById('persistentLogDock');
+      if (!dock) {
+        dock = document.createElement('div');
+        dock.id = 'persistentLogDock';
+        dock.className = 'studio-bottom-dock';
+        dock.innerHTML = `
+          <div class="dock-header" id="dockHeader">
+            <div class="dock-title">
+              <span class="dock-status-dot"></span>
+              <span>📋 System & BLE Logs</span>
+            </div>
+            <div class="dock-actions" id="dockActionGroup">
+              <button type="button" class="dock-btn" id="dockToggleBtn">▼ Minimize</button>
+            </div>
+          </div>
+          <div class="dock-body" id="dockBody"></div>
+        `;
+        document.body.appendChild(dock);
+
+        const copyBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Copy All Logs'));
+        const clearBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Clear') && !b.textContent.includes('Clear All'));
+        const actionGroup = dock.querySelector('#dockActionGroup');
+        const toggleBtn = dock.querySelector('#dockToggleBtn');
+        if (copyBtn) actionGroup.insertBefore(copyBtn, toggleBtn);
+        if (clearBtn) actionGroup.insertBefore(clearBtn, toggleBtn);
+
+        const dockBody = dock.querySelector('#dockBody');
+        const logTerm = document.getElementById('logTerminal');
+        const hexInsp = document.getElementById('hexInspector');
+        if (logTerm) dockBody.appendChild(logTerm);
+        if (hexInsp) dockBody.appendChild(hexInsp);
+
+        function toggleDock() {
+          const isCollapsed = document.body.classList.toggle('dock-collapsed');
+          dock.classList.toggle('dock-collapsed', isCollapsed);
+          toggleBtn.textContent = isCollapsed ? '▲ Expand' : '▼ Minimize';
+        }
+
+        dock.querySelector('#dockHeader').addEventListener('click', (e) => {
+          if (e.target.tagName === 'BUTTON') return;
+          toggleDock();
+        });
+        toggleBtn.addEventListener('click', toggleDock);
+      }
+    } catch(err) { console.warn('Dock module error:', err); }
+
+    // ==========================================
+    // 6. TOTAL CONTAINMENT: HIDE ALL UNMANAGED ORPHANS
+    // ==========================================
+    try {
+      const dock = document.getElementById('persistentLogDock');
+      Array.from(document.body.children).forEach(el => {
+        if (el !== header && el !== nav && el !== container && el !== dock && el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE') {
+          el.style.display = 'none';
+        }
+      });
+    } catch(err) { console.warn('Cleanup error:', err); }
+
+    // Tab Switcher
     nav.addEventListener('click', (e) => {
       const btn = e.target.closest('.studio-tab-btn');
       if (!btn) return;
@@ -2534,26 +4497,174 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
       try { localStorage.setItem('ht37_active_tab', targetTab); } catch(err){}
     });
 
-    // Restore last open tab
     try {
       const savedTab = localStorage.getItem('ht37_active_tab');
       if (savedTab && document.getElementById(savedTab)) {
-        const targetBtn = nav.querySelector([data-tab=" + savedTab + "]);
+        const targetBtn = nav.querySelector(`[data-tab="` + savedTab + `"]`);
         if (targetBtn) targetBtn.click();
       }
     } catch(err){}
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setupTabs);
+    document.addEventListener('DOMContentLoaded', setupStudio);
   } else {
-    setupTabs();
+    setupStudio();
   }
 })();
+// [TAB-2 / TOOL-0]: Dedicated Initializer for Universal Command Dropdown + Send Trigger
+(function initTool0Catalog() {
+  function applyTool0() {
+    const card0 = document.getElementById('toolCard_0_alerts');
+    if (!card0) return;
+    const body0 = card0.querySelector('.toolbox-tool-body');
+    if (!body0 || document.getElementById('selAllKnownCommands')) return;
+
+    // 1. Universal Command Catalog Dropdown
+    const select = document.createElement('select');
+    select.id = 'selAllKnownCommands';
+    select.style.cssText = 'width:100% !important; height:28px !important; background:#111827 !important; color:#e2e8f0 !important; border:1px solid #334155 !important; font-size:11px !important; padding:4px 6px !important; margin-bottom:4px !important; box-sizing:border-box !important;';
+    select.innerHTML = `
+      <optgroup label="📞 Telephony (0x04)">
+        <option value="0x01">04.01 - Call (Incoming Ring)</option>
+        <option value="0x02">04.02 - End Call</option>
+        <option value="0x03">04.03 - Mute Call</option>
+      </optgroup>
+      <optgroup label="💬 Social & App Notifications (0x04)">
+        <option value="0x04">04.04 - SMS</option>
+        <option value="0x05">04.05 - QQ</option>
+        <option value="0x06">04.06 - WeChat</option>
+        <option value="0x07">04.07 - Facebook</option>
+        <option value="0x08">04.08 - Twitter / X</option>
+        <option value="0x09">04.09 - LinkedIn</option>
+        <option value="0x0a">04.0A - Instagram</option>
+        <option value="0x0b">04.0B - System Notice</option>
+        <option value="0x0c">04.0C - WhatsApp</option>
+        <option value="0x0d" selected>04.0D - LINE</option>
+        <option value="0x0e">04.0E - Messenger</option>
+        <option value="0x0f">04.0F - KakaoTalk</option>
+        <option value="0x10">04.10 - Skype</option>
+        <option value="0x11">04.11 - Email</option>
+        <option value="0x12">04.12 - Telegram</option>
+        <option value="0x13">04.13 - Viber</option>
+        <option value="0x15">04.15 - Snapchat</option>
+      </optgroup>
+      <optgroup label="🌤️ Weather Telemetry (0x05)">
+        <option value="weather_01">05.01 - Sunny</option>
+        <option value="weather_02">05.02 - Cloudy</option>
+        <option value="weather_03">05.03 - Overcast</option>
+        <option value="weather_04">05.04 - Shower</option>
+        <option value="weather_05">05.05 - Thunder</option>
+        <option value="weather_06">05.06 - Light Rain</option>
+        <option value="weather_07">05.07 - Moderate Rain</option>
+        <option value="weather_08">05.08 - Sleet</option>
+        <option value="weather_09">05.09 - Light Snow</option>
+        <option value="weather_0a">05.0A - Moderate Snow</option>
+        <option value="weather_0b">05.0B - Sand / Dust</option>
+        <option value="weather_0c">05.0C - Foggy</option>
+      </optgroup>
+      <optgroup label="⚙️ System & Hardware (0x02)">
+        <option value="02_3B">02.3B - Find Watch Chime</option>
+      </optgroup>
+    `;
+
+    // 2. Green Send Button with Send Arrow
+    const btn = document.createElement('button');
+    btn.id = 'btnSendCommandMaster';
+    btn.innerHTML = '➤ Send Command';
+    btn.style.cssText = 'width:100% !important; margin:2px 0 8px 0 !important; padding:6px 8px !important; font-size:11px !important; font-weight:700 !important; background:#10b981 !important; color:#fff !important; border:none !important; border-radius:0 !important; cursor:pointer !important; box-sizing:border-box !important;';
+
+    btn.onclick = async () => {
+      const val = select.value;
+      if (val.startsWith('weather_')) {
+        const code = parseInt(val.replace('weather_', ''), 16);
+        if (typeof sendWeather === 'function') sendWeather(code);
+      } else if (val === '02_3B') {
+        const chimeBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Find Watch Chime'));
+        if (chimeBtn) chimeBtn.click();
+      } else {
+        const appCode = parseInt(val, 16);
+        if (typeof sendWatchAlert === 'function') {
+          const msgInput = document.querySelector('input[id*="msg" i]') || Array.from(document.querySelectorAll('input')).find(i => (i.value && i.value.includes('Watch link ok')));
+          const msg = msgInput ? msgInput.value : 'Test Alert';
+          sendWatchAlert(appCode, msg);
+        }
+      }
+    };
+
+    // Insert at the top of Tool 0
+    body0.insertBefore(btn, body0.firstChild);
+    body0.insertBefore(select, btn);
+
+    // Isolate Reset at the very bottom
+    const resetBtn = Array.from(body0.querySelectorAll('button')).find(b => b.textContent.includes('Reset'));
+    if (resetBtn) {
+      resetBtn.style.cssText = 'width:100% !important; margin:6px 0 0 0 !important; padding:5px 8px !important; font-size:11px !important; background:#ef4444 !important; color:#fff !important; border:none !important;';
+      body0.appendChild(resetBtn);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyTool0);
+  } else {
+    setTimeout(applyTool0, 150);
+  }
+})();
+</script>
 </script>
 <!-- STUDIO_TAB_SYSTEM_END -->
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
