@@ -4614,6 +4614,34 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 </script>
 <!-- STUDIO_TAB_SYSTEM_END -->
 <!-- HT37_DECOMPILER_MODULE_START -->
+<!-- ==========================================================================
+     HT37 STUDIO ARCHITECTURE & ROADMAP BREADCRUMBS (FOR AI SESSION CONTINUITY)
+     ==========================================================================
+     [SOLVED & ACTIVE]:
+     1. 3-Tab Studio Workspace:
+        - Tab 1 (Watch Studio): Left Toolbox (0. Canvas Tools, 1. Add Widget, 2. Screen/BG, 3. Live Sensors),
+          Center 360x360 Zoomable Stage + Bottom-Right PREVIEW (150px <-> 240px),
+          Right Dock (#studioRightToolbox: 0. .BIN Decompiler & Categorized Sprite Folders, 1. Active Layers [collapsed], 2. Inspector [collapsed]).
+        - Tab 2 (Alerts & Commands): 0. Master Command Station (43 Known Commands + CMD/KEY/PAYLOAD + ALL TEST),
+          1. Telephony, 2. Social (2-col grid), 3. Weather (0x36 Hex HUD + Push Weather + C/F Converter + 12 Presets + Send All), 4. Dial Switcher (02/70).
+        - Tab 3 (DFU Flashing): 0. Handshake/Triggers, 1. Config TLVs, 2. Progress.
+     2. TOPSTEP / TBUI .BIN & .PA Format (100% Decoded):
+        - .PA RLE + 7-bit (2-3-2) Signed RGB565 Delta Token (0x00..0x7F): dr=((c>>5)&3)-2, dg=((c>>2)&7)-4, db=(c&3)-2.
+        - Widget Table (M.widgets): Types [0,4,5,6] = Sprite widgets (hw.a = spriteId; #69=360x360 BG, #70=240x240 Preview).
+          Types [2,3] = Font/Number widgets (hw.a = M.fonts index; hw.b = Alignment [0=Left, 1=Center, 2=Right];
+          hw.sub: 0=Steps, 2=Hour, 3=Min, 6=Dist, 7=Kcal, 8=BPM, 11=Temp, 13=Date).
+        - Bilingual [CN, EN] Sprite Pairs (+1 offset for EN): 82/83 BPM, 84/85 KCAL, 86/87 KM, 88/89 Mi, 90/91 STEP, 92/93 TEMP, 107..120 MON..SUN.
+
+     [TODO / NOT YET CONNECTED IN WATCHFACE EDITOR]:
+     1. Left Tool 1 (Add Widget Layer) <-> .BIN Hardware Widgets:
+        - Clicking widget cards in Left Tool 1 currently spawns legacy vector widgets instead of TBUI .bin sprite/font widgets linked to M.widgets & M.fonts.
+     2. Right Tool 2 (Layer Inspector) <-> .BIN Widget Properties (hwMeta):
+        - Selecting a decompiled .bin widget on the canvas needs Inspector controls to change its FontList (M.fonts[0..3]), Alignment (b=0/1/2), Data Sub-Type (hw.sub), and write (X, Y) changes back to M.widgets[hwMeta.i].
+     3. Left Tool 2 (Watch Screen & BG) & Sprite Replacement <-> M.sprites (#69 BG & #70 Preview):
+        - Uploading a custom background image or replacing a sprite card with a custom PNG needs to update s.canvas / s.dec.rgba and auto-generate the 240x240 preview sprite (#70).
+     4. True TOPSTEP / TBUI .BIN Re-Compiler (#btnCompileBin "Export .BIN" & #btnFlashWatch):
+        - Needs to re-encode modified sprites via window.encodePA(rgba, w, h, alpha, 2) (4-byte aligned), write updated M.widgets coordinates, update TBUI+0x0C, file+0x0C, and file+0x28 sizes, append "TBUI" footer, and export/flash the rebuilt .bin.
+     ========================================================================== -->
 <style id="ht37-decompiler-styles">
   #studioRightCol {
     position: sticky !important;
@@ -4688,6 +4716,28 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
     border: 1px solid #334155 !important;
     border-radius: 0 !important;
     cursor: pointer !important;
+  }
+  #decompSpriteGallery {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    max-height: 480px !important;
+    overflow-y: auto !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .decomp-folder-body {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    padding: 6px !important;
+    background: #070b12 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  #tab-studio .decomp-folder-body.folder-closed,
+  #tab-studio .decomp-folder-body.folder-closed * {
+    display: none !important;
   }
   .decomp-actions button:hover {
     background: #334155 !important;
@@ -4918,15 +4968,15 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
     rightToolbox.id = 'studioRightToolbox';
     rightToolbox.className = 'unified-toolbox-window';
 
-    function makeRightCard(num, title, bodyEl) {
+    function makeRightCard(num, title, bodyEl, startCollapsed = false) {
       const card = document.createElement('div');
       card.className = 'toolbox-tool-card';
-      card.id = 'toolCard_' + num + '_right';
+      card.id = 'rightDockCard_' + num;
       const header = document.createElement('div');
       header.className = 'toolbox-tool-header';
-      header.innerHTML = `<span>${num}. ${title}</span><span class="tool-chevron">▾</span>`;
+      header.innerHTML = `<span>${num}. ${title}</span><span class="tool-chevron">${startCollapsed ? '▸' : '▾'}</span>`;
       const bodyWrap = document.createElement('div');
-      bodyWrap.className = 'toolbox-tool-body';
+      bodyWrap.className = 'toolbox-tool-body' + (startCollapsed ? ' is-collapsed' : '');
       bodyWrap.appendChild(bodyEl);
       const chev = header.querySelector('.tool-chevron');
       header.addEventListener('click', () => {
@@ -4938,7 +4988,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
       return card;
     }
 
-    // TOOL 0 (Right): .BIN Decompiler & Sprite Vault
+    // TOOL 0 (Right): .BIN Decompiler & Sprite Vault (Starts Open)
     const decompBody = document.createElement('div');
     decompBody.style.cssText = 'display:flex; flex-direction:column; gap:8px; width:100%; box-sizing:border-box;';
     decompBody.innerHTML = `
@@ -4967,25 +5017,25 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
       <div id="decompStatusInfo" style="font-size:10px; color:#94a3b8; font-family:monospace; padding:4px 6px; background:#05080f; border:1px solid #1e293b;">
         Ready. Load a TOPSTEP .bin file to extract sprites.
       </div>
-      <div id="decompSpriteGallery" class="decomp-sprite-grid"></div>
+      <div id="decompSpriteGallery"></div>
     `;
 
-    const cardDecomp = makeRightCard('0', '.BIN Decompiler & Sprite Vault', decompBody);
+    const cardDecomp = makeRightCard('0', '.BIN Decompiler & Sprite Vault', decompBody, false);
     rightToolbox.appendChild(cardDecomp);
 
-    // Move Active Widget Layers & Layer Inspector into Tool 1 & Tool 2 of Right Dock
+    // Move Active Widget Layers (Tool 1) & Layer Inspector (Tool 2) into Right Dock (Start Collapsed = true)
     const secLayers = document.getElementById('secWidgetLayersBody');
     const secInsp = document.getElementById('inspectorBody');
     const oldCardLayers = secLayers ? secLayers.closest('.section-card, .card') : null;
     const oldCardInsp = secInsp ? secInsp.closest('.section-card, .card') : null;
 
     if (secLayers) {
-      const card1R = makeRightCard('1', 'Active Widget Layers', secLayers);
+      const card1R = makeRightCard('1', 'Active Widget Layers', secLayers, true);
       rightToolbox.appendChild(card1R);
       if (oldCardLayers && oldCardLayers.parentElement) oldCardLayers.style.display = 'none';
     }
     if (secInsp) {
-      const card2R = makeRightCard('2', 'Layer Inspector & Properties', secInsp);
+      const card2R = makeRightCard('2', 'Layer Inspector & Properties', secInsp, true);
       rightToolbox.appendChild(card2R);
       if (oldCardInsp && oldCardInsp.parentElement) oldCardInsp.style.display = 'none';
     }
@@ -5016,111 +5066,276 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
       const q = searchIn.value.trim().toLowerCase();
       const ft = typeSel.value;
 
-      let list = M.sprites.filter(s => s.dec && s.canvas);
-      if (q) list = list.filter(s => String(s.id).includes(q) || `${s.w}x${s.h}`.includes(q));
-      if (ft === 'alpha') list = list.filter(s => s.dec.alpha === 1);
-      if (ft === 'opaque') list = list.filter(s => s.dec.alpha === 0);
-
+      // Switch gallery container to vertical folder stack
+      gallery.style.cssText = 'display:flex; flex-direction:column; gap:5px; max-height:430px; overflow-y:auto; padding:2px; scrollbar-width:thin; scrollbar-color:#38bdf8 #090d16;';
       gallery.innerHTML = '';
-      list.forEach(s => {
-        const card = document.createElement('div');
-        card.className = 'decomp-card';
 
-        const pic = document.createElement('div');
-        pic.className = 'decomp-pic';
-        pic.style.cursor = 'zoom-in';
-        pic.title = 'Click image to toggle large view';
-        const previewCv = document.createElement('canvas');
-        previewCv.width = s.w; previewCv.height = s.h;
-        previewCv.getContext('2d').drawImage(s.canvas, 0, 0);
-        const scale = Math.min(1, 130 / s.w, 96 / s.h);
-        previewCv.style.width = Math.max(1, Math.round(s.w * scale)) + 'px';
-        previewCv.style.height = Math.max(1, Math.round(s.h * scale)) + 'px';
-        pic.appendChild(previewCv);
+      let allDecoded = M.sprites.filter(s => s.dec && s.canvas);
+      if (q) allDecoded = allDecoded.filter(s => String(s.id).includes(q) || `${s.w}x${s.h}`.includes(q));
+      if (ft === 'alpha') allDecoded = allDecoded.filter(s => s.dec.alpha === 1);
+      if (ft === 'opaque') allDecoded = allDecoded.filter(s => s.dec.alpha === 0);
 
-        // Click sprite image in gallery to toggle expanded 2-col view
-        pic.onclick = () => {
-          const isExpanded = card.dataset.expanded === '1';
-          card.dataset.expanded = isExpanded ? '0' : '1';
-          card.style.gridColumn = isExpanded ? '' : 'span 2';
-          pic.style.height = isExpanded ? '104px' : '220px';
-          const newScale = isExpanded ? Math.min(1, 130 / s.w, 96 / s.h) : Math.min(1.5, 280 / s.w, 210 / s.h);
-          previewCv.style.width = Math.max(1, Math.round(s.w * newScale)) + 'px';
-          previewCv.style.height = Math.max(1, Math.round(s.h * newScale)) + 'px';
-        };
+      const allowedIds = new Set(allDecoded.map(s => s.id));
+      const claimedIds = new Set();
+      const roleLabels = {};
+      const folders = [];
 
-        const meta = document.createElement('div');
-        meta.className = 'decomp-meta';
-        meta.innerHTML = `<b>#${s.id} (${s.w}×${s.h})</b><span class="decomp-tag">${s.dec.alpha ? 'ARGB' : 'RGB'}</span>`;
-
-        const actions = document.createElement('div');
-        actions.className = 'decomp-actions';
-
-        // Action 1: Set as Watch Background (Clears default startup widgets so watchface is clean)
-        const btnBg = document.createElement('button');
-        btnBg.textContent = '🖼️ BG';
-        btnBg.title = 'Clear default widgets and set this sprite as the 360x360 Watch Background';
-        btnBg.onclick = () => {
-          clearDefaultPlaceholders();
-          customBgImage = s.canvas;
-          bgTheme = 'image';
-          const delBtn = document.getElementById('btnDeleteBg');
-          if (delBtn) delBtn.disabled = false;
-          if (typeof renderLayerList === 'function') renderLayerList();
-          if (typeof syncInspector === 'function') syncInspector();
-          if (typeof log === 'function') log(`🖼️ Cleared default widgets & set Sprite #${s.id} (${s.w}×${s.h}) as Watch Background.`, 'ok');
-        };
-
-        // Action 2: Add as New Movable Layer on Canvas
-        const btnAdd = document.createElement('button');
-        btnAdd.textContent = '➕ Layer';
-        btnAdd.title = 'Add this sprite onto the 360x360 canvas as a draggable widget layer';
-        btnAdd.onclick = () => {
-          const newW = {
-            id: 'sprite_' + s.id + '_' + Date.now(),
-            type: 'customText',
-            name: `🧩 Sprite #${s.id} (${s.w}×${s.h})`,
-            x: 180,
-            y: 180,
-            scale: 1.0,
-            opacity: 1.0,
-            visible: true,
-            locked: false,
-            color: '#00e5ff',
-            accent: '#ffffff',
-            text: `SPR_${s.id}`,
-            fwId: '0x20',
-            spriteId: s.id,
-            spriteCanvas: s.canvas
-          };
-          widgets.push(newW);
-          selectedWidgetId = newW.id;
-          if (typeof renderLayerList === 'function') renderLayerList();
-          if (typeof syncInspector === 'function') syncInspector();
-          if (typeof log === 'function') log(`➕ Added Sprite #${s.id} (${s.w}×${s.h}) as a canvas layer.`, 'ok');
-        };
-
-        // Action 3: Map to Currently Selected Widget
-        const btnMap = document.createElement('button');
-        btnMap.textContent = '🔗 Map';
-        btnMap.title = 'Attach this sprite to the currently selected widget layer';
-        btnMap.onclick = () => {
-          const w = widgets.find(x => x.id === selectedWidgetId);
-          if (!w) {
-            if (typeof log === 'function') log('⚠️ Select a widget layer first to map this sprite to it.', 'warn');
-            return;
+      function addFolder(title, spriteIds, defaultOpen = false) {
+        const validSprites = [];
+        spriteIds.forEach(id => {
+          if (allowedIds.has(id) && !claimedIds.has(id)) {
+            const sp = M.sprites.find(s => s.id === id);
+            if (sp) {
+              validSprites.push(sp);
+              claimedIds.add(id);
+            }
           }
-          w.spriteCanvas = s.canvas;
-          w.spriteId = s.id;
-          w.name = `${w.name.split(' [')[0]} [Spr #${s.id}]`;
-          if (typeof renderLayerList === 'function') renderLayerList();
-          if (typeof syncInspector === 'function') syncInspector();
-          if (typeof log === 'function') log(`🔗 Mapped Sprite #${s.id} (${s.w}×${s.h}) to layer "${w.name}".`, 'ok');
+        });
+        if (validSprites.length > 0) {
+          folders.push({ title, sprites: validSprites, defaultOpen: defaultOpen || q.length > 0 });
+        }
+      }
+
+      // 1. Background & Preview Folder
+      const bgAndPreviewIds = [];
+      M.sprites.forEach(s => {
+        if (s.w >= 300 && s.h >= 300) {
+          roleLabels[s.id] = 'MAIN BG';
+          bgAndPreviewIds.push(s.id);
+        } else if (s.id === 70 || (s.w === 240 && s.h === 240) || (s.w === 220 && s.h === 220)) {
+          roleLabels[s.id] = 'PREVIEW';
+          bgAndPreviewIds.push(s.id);
+        }
+      });
+      addFolder('🖼️ Background & Preview', bgAndPreviewIds, true);
+
+      // 2. Font Folders (Built dynamically from M.fonts + M.widgets usage)
+      const subNameMap = { 0: 'Steps', 2: 'Hour', 3: 'Min', 6: 'Dist', 7: 'Kcal', 8: 'BPM', 11: 'Temp', 13: 'Date' };
+      if (M.fonts && M.fonts.length > 0) {
+        M.fonts.forEach(f => {
+          const usedBy = [];
+          (M.widgets || []).forEach(w => {
+            if ((w.type === 2 || w.type === 3) && w.a === f.i) {
+              const nm = subNameMap[w.sub] || `W#${w.id}`;
+              if (!usedBy.includes(nm)) usedBy.push(nm);
+            }
+          });
+          const fSprites = (f.pairs || []).map(p => {
+            const chStr = p.ch >= 32 && p.ch < 127 ? String.fromCharCode(p.ch) : `0x${p.ch.toString(16)}`;
+            roleLabels[p.sprite] = `"${chStr}"`;
+            return p.sprite;
+          });
+          const sampleSp = fSprites.map(id => M.sprites.find(s => s.id === id)).filter(Boolean);
+          const maxW = sampleSp.length ? Math.max(...sampleSp.map(s => s.w)) : 0;
+          const maxH = sampleSp.length ? Math.max(...sampleSp.map(s => s.h)) : 0;
+          const usageStr = usedBy.length ? usedBy.join(' & ') : `List #${f.i}`;
+          addFolder(`🔤 Font #${f.i}: ${usageStr} (${maxW}×${maxH})`, fSprites, false);
+        });
+      }
+
+      // 3. Progress Gauges & Activity Bars (Type 5 widgets: 11 frames each, 0%..100%)
+      (M.widgets || []).filter(w => w.type === 5).forEach((w, idx) => {
+        const frameIds = [];
+        for (let k = 0; k <= 10; k++) {
+          const sid = w.a + k;
+          roleLabels[sid] = `${k * 10}%`;
+          frameIds.push(sid);
+        }
+        const barTitle = (w.sub === 1) ? '📊 Steps Goal Bar' : `📊 Battery Gauge #${idx + 1}`;
+        addFolder(`${barTitle} (#${w.a}–#${w.a + 10})`, frameIds, false);
+      });
+
+      // 4. Weather Condition Icons (Type 6, sub 2 or #94..#106)
+      const weatherNames = ['Sunny', 'Cloudy', 'Overcast', 'Shower', 'Thunder', 'LtRain', 'ModRain', 'Sleet', 'LtSnow', 'ModSnow', 'Sand', 'Foggy', 'Windy'];
+      const weatherWidget = (M.widgets || []).find(w => w.type === 6 && w.sub === 2);
+      const weatherBase = weatherWidget ? weatherWidget.a : 94;
+      const weatherIds = [];
+      for (let k = 0; k < 13; k++) {
+        const sid = weatherBase + k;
+        if (M.sprites.some(s => s.id === sid && s.w < 200)) {
+          roleLabels[sid] = weatherNames[k] || `Cond_${k}`;
+          weatherIds.push(sid);
+        }
+      }
+      addFolder(`🌤️ Weather Icons (#${weatherBase}–#${weatherBase + weatherIds.length - 1})`, weatherIds, false);
+
+      // 5. Weekday Labels MON-SUN (Type 4, sub 0 or #107..#120)
+      const dayNames = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+      const dayWidget = (M.widgets || []).find(w => w.type === 4 && w.sub === 0);
+      const dayBase = dayWidget ? dayWidget.a : 107;
+      const dayIds = [];
+      for (let d = 0; d < 7; d++) {
+        const cnId = dayBase + d * 2, enId = dayBase + d * 2 + 1;
+        roleLabels[cnId] = `${dayNames[d]} (CN)`;
+        roleLabels[enId] = `${dayNames[d]} (EN)`;
+        dayIds.push(cnId, enId);
+      }
+      addFolder(`📅 Weekday Labels MON–SUN (#${dayBase}–#${dayBase + 13})`, dayIds, false);
+
+      // 6. Unit & Field Labels (CN / EN Pairs #82..#93)
+      const unitKnownNames = {
+        82: 'BPM (CN)', 83: 'BPM (EN)',
+        84: 'KCAL (CN)', 85: 'KCAL (EN)',
+        86: 'KM (CN)', 87: 'KM (EN)',
+        88: 'Mi (CN)', 89: 'Mi (EN)',
+        90: 'STEP (CN)', 91: 'STEP (EN)',
+        92: 'TEMP (CN)', 93: 'TEMP (EN)'
+      };
+      const unitIds = [];
+      Object.keys(unitKnownNames).forEach(k => {
+        const sid = Number(k);
+        roleLabels[sid] = unitKnownNames[k];
+        unitIds.push(sid);
+      });
+      (M.widgets || []).filter(w => w.type === 4 && w.sub !== 0).forEach(w => {
+        if (!unitIds.includes(w.a)) unitIds.push(w.a, w.a + 1);
+      });
+      addFolder('🏷️ Unit & Field Labels (CN / EN)', unitIds, false);
+
+      // 7. Catch-all for any remaining uncategorized sprites
+      const remainingIds = allDecoded.filter(s => !claimedIds.has(s.id)).map(s => s.id);
+      addFolder('🧩 Other / Uncategorized Sprites', remainingIds, false);
+
+      // Expand All / Collapse All Quick Bar
+      if (folders.length > 1) {
+        const ctrlRow = document.createElement('div');
+        ctrlRow.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:2px;';
+        const btnExpAll = document.createElement('button');
+        btnExpAll.className = 'dock-btn';
+        btnExpAll.style.cssText = 'height:22px !important; font-size:10px !important;';
+        btnExpAll.textContent = '▾ Expand All Folders';
+        const btnColAll = document.createElement('button');
+        btnColAll.className = 'dock-btn';
+        btnColAll.style.cssText = 'height:22px !important; font-size:10px !important;';
+        btnColAll.textContent = '▸ Collapse All Folders';
+        btnExpAll.onclick = () => {
+          gallery.querySelectorAll('.decomp-folder-body').forEach(b => b.classList.remove('folder-closed'));
+          gallery.querySelectorAll('.decomp-folder-chev').forEach(c => c.textContent = '▾');
+        };
+        btnColAll.onclick = () => {
+          gallery.querySelectorAll('.decomp-folder-body').forEach(b => b.classList.add('folder-closed'));
+          gallery.querySelectorAll('.decomp-folder-chev').forEach(c => c.textContent = '▸');
+        };
+        ctrlRow.append(btnExpAll, btnColAll);
+        gallery.appendChild(ctrlRow);
+      }
+
+      // Render Each Folder Accordion
+      folders.forEach(folder => {
+        const fWrap = document.createElement('div');
+        fWrap.style.cssText = 'border:1px solid #1e293b; background:#0d131f; display:flex; flex-direction:column; width:100%; box-sizing:border-box;';
+
+        const fHead = document.createElement('div');
+        fHead.style.cssText = 'padding:6px 8px; background:#151f32; color:#e2e8f0; font-size:11px; font-weight:700; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; border-bottom:1px solid #1e293b;';
+        fHead.innerHTML = `
+          <span>${folder.title}</span>
+          <span style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:9px; padding:1px 5px; background:#0b0f19; color:#38bdf8; border:1px solid #334155;">${folder.sprites.length}</span>
+            <span class="decomp-folder-chev" style="font-size:10px; color:#38bdf8;">${folder.defaultOpen ? '▾' : '▸'}</span>
+          </span>
+        `;
+
+        const fBody = document.createElement('div');
+        fBody.className = 'decomp-folder-body' + (folder.defaultOpen ? '' : ' folder-closed');
+
+        fHead.onclick = () => {
+          const isNowClosed = fBody.classList.toggle('folder-closed');
+          const chev = fHead.querySelector('.decomp-folder-chev');
+          if (chev) chev.textContent = isNowClosed ? '▸' : '▾';
         };
 
-        actions.append(btnBg, btnAdd, btnMap);
-        card.append(pic, meta, actions);
-        gallery.appendChild(card);
+        folder.sprites.forEach(s => {
+          const card = document.createElement('div');
+          card.className = 'decomp-card';
+
+          const pic = document.createElement('div');
+          pic.className = 'decomp-pic';
+          pic.style.cursor = 'zoom-in';
+          pic.title = 'Click image to toggle large view';
+          const previewCv = document.createElement('canvas');
+          previewCv.width = s.w; previewCv.height = s.h;
+          previewCv.getContext('2d').drawImage(s.canvas, 0, 0);
+          const scale = Math.min(1, 130 / s.w, 96 / s.h);
+          previewCv.style.width = Math.max(1, Math.round(s.w * scale)) + 'px';
+          previewCv.style.height = Math.max(1, Math.round(s.h * scale)) + 'px';
+          pic.appendChild(previewCv);
+
+          pic.onclick = () => {
+            const isExpanded = card.dataset.expanded === '1';
+            card.dataset.expanded = isExpanded ? '0' : '1';
+            card.style.gridColumn = isExpanded ? '' : 'span 2';
+            pic.style.height = isExpanded ? '104px' : '220px';
+            const newScale = isExpanded ? Math.min(1, 130 / s.w, 96 / s.h) : Math.min(1.5, 280 / s.w, 210 / s.h);
+            previewCv.style.width = Math.max(1, Math.round(s.w * newScale)) + 'px';
+            previewCv.style.height = Math.max(1, Math.round(s.h * newScale)) + 'px';
+          };
+
+          const meta = document.createElement('div');
+          meta.className = 'decomp-meta';
+          const roleTxt = roleLabels[s.id] ? `<span style="color:#f59e0b; font-weight:700;">${roleLabels[s.id]}</span> • ` : '';
+          meta.innerHTML = `<b>${roleTxt}#${s.id} <span style="color:#64748b;font-weight:400;">${s.w}×${s.h}</span></b><span class="decomp-tag">${s.dec.alpha ? 'ARGB' : 'RGB'}</span>`;
+
+          const actions = document.createElement('div');
+          actions.className = 'decomp-actions';
+
+          const btnBg = document.createElement('button');
+          btnBg.textContent = '🖼️ BG';
+          btnBg.title = 'Clear default widgets and set this sprite as the 360x360 Watch Background';
+          btnBg.onclick = () => {
+            clearDefaultPlaceholders();
+            customBgImage = s.canvas;
+            bgTheme = 'image';
+            const delBtn = document.getElementById('btnDeleteBg');
+            if (delBtn) delBtn.disabled = false;
+            if (typeof renderLayerList === 'function') renderLayerList();
+            if (typeof syncInspector === 'function') syncInspector();
+            if (typeof log === 'function') log(`🖼️ Cleared default widgets & set Sprite #${s.id} (${s.w}×${s.h}) as Watch Background.`, 'ok');
+          };
+
+          const btnAdd = document.createElement('button');
+          btnAdd.textContent = '➕ Layer';
+          btnAdd.title = 'Add this sprite onto the 360x360 canvas as a draggable widget layer';
+          btnAdd.onclick = () => {
+            const newW = {
+              id: 'sprite_' + s.id + '_' + Date.now(),
+              type: 'customText',
+              name: `🧩 Sprite #${s.id} ${roleLabels[s.id] || ''} (${s.w}×${s.h})`,
+              x: 180, y: 180,
+              scale: 1.0, opacity: 1.0, visible: true, locked: false,
+              color: '#00e5ff', accent: '#ffffff', text: `SPR_${s.id}`,
+              fwId: '0x20', spriteId: s.id, spriteCanvas: s.canvas
+            };
+            widgets.push(newW);
+            selectedWidgetId = newW.id;
+            if (typeof renderLayerList === 'function') renderLayerList();
+            if (typeof syncInspector === 'function') syncInspector();
+            if (typeof log === 'function') log(`➕ Added Sprite #${s.id} (${s.w}×${s.h}) as a canvas layer.`, 'ok');
+          };
+
+          const btnMap = document.createElement('button');
+          btnMap.textContent = '🔗 Map';
+          btnMap.title = 'Attach this sprite to the currently selected widget layer';
+          btnMap.onclick = () => {
+            const w = widgets.find(x => x.id === selectedWidgetId);
+            if (!w) {
+              if (typeof log === 'function') log('⚠️ Select a widget layer first to map this sprite to it.', 'warn');
+              return;
+            }
+            w.spriteCanvas = s.canvas;
+            w.spriteId = s.id;
+            w.name = `${w.name.split(' [')[0]} [Spr #${s.id}]`;
+            if (typeof renderLayerList === 'function') renderLayerList();
+            if (typeof syncInspector === 'function') syncInspector();
+            if (typeof log === 'function') log(`🔗 Mapped Sprite #${s.id} (${s.w}×${s.h}) to layer "${w.name}".`, 'ok');
+          };
+
+          actions.append(btnBg, btnAdd, btnMap);
+          card.append(pic, meta, actions);
+          fBody.appendChild(card);
+        });
+
+        fWrap.append(fHead, fBody);
+        gallery.appendChild(fWrap);
       });
     }
 
@@ -5494,6 +5709,9 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 <!-- HT37_DECOMPILER_MODULE_END -->
 </body>
 </html>
+
+
+
 
 
 
