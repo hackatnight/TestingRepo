@@ -1321,12 +1321,55 @@ function deleteWidget(id) {
 function deleteSelectedWidget() { if (selectedWidgetId) deleteWidget(selectedWidgetId); }
 function clearAllWidgets() { widgets = []; selectedWidgetId = null; renderLayerList(); syncInspector(); }
 
+function copyHwHudCoords(e) {
+  if (e) e.stopPropagation();
+  const pos = document.getElementById('hudHwPos')?.innerText || '';
+  const dim = document.getElementById('hudDim')?.innerText || '';
+  const edges = document.getElementById('hudEdges')?.innerText || '';
+  const text = `${pos} | ${dim} | ${edges}`.trim();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('btnCopyHudCoords');
+      if (btn) { btn.textContent = '✓'; setTimeout(() => btn.textContent = '📋', 1200); }
+      if (typeof log === 'function') log('📋 Copied: ' + text, 'ok');
+    });
+  }
+}
+
+function updateHwCoordHud() {
+  const hudPos = document.getElementById('hudHwPos');
+  const hudDim = document.getElementById('hudDim');
+  const hudEdges = document.getElementById('hudEdges');
+  if (!hudPos) return;
+  const w = (typeof widgets !== 'undefined' && Array.isArray(widgets)) ? widgets.find(x => x.id === selectedWidgetId) : null;
+  if (!w) {
+    hudPos.innerHTML = '📍 HW Top-Left: <span style="color:#64748b">(None Selected)</span>';
+    hudDim.textContent = '📐 Size: --×--';
+    hudEdges.textContent = '📏 L:-- R:-- T:-- B:--';
+    return;
+  }
+  const sprW = (w.spriteCanvas && w.spriteCanvas.width) ? w.spriteCanvas.width : (typeof getWidgetBounds === 'function' ? getWidgetBounds(w).w : 0);
+  const sprH = (w.spriteCanvas && w.spriteCanvas.height) ? w.spriteCanvas.height : (typeof getWidgetBounds === 'function' ? getWidgetBounds(w).h : 0);
+  const nx = Math.max(0, Math.round(w.x - sprW / 2));
+  const ny = Math.max(0, Math.round(w.y - sprH / 2));
+  const rEdge = 360 - (nx + sprW);
+  const bEdge = 360 - (ny + sprH);
+
+  hudPos.innerHTML = `📍 HW Top-Left: <span style="color:#38bdf8;font-weight:700;">(X: ${nx}, Y: ${ny})</span>`;
+  hudDim.textContent = `📐 ${sprW}×${sprH}px`;
+  hudEdges.innerHTML = `📏 L:<span style="color:#00e5ff">${nx}</span> R:<span style="color:#00e5ff">${rEdge}</span> T:<span style="color:#f59e0b">${ny}</span> B:<span style="color:#f59e0b">${bEdge}</span>`;
+}
+
 function syncInspector() {
   const w = widgets.find((item) => item.id === selectedWidgetId);
   const els = document.querySelectorAll('#inspectorBody input, #inspectorBody select, #inspectorBody button');
   if (!w) { document.getElementById('selWidgetTag').textContent = 'NONE'; els.forEach((el) => (el.disabled = true)); return; }
   els.forEach((el) => (el.disabled = false));
-  document.getElementById('selWidgetTag').textContent = w.type.toUpperCase();
+  const sprW = (w.spriteCanvas && w.spriteCanvas.width) ? w.spriteCanvas.width : (getWidgetBounds(w).w || 0);
+  const sprH = (w.spriteCanvas && w.spriteCanvas.height) ? w.spriteCanvas.height : (getWidgetBounds(w).h || 0);
+  const hwX = Math.max(0, Math.round(w.x - sprW / 2));
+  const hwY = Math.max(0, Math.round(w.y - sprH / 2));
+  document.getElementById('selWidgetTag').textContent = `${w.type.toUpperCase()} [HW: ${hwX}, ${hwY} | ${sprW}×${sprH}]`;
   document.getElementById('propName').value = w.name;
   document.getElementById('propX').value = w.x;
   document.getElementById('propY').value = w.y;
@@ -1336,6 +1379,7 @@ function syncInspector() {
   document.getElementById('propAccent').value = w.accent;
   document.getElementById('propText').value = w.text;
   document.getElementById('propFwId').value = w.fwId;
+  updateHwCoordHud();
 }
 
 function applyInspector() {
@@ -1370,11 +1414,33 @@ document.getElementById('bgFileInput').addEventListener('change', (e) => {
   reader.onload = (ev) => {
     const img = new Image();
     img.onload = () => {
-      customBgImage = img; bgTheme = 'image';
+      // Auto-adapt, scale, and center-crop to exact 360x360 round watch display
+      const cv360 = document.createElement('canvas');
+      cv360.width = 360; cv360.height = 360;
+      const ctx360 = cv360.getContext('2d');
+      ctx360.imageSmoothingEnabled = true;
+      ctx360.imageSmoothingQuality = 'high';
+
+      const scale = Math.max(360 / img.width, 360 / img.height);
+      const drawW = Math.round(img.width * scale);
+      const drawH = Math.round(img.height * scale);
+      const offX = Math.round((360 - drawW) / 2);
+      const offY = Math.round((360 - drawH) / 2);
+
+      ctx360.fillStyle = '#000000';
+      ctx360.fillRect(0, 0, 360, 360);
+      ctx360.drawImage(img, offX, offY, drawW, drawH);
+
+      customBgImage = cv360;
+      bgTheme = 'image';
+      window.userUploadedCustomBg = true;
+
       document.getElementById('bgPreset').value = 'image';
-      document.getElementById('btnDeleteBg').disabled = false;
+      const delBtn = document.getElementById('btnDeleteBg');
+      if (delBtn) delBtn.disabled = false;
+
       renderLayerList();
-      log(`Loaded custom background image (${img.width}×${img.height})`, 'ok');
+      log('Auto-adapted custom image: ' + img.width + 'x' + img.height + ' -> 360x360 center-crop.', 'ok');
     };
     img.src = ev.target.result;
   };
@@ -1382,7 +1448,7 @@ document.getElementById('bgFileInput').addEventListener('change', (e) => {
 });
 
 function deleteBackgroundImage() {
-  customBgImage = null; document.getElementById('bgFileInput').value = '';
+  customBgImage = null; window.userUploadedCustomBg = false; document.getElementById('bgFileInput').value = '';
   document.getElementById('btnDeleteBg').disabled = true;
   if (bgTheme === 'image') { bgTheme = 'tactical'; document.getElementById('bgPreset').value = 'tactical'; }
   renderLayerList(); log('Deleted custom background image.', 'err');
@@ -4503,6 +4569,15 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
             <button type="button" class="zoom-btn" id="btnZoomIn" title="Zoom In (Ctrl +)">🔍 +</button>
             <button type="button" class="zoom-btn" id="btnZoomReset" title="Reset Zoom">Fit 100%</button>
             <span class="resolution-badge">360 × 360</span>
+            <span style="color:#334155; margin:0 4px;">|</span>
+            <div id="liveCoordHud" style="display:inline-flex; align-items:center; gap:8px; background:#0b1120; border:1px solid #0284c7; border-radius:3px; padding:2px 8px; font-family:monospace; font-size:11px; user-select:text; -webkit-user-select:text; cursor:text;">
+              <span id="hudHwPos" style="font-weight:700; color:#00e5ff; user-select:text; -webkit-user-select:text;">HW Top-Left: (X: --, Y: --)</span>
+              <span style="color:#1e293b">|</span>
+              <span id="hudDim" style="color:#94a3b8; user-select:text; -webkit-user-select:text;">Size: --x--</span>
+              <span style="color:#1e293b">|</span>
+              <span id="hudEdges" style="color:#f59e0b; user-select:text; -webkit-user-select:text;">L:-- R:-- T:-- B:--</span>
+              <button type="button" id="btnCopyHudCoords" onclick="copyHwHudCoords(event)" title="Copy coordinates to clipboard (Ctrl+C)" style="background:#1e293b; color:#38bdf8; border:1px solid #0284c7; border-radius:2px; font-size:10px; padding:1px 5px; cursor:pointer; font-weight:700; margin-left:4px;">📋</button>
+            </div>
           </div>
           <div class="wysiwyg-scroll-stage" id="wysiwygScrollStage">
             <div class="watch-zoom-wrapper" id="watchZoomWrapper"></div>
@@ -5026,13 +5101,14 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
     return { fileName: name, fileSize: u.length, u: u, buffer: buf, tbui: T, widgets, fonts, sprites };
   };
 
-  // WYSIWYG Active Binary Repacker
+  // WYSIWYG Active Binary Repacker (In-Place Widget Moves + 4-Byte Aligned Custom BG)
   window.rebuildActiveBin = function() {
     const M = window.decompiledBinData;
     if (!M || !M.u) return null;
     try {
-      const origU = M.u;
-      const origDv = new DataView(origU.buffer, origU.byteOffset);
+      if (!M.origU) M.origU = new Uint8Array(M.u);
+      const origU = M.origU;
+      const origDv = new DataView(origU.buffer, origU.byteOffset, origU.byteLength);
       const B = origDv.getUint32(0x24, true); // TBUI offset (0x400 = 1024)
       if (B >= origU.length - 0x70) throw new Error('Invalid TBUI offset');
 
@@ -5040,34 +5116,8 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
       const dirSprites = { off: origDv.getUint32(B + 0x48, true), count: origDv.getUint16(B + 0x4C, true), size: origDv.getUint16(B + 0x4E, true) };
 
       if (!M.sprites || !M.sprites.length) throw new Error('No sprites found in decompiled data');
-      const firstSpriteRelOff = M.sprites[0].offset;
-      const baseHeaderLen = B + firstSpriteRelOff;
 
-      // Clone base header & tables up to the first sprite payload
-      const baseHeader = new Uint8Array(origU.subarray(0, baseHeaderLen));
-      const baseDv = new DataView(baseHeader.buffer);
-
-      // A. Write updated widget anchor coordinates from canvas
-      if (typeof widgets !== 'undefined' && Array.isArray(widgets)) {
-        widgets.forEach(w => {
-          const hm = w.hwMeta;
-          if (!hm || hm.i === undefined) return;
-          if (hm.lastCalcX !== undefined && (Math.abs(w.x - hm.lastCalcX) > 1 || Math.abs(w.y - hm.lastCalcY) > 1)) {
-            hm.anchorX += (w.x - hm.lastCalcX);
-            hm.anchorY += (w.y - hm.lastCalcY);
-            hm.lastCalcX = w.x; hm.lastCalcY = w.y;
-          }
-          const entryOff = B + dirWidgets.off + hm.i * dirWidgets.size;
-          if (entryOff + 8 <= baseHeader.byteLength) {
-            const nx = Math.max(0, Math.min(360, Math.round(hm.anchorX)));
-            const ny = Math.max(0, Math.min(360, Math.round(hm.anchorY)));
-            baseDv.setUint16(entryOff + 4, nx, true);
-            baseDv.setUint16(entryOff + 6, ny, true);
-          }
-        });
-      }
-
-      // B. Re-encode 360x360 Background (Sprite #69)
+      // Render 360x360 BG & 240x240 Preview canvases (for stage preview & optional custom BG encode)
       const bgCv = document.createElement('canvas'); bgCv.width = 360; bgCv.height = 360;
       const bgCtx = bgCv.getContext('2d');
       if (typeof customBgImage !== 'undefined' && customBgImage) {
@@ -5077,10 +5127,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
       } else {
         bgCtx.fillStyle = '#000000'; bgCtx.fillRect(0, 0, 360, 360);
       }
-      const bgRgba = bgCtx.getImageData(0, 0, 360, 360).data;
-      const newBgPA = window.encodePA(bgRgba, 360, 360, false, 2);
 
-      // C. Re-encode 240x240 Carousel Preview (Sprite #70)
       const prevCv = document.createElement('canvas'); prevCv.width = 240; prevCv.height = 240;
       const prevCtx = prevCv.getContext('2d');
       prevCtx.drawImage(bgCv, 0, 0, 240, 240);
@@ -5094,163 +5141,109 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
           }
         });
       }
-      const prevRgba = prevCtx.getImageData(0, 0, 240, 240).data;
-      const newPrevPA = window.encodePA(prevRgba, 240, 240, false, 2);
 
-      // Sync stage preview box
       const floatBoxCanvas = document.querySelector('#wysiwygBinPreviewBox canvas');
       if (floatBoxCanvas) {
         floatBoxCanvas.width = 240; floatBoxCanvas.height = 240;
         floatBoxCanvas.getContext('2d').drawImage(prevCv, 0, 0);
       }
 
-      // D. Assemble all sprites sequentially & update sprite table offsets
-      const spriteChunks = [];
-      let curRelOff = firstSpriteRelOff;
-      for (let i = 0; i < dirSprites.count && i < M.sprites.length; i++) {
-        const s = M.sprites[i];
-        let sBytes = null;
-        if (s.id === 69) {
-          sBytes = newBgPA;
-        } else if (s.id === 70) {
-          sBytes = newPrevPA;
-        } else {
-          const len = s.dec ? s.dec.len : (i + 1 < M.sprites.length ? (M.sprites[i + 1].absOff - s.absOff) : (origU.length - s.absOff));
-          sBytes = origU.subarray(s.absOff, s.absOff + len);
-        }
+      // Helper to apply updated widget top-left coordinates into a DataView of the binary
+      let movedCount = 0;
+      const patchWidgetCoords = (targetDv, maxByteLen) => {
+        if (typeof widgets !== 'undefined' && Array.isArray(widgets)) {
+          widgets.forEach(w => {
+            const hm = w.hwMeta;
+            if (!hm || hm.i === undefined) return;
+            const sprW = (w.spriteCanvas && w.spriteCanvas.width) ? w.spriteCanvas.width : 0;
+            const sprH = (w.spriteCanvas && w.spriteCanvas.height) ? w.spriteCanvas.height : 0;
+            
+            // On canvas, w.x & w.y are the center of w.spriteCanvas.
+            // Hardware anchor (nx, ny) in TBUI is the top-left corner:
+            let nx = Math.round(w.x - sprW / 2);
+            let ny = Math.round(w.y - sprH / 2);
+            
+            // Clamp to valid 360x360 coordinates
+            nx = Math.max(0, Math.min(360, nx));
+            ny = Math.max(0, Math.min(360, ny));
 
-        const sprEntryOff = B + dirSprites.off + i * dirSprites.size;
-        if (sprEntryOff + 12 <= baseHeader.byteLength) {
-          baseDv.setUint32(sprEntryOff + 8, curRelOff, true);
+            const entryOff = B + dirWidgets.off + hm.i * dirWidgets.size;
+            if (entryOff + 8 <= maxByteLen) {
+              const oldX = origDv.getUint16(entryOff + 4, true);
+              const oldY = origDv.getUint16(entryOff + 6, true);
+              if (nx !== oldX || ny !== oldY) {
+                movedCount++;
+                if (typeof log === 'function') {
+                  log(`📍 W[${hm.i}] ${w.name || 'Widget'}: (${oldX}, ${oldY}) -> (${nx}, ${ny}) [w=${sprW}, h=${sprH}]`, 'ok');
+                }
+              }
+              targetDv.setUint16(entryOff + 4, nx, true);
+              targetDv.setUint16(entryOff + 6, ny, true);
+              hm.anchorX = nx;
+              hm.anchorY = ny;
+              hm.lastCalcX = w.x;
+              hm.lastCalcY = w.y;
+            }
+          });
         }
-        spriteChunks.push(sBytes);
-        curRelOff += sBytes.byteLength;
+      };
+
+      const bgSpr = M.sprites.find(s => s.id === 69 || (s.w === 360 && s.h === 360));
+      const hasCustomBg = Boolean(window.userUploadedCustomBg && typeof customBgImage !== 'undefined' && customBgImage && (!bgSpr || customBgImage !== bgSpr.canvas));
+
+      // PATH 1: In-place widget coordinate update (100% original sprites & offsets preserved!)
+      if (!hasCustomBg) {
+        const finalBin = new Uint8Array(origU);
+        const finalDv = new DataView(finalBin.buffer);
+        patchWidgetCoords(finalDv, finalBin.byteLength);
+
+        const newCrc = crc16Header568x(finalBin.subarray(1024));
+        finalDv.setUint16(0x10, newCrc, true);
+
+        M.u = finalBin;
+        M.buffer = finalBin.buffer;
+        M.fileSize = finalBin.byteLength;
+        window.decompiledBinData = M;
+
+        if (typeof log === 'function') {
+          log(`✨ Synced WYSIWYG coordinates in-place (${movedCount} widget(s) moved, sprites untouched): ${finalBin.byteLength.toLocaleString()} B (CRC: 0x${newCrc.toString(16).toUpperCase().padStart(4, '0')})`, 'ok');
+        }
+        return finalBin;
       }
 
-      // E. Concatenate baseHeader + spriteChunks
-      const totalLen = baseHeader.byteLength + (curRelOff - firstSpriteRelOff);
-      const finalBin = new Uint8Array(totalLen);
-      finalBin.set(baseHeader, 0);
-      let writePtr = baseHeader.byteLength;
-      for (const chunk of spriteChunks) {
-        finalBin.set(chunk, writePtr);
-        writePtr += chunk.byteLength;
-      }
-
-      // F. Update total file size fields & BUYPASS checksum at 0x10
-      const finalDv = new DataView(finalBin.buffer);
-      finalDv.setUint32(0x0C, totalLen, true);
-      finalDv.setUint32(0x18, totalLen, true);
-      finalDv.setUint32(0x14, totalLen - 1024, true);
-
-      const newCrc = crc16Header568x(finalBin.subarray(1024));
-      finalDv.setUint16(0x10, newCrc, true);
-
-      // Cache updated binary in active studio session
-      M.u = finalBin;
-      M.buffer = finalBin.buffer;
-      M.fileSize = finalBin.byteLength;
-      window.decompiledBinData = M;
-
-      if (typeof log === 'function') log('✨ Repacked WYSIWYG watchface: ' + totalLen.toLocaleString() + ' B (CRC: 0x' + newCrc.toString(16).toUpperCase() + ')', 'ok');
-      return finalBin;
-    } catch (err) {
-      if (typeof log === 'function') log('⚠️ Repack warning: ' + (err.message || err), 'warn');
-      return null;
-    }
-  };
-
-  // WYSIWYG Active Binary Repacker
-  window.rebuildActiveBin = function() {
-    const M = window.decompiledBinData;
-    if (!M || !M.u) return null;
-    try {
-      const origU = M.u;
-      const origDv = new DataView(origU.buffer, origU.byteOffset);
-      const B = origDv.getUint32(0x24, true); // TBUI offset (0x400 = 1024)
-      if (B >= origU.length - 0x70) throw new Error('Invalid TBUI offset');
-
-      const dirWidgets = { off: origDv.getUint32(B + 0x40, true), count: origDv.getUint16(B + 0x44, true), size: origDv.getUint16(B + 0x46, true) };
-      const dirSprites = { off: origDv.getUint32(B + 0x48, true), count: origDv.getUint16(B + 0x4C, true), size: origDv.getUint16(B + 0x4E, true) };
-
-      if (!M.sprites || !M.sprites.length) throw new Error('No sprites found in decompiled data');
+      // PATH 2: Custom Background uploaded -> Re-encode #69 & #70 with strict 4-byte word alignment
       const firstSpriteRelOff = M.sprites[0].offset;
       const baseHeaderLen = B + firstSpriteRelOff;
-
-      // Clone base header & tables up to the first sprite payload
       const baseHeader = new Uint8Array(origU.subarray(0, baseHeaderLen));
       const baseDv = new DataView(baseHeader.buffer);
 
-      // A. Write updated widget anchor coordinates from canvas
-      if (typeof widgets !== 'undefined' && Array.isArray(widgets)) {
-        widgets.forEach(w => {
-          const hm = w.hwMeta;
-          if (!hm || hm.i === undefined) return;
-          if (hm.lastCalcX !== undefined && (Math.abs(w.x - hm.lastCalcX) > 1 || Math.abs(w.y - hm.lastCalcY) > 1)) {
-            hm.anchorX += (w.x - hm.lastCalcX);
-            hm.anchorY += (w.y - hm.lastCalcY);
-            hm.lastCalcX = w.x; hm.lastCalcY = w.y;
-          }
-          const entryOff = B + dirWidgets.off + hm.i * dirWidgets.size;
-          if (entryOff + 8 <= baseHeader.byteLength) {
-            const nx = Math.max(0, Math.min(360, Math.round(hm.anchorX)));
-            const ny = Math.max(0, Math.min(360, Math.round(hm.anchorY)));
-            baseDv.setUint16(entryOff + 4, nx, true);
-            baseDv.setUint16(entryOff + 6, ny, true);
-          }
-        });
-      }
+      patchWidgetCoords(baseDv, baseHeader.byteLength);
 
-      // B. Re-encode 360x360 Background (Sprite #69)
-      const bgCv = document.createElement('canvas'); bgCv.width = 360; bgCv.height = 360;
-      const bgCtx = bgCv.getContext('2d');
-      if (typeof customBgImage !== 'undefined' && customBgImage) {
-        const ratio = Math.max(360 / (customBgImage.width || 360), 360 / (customBgImage.height || 360));
-        const nw = (customBgImage.width || 360) * ratio, nh = (customBgImage.height || 360) * ratio;
-        bgCtx.drawImage(customBgImage, (360 - nw) / 2, (360 - nh) / 2, nw, nh);
-      } else {
-        bgCtx.fillStyle = '#000000'; bgCtx.fillRect(0, 0, 360, 360);
-      }
       const bgRgba = bgCtx.getImageData(0, 0, 360, 360).data;
       const newBgPA = window.encodePA(bgRgba, 360, 360, false, 2);
-
-      // C. Re-encode 240x240 Carousel Preview (Sprite #70)
-      const prevCv = document.createElement('canvas'); prevCv.width = 240; prevCv.height = 240;
-      const prevCtx = prevCv.getContext('2d');
-      prevCtx.drawImage(bgCv, 0, 0, 240, 240);
-      const scale240 = 240 / 360;
-      if (typeof widgets !== 'undefined' && Array.isArray(widgets)) {
-        widgets.forEach(w => {
-          if (w.visible && w.spriteCanvas) {
-            const sw = (w.spriteCanvas.width || 20) * (w.scale || 1) * scale240;
-            const sh = (w.spriteCanvas.height || 20) * (w.scale || 1) * scale240;
-            prevCtx.drawImage(w.spriteCanvas, (w.x * scale240) - sw / 2, (w.y * scale240) - sh / 2, sw, sh);
-          }
-        });
-      }
       const prevRgba = prevCtx.getImageData(0, 0, 240, 240).data;
       const newPrevPA = window.encodePA(prevRgba, 240, 240, false, 2);
 
-      // Sync stage preview box
-      const floatBoxCanvas = document.querySelector('#wysiwygBinPreviewBox canvas');
-      if (floatBoxCanvas) {
-        floatBoxCanvas.width = 240; floatBoxCanvas.height = 240;
-        floatBoxCanvas.getContext('2d').drawImage(prevCv, 0, 0);
-      }
+      const pad4 = (arr) => {
+        const aligned = (arr.byteLength + 3) & ~3;
+        if (aligned === arr.byteLength) return arr;
+        const out = new Uint8Array(aligned);
+        out.set(arr, 0);
+        return out;
+      };
 
-      // D. Assemble all sprites sequentially & update sprite table offsets
       const spriteChunks = [];
       let curRelOff = firstSpriteRelOff;
       for (let i = 0; i < dirSprites.count && i < M.sprites.length; i++) {
         const s = M.sprites[i];
         let sBytes = null;
         if (s.id === 69) {
-          sBytes = newBgPA;
+          sBytes = pad4(newBgPA);
         } else if (s.id === 70) {
-          sBytes = newPrevPA;
+          sBytes = pad4(newPrevPA);
         } else {
-          const len = s.dec ? s.dec.len : (i + 1 < M.sprites.length ? (M.sprites[i + 1].absOff - s.absOff) : (origU.length - s.absOff));
-          sBytes = origU.subarray(s.absOff, s.absOff + len);
+          const rawLen = (i + 1 < M.sprites.length) ? (M.sprites[i + 1].absOff - s.absOff) : (origU.length - s.absOff);
+          sBytes = pad4(origU.subarray(s.absOff, s.absOff + rawLen));
         }
 
         const sprEntryOff = B + dirSprites.off + i * dirSprites.size;
@@ -5261,7 +5254,6 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
         curRelOff += sBytes.byteLength;
       }
 
-      // E. Concatenate baseHeader + spriteChunks
       const totalLen = baseHeader.byteLength + (curRelOff - firstSpriteRelOff);
       const finalBin = new Uint8Array(totalLen);
       finalBin.set(baseHeader, 0);
@@ -5271,22 +5263,23 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
         writePtr += chunk.byteLength;
       }
 
-      // F. Update total file size fields & BUYPASS checksum at 0x10
+      // Update exact TOPSTEP + TBUI size fields (0x0C, 0x28, and B+0x0C) & BUYPASS CRC at 0x10
       const finalDv = new DataView(finalBin.buffer);
       finalDv.setUint32(0x0C, totalLen, true);
-      finalDv.setUint32(0x18, totalLen, true);
-      finalDv.setUint32(0x14, totalLen - 1024, true);
+      finalDv.setUint32(0x28, totalLen - 1024, true);
+      finalDv.setUint32(B + 0x0C, totalLen - 1028, true);
 
       const newCrc = crc16Header568x(finalBin.subarray(1024));
       finalDv.setUint16(0x10, newCrc, true);
 
-      // Cache updated binary in active studio session
       M.u = finalBin;
       M.buffer = finalBin.buffer;
       M.fileSize = finalBin.byteLength;
       window.decompiledBinData = M;
 
-      if (typeof log === 'function') log('✨ Repacked WYSIWYG watchface: ' + totalLen.toLocaleString() + ' B (CRC: 0x' + newCrc.toString(16).toUpperCase() + ')', 'ok');
+      if (typeof log === 'function') {
+        log(`✨ Repacked Custom BG + ${movedCount} moved widget(s) (4B-aligned): ${totalLen.toLocaleString()} B (CRC: 0x${newCrc.toString(16).toUpperCase().padStart(4, '0')})`, 'ok');
+      }
       return finalBin;
     } catch (err) {
       if (typeof log === 'function') log('⚠️ Repack warning: ' + (err.message || err), 'warn');
@@ -5796,7 +5789,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
       // 2. Find 360x360 background sprite and assign it
       const bgSpr = M.sprites.find(s => s.dec && s.w >= 300 && s.h >= 300);
       if (bgSpr && bgSpr.canvas) {
-        customBgImage = bgSpr.canvas;
+        customBgImage = bgSpr.canvas; window.userUploadedCustomBg = false;
         bgTheme = 'image';
         const delBtn = document.getElementById('btnDeleteBg');
         if (delBtn) delBtn.disabled = false;
@@ -6070,6 +6063,13 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 <!-- HT37_DECOMPILER_MODULE_END -->
 </body>
 </html>
+
+
+
+
+
+
+
 
 
 
