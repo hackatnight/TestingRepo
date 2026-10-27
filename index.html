@@ -349,105 +349,7 @@
     transform: scale(0.98) !important;
   }
 </style>
-  <script src="ht37-commands.js">// [TAB-2 / TOOL-0]: Dedicated Initializer for Universal Command Dropdown + Send Trigger
-(function initTool0Catalog() {
-  function applyTool0() {
-    const card0 = document.getElementById('toolCard_0_alerts');
-    if (!card0) return;
-    const body0 = card0.querySelector('.toolbox-tool-body');
-    if (!body0 || document.getElementById('selAllKnownCommands')) return;
-
-    // 1. Universal Command Catalog Dropdown
-    const select = document.createElement('select');
-    select.id = 'selAllKnownCommands';
-    select.style.cssText = 'width:100% !important; height:28px !important; background:#111827 !important; color:#e2e8f0 !important; border:1px solid #334155 !important; font-size:11px !important; padding:4px 6px !important; margin-bottom:4px !important; box-sizing:border-box !important;';
-    select.innerHTML = `
-      <optgroup label="📞 Telephony (0x04)">
-        <option value="0x01">04.01 - Call (Incoming Ring)</option>
-        <option value="0x02">04.02 - End Call</option>
-        <option value="0x03">04.03 - Mute Call</option>
-      </optgroup>
-      <optgroup label="💬 Social & App Notifications (0x04)">
-        <option value="0x04">04.04 - SMS</option>
-        <option value="0x05">04.05 - QQ</option>
-        <option value="0x06">04.06 - WeChat</option>
-        <option value="0x07">04.07 - Facebook</option>
-        <option value="0x08">04.08 - Twitter / X</option>
-        <option value="0x09">04.09 - LinkedIn</option>
-        <option value="0x0a">04.0A - Instagram</option>
-        <option value="0x0b">04.0B - System Notice</option>
-        <option value="0x0c">04.0C - WhatsApp</option>
-        <option value="0x0d" selected>04.0D - LINE</option>
-        <option value="0x0e">04.0E - Messenger</option>
-        <option value="0x0f">04.0F - KakaoTalk</option>
-        <option value="0x10">04.10 - Skype</option>
-        <option value="0x11">04.11 - Email</option>
-        <option value="0x12">04.12 - Telegram</option>
-        <option value="0x13">04.13 - Viber</option>
-        <option value="0x15">04.15 - Snapchat</option>
-      </optgroup>
-      <optgroup label="🌤️ Weather Telemetry (0x05)">
-        <option value="weather_01">05.01 - Sunny</option>
-        <option value="weather_02">05.02 - Cloudy</option>
-        <option value="weather_03">05.03 - Overcast</option>
-        <option value="weather_04">05.04 - Shower</option>
-        <option value="weather_05">05.05 - Thunder</option>
-        <option value="weather_06">05.06 - Light Rain</option>
-        <option value="weather_07">05.07 - Moderate Rain</option>
-        <option value="weather_08">05.08 - Sleet</option>
-        <option value="weather_09">05.09 - Light Snow</option>
-        <option value="weather_0a">05.0A - Moderate Snow</option>
-        <option value="weather_0b">05.0B - Sand / Dust</option>
-        <option value="weather_0c">05.0C - Foggy</option>
-      </optgroup>
-      <optgroup label="⚙️ System & Hardware (0x02)">
-        <option value="02_3B">02.3B - Find Watch Chime</option>
-      </optgroup>
-    `;
-
-    // 2. Green Send Button with Send Arrow
-    const btn = document.createElement('button');
-    btn.id = 'btnSendCommandMaster';
-    btn.innerHTML = '➤ Send Command';
-    btn.style.cssText = 'width:100% !important; margin:2px 0 8px 0 !important; padding:6px 8px !important; font-size:11px !important; font-weight:700 !important; background:#10b981 !important; color:#fff !important; border:none !important; border-radius:0 !important; cursor:pointer !important; box-sizing:border-box !important;';
-
-    btn.onclick = async () => {
-      const val = select.value;
-      if (val.startsWith('weather_')) {
-        const code = parseInt(val.replace('weather_', ''), 16);
-        if (typeof sendWeather === 'function') sendWeather(code);
-      } else if (val === '02_3B') {
-        const chimeBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Find Watch Chime'));
-        if (chimeBtn) chimeBtn.click();
-      } else {
-        const appCode = parseInt(val, 16);
-        if (typeof sendWatchAlert === 'function') {
-          const msgInput = document.querySelector('input[id*="msg" i]') || Array.from(document.querySelectorAll('input')).find(i => (i.value && i.value.includes('Watch link ok')));
-          const msg = msgInput ? msgInput.value : 'Test Alert';
-          sendWatchAlert(appCode, msg);
-        }
-      }
-    };
-
-    // Insert at the top of Tool 0
-    body0.insertBefore(btn, body0.firstChild);
-    body0.insertBefore(select, btn);
-
-    // Isolate Reset at the very bottom
-    const resetBtn = Array.from(body0.querySelectorAll('button')).find(b => b.textContent.includes('Reset'));
-    if (resetBtn) {
-      resetBtn.style.cssText = 'width:100% !important; margin:6px 0 0 0 !important; padding:5px 8px !important; font-size:11px !important; background:#ef4444 !important; color:#fff !important; border:none !important;';
-      body0.appendChild(resetBtn);
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyTool0);
-  } else {
-    setTimeout(applyTool0, 150);
-  }
-})();
-</script>
+  <script src="ht37-commands.js"></script>
 </script>
 </head>
 <body>
@@ -955,7 +857,7 @@ test their Write keys!
           <input type="text" id="explorerKey" value="0x15" placeholder="Key" style="width:44px;font-size:10px;font-family:var(--font-mono);padding:2px 4px;background:#151b26;color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:3px;" />
           <input type="text" id="explorerPayload" value="01" placeholder="Payload hex (e.g. 01)" style="flex:1;min-width:60px;font-size:10px;font-family:var(--font-mono);padding:2px 4px;background:#151b26;color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:3px;" />
           <button class="primary" onclick="sendExplorerCommand()" style="padding:3px 8px;font-size:10px;white-space:nowrap;">⚡ Send</button>
-          <button onclick="advanceExplorerNext()" title="Advance to next predicted command" style="padding:3px 6px;font-size:10px;">⏭️</button>`n          <button class="success" onclick="readSigBattery()" title="Reads live battery percentage over standard Bluetooth SIG Service (0x180F)" style="padding:3px 7px;font-size:10px;">🔋 Battery</button>
+          <button onclick="advanceExplorerNext()" title="Advance to next predicted command" style="padding:3px 6px;font-size:10px;">⏭️</button>
         </div>
 
         <!-- Dynamic Prediction Callout -->
@@ -1155,7 +1057,6 @@ function drawWidget(c, w) {
     }
     case 'heartrate': {
       const bpm = Math.max(30, Math.min(220, Number(sensors.hr) || 76));
-      const beatPeriodMs = 60000 / bpm;
       c.fillStyle = 'rgba(255, 82, 82, 0.1)'; c.strokeStyle = w.color; c.lineWidth = 1.5;
       c.beginPath(); c.roundRect(-58, -24, 116, 48, 10); c.fill(); c.stroke();
       c.fillStyle = w.color; c.font = 'bold 16px monospace'; c.textAlign = 'left';
@@ -1876,16 +1777,6 @@ log(`🔊 Sending ${label} (Cmd=0x02, Key=0x${keyId.toString(16).toUpperCase()},
   await enqueueBleWrite(cmdChar, frame, `${label.replace(/\s+/g,'_')}(0x02/0x${keyId.toString(16).toUpperCase()}) seq=${seq}`);
 }
 
-async function setWatchEnglish() {
-  if (!cmdChar || !bleServer || !bleServer.connected) {
-    return log('ERROR: Pair & Bind to the watch first!', 'err');
-  }
-  abortBleOperation = false;
-  log('🌐 Setting Watch Language to English (Cmd=0x02, Key=0x3A, Val=[00])...', 'ok');
-  const { frame, seq } = buildFitCloudFrame(0x02, 0x3a, [0x00], 0x00);
-  await enqueueBleWrite(cmdChar, frame, `SetLanguageEnglish(0x02/0x3A=[00]) seq=${seq}`);
-}
-
 async function enableAllWatchAlerts() {
   if (!cmdChar || !bleServer || !bleServer.connected) {
     return log('ERROR: Pair & Bind to the watch first!', 'err');
@@ -1900,16 +1791,6 @@ async function enableAllWatchAlerts() {
 }
 
   // --- VERIFIED MEDIA CONTROLS (Cmd=0x07, Key=0x03) ---
-  async function sendMediaControl(actionByte, label) {
-    if (!cmdChar || !bleServer || !bleServer.connected) {
-      return log('ERROR: Connect & Bind to the watch first.', 'err');
-    }
-    abortBleOperation = false;
-    const actHex = '0x' + actionByte.toString(16).padStart(2, '0').toUpperCase();
-    log(`🎵 Sending Media Control [${label}] (Cmd=0x07, Key=0x03, Val=[${actHex}])...`, 'ok');
-    const { frame, seq } = buildFitCloudFrame(0x07, 0x03, [actionByte & 0xff], 0x00);
-    await enqueueBleWrite(cmdChar, frame, `Media_${label}(0x07/0x03=[${actHex}]) seq=${seq}`);
-  }
 
   async function sendWatchAlert(keyId, label) {
   if (!cmdChar || !bleServer || !bleServer.connected) {
@@ -2262,27 +2143,6 @@ async function sendSingleSkyCode(skyCode, label) {
   await waitForAck(wf.seq, 350);
 }
 
-async function sendSingleSkyCode(skyCode, label) {
-  updateLiveSensorReadout();
-  if (!cmdChar || !bleServer || !bleServer.connected) {
-    return log('ERROR: Pair & Bind to the watch first!', 'err');
-  }
-  abortBleOperation = false;
-  const cur = encodeFitCloudTemp(document.getElementById('liveTempCur').value);
-  const min = encodeFitCloudTemp(document.getElementById('liveTempMin').value);
-  const max = encodeFitCloudTemp(document.getElementById('liveTempMax').value);
-  const payload = [cur, min, max, skyCode & 0xff, skyCode & 0xff, 0x01, 0x01];
-
-  document.getElementById('rawCmd').value = '0x02';
-  document.getElementById('rawKey').value = '0x36';
-  document.getElementById('rawPayload').value = payload.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
-
-  log(`🌤️ Sent Single Sky Code [${label}] -> Cmd=0x02, Key=0x36, Payload=[${payload.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ')}] (Open watch Weather app now!)`, 'ok');
-  const wf = buildFitCloudFrame(0x02, 0x36, payload, 0x00);
-  await enqueueBleWrite(cmdChar, wf.frame, `Sky_${label.replace(/\s+/g,'_')} seq=${wf.seq}`);
-  await waitForAck(wf.seq, 350);
-}
-
 async function cycleAllSkyCodes() {
   if (!cmdChar || !bleServer || !bleServer.connected) {
     return log('ERROR: Pair & Bind to the watch first!', 'err');
@@ -2486,46 +2346,6 @@ function decodeCmd05SyncData(keyId, valBytes, valHex) {
   updateLiveSensorReadout();
 }
 
-async function pullWatchDataToStudio() {
-  if (!cmdChar || !bleServer || !bleServer.connected) {
-    return log('ERROR: Pair & Bind to the watch first!', 'err');
-  }
-  abortBleOperation = false;
-  log('📥 Pulling Live Data from HT37 Watch (Battery, Config TLVs, Units, Dial Slots, Steps/Sport, & Live PPG Heart Rate)...', 'ok');
-
-  const queries = [
-    { cmd: 0x02, key: 0x1b, val: [],         name: 'QueryBattery(0x02/0x1B)' },
-    { cmd: 0x02, key: 0x20, val: [0x01],     name: 'QueryAllConfig(0x02/0x20)' },
-    { cmd: 0x02, key: 0x60, val: [],         name: 'QuerySportUiConfig(0x02/0x60)' },
-    { cmd: 0x02, key: 0x37, val: [],         name: 'QueryWeatherState(0x02/0x37)' },
-    { cmd: 0x02, key: 0xc8, val: [],         name: 'QueryDialSlots(0x02/0xC8)' },
-    { cmd: 0x02, key: 0x7d, val: [0x01],     name: 'QueryGuiInfo(0x02/0x7D)' },
-    { cmd: 0x02, key: 0xae, val: [0x01],     name: 'QueryFlashSpace(0x02/0xAE)' },
-    { cmd: 0x05, key: 0x01, val: [],         name: 'SyncSportData_01(0x05/0x01)' },
-    { cmd: 0x05, key: 0x06, val: [0x00],     name: 'SyncTodaySummary_06(0x05/0x06)' },
-    { cmd: 0x05, key: 0x23, val: [0x01,0x00],name: 'SampleLiveHeartRate_ON(0x05/0x23)' }
-  ];
-
-  for (const q of queries) {
-    if (abortBleOperation) break;
-    const { frame, seq } = buildFitCloudFrame(q.cmd, q.key, q.val, 0x00);
-    await enqueueBleWrite(cmdChar, frame, `${q.name} seq=${seq}`);
-    await waitForAck(seq, 320);
-    await new Promise(r => setTimeout(r, 120));
-  }
-
-  // Let optical HR sensor sample for 4 seconds if it streams, then turn off LEDs automatically
-  log('❤️ Sampling live Heart Rate optical sensor for 4 seconds (0x05/0x24)...', 'tx');
-  await new Promise(r => setTimeout(r, 4000));
-  if (!abortBleOperation && bleServer && bleServer.connected) {
-    const offFrame = buildFitCloudFrame(0x05, 0x23, [0x00, 0x00], 0x00);
-    await enqueueBleWrite(cmdChar, offFrame.frame, `SampleLiveHeartRate_OFF(0x05/0x23) seq=${offFrame.seq}`);
-    await waitForAck(offFrame.seq, 300);
-  }
-  updateLiveSensorReadout();
-  log('✅ Finished pulling watch data into Studio!', 'ok');
-}
-
 function decodeDeviceConfigTlvs(payload) {
   let idx = 0;
   while (idx + 2 <= payload.length) {
@@ -2601,7 +2421,6 @@ document.getElementById('btnDiscoverTrigger').addEventListener('click', async ()
 /* ============================================================================
  * 7. FLASH TO WATCH
  * ============================================================================ */
-let ffb2ErrorAbort = false;
 
 async function waitForFfb2Reply(timeoutMs = 1500) {
   const start = Date.now();
@@ -2960,7 +2779,6 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
     setTimeout(applyTool0, 150);
   }
 })();
-</script>
 </script>
 <!-- STUDIO_TAB_SYSTEM_START -->
 <style id="studio-workspace-styles">
@@ -3962,12 +3780,6 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
           nextBtn.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; font-size:11px !important;';
           actionRow.appendChild(nextBtn);
 
-          const sigBatBtn = document.createElement('button');
-          sigBatBtn.id = 'btnSigBatteryMaster';
-          sigBatBtn.innerHTML = '🔋 SIG Battery';
-          sigBatBtn.className = 'dock-btn';
-          sigBatBtn.style.cssText = 'width:100% !important; height:28px !important; margin:0 !important; font-size:11px !important; color:#10b981 !important;';
-          actionRow.appendChild(sigBatBtn);
           body0A.appendChild(actionRow);
 
           // 6. Dynamic Prediction Callout Box
@@ -3997,10 +3809,6 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
             const nextIdx = (cmdSelect.selectedIndex + 1) % cmdSelect.options.length;
             cmdSelect.selectedIndex = nextIdx;
             cmdSelect.onchange();
-          };
-
-          sigBatBtn.onclick = () => {
-            if (typeof readSigBattery === 'function') readSigBattery();
           };
 
           // Universal Dispatch Trigger (Reads from the 3 text fields)
@@ -4708,105 +4516,6 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
     setupStudio();
   }
 })();
-// [TAB-2 / TOOL-0]: Dedicated Initializer for Universal Command Dropdown + Send Trigger
-(function initTool0Catalog() {
-  function applyTool0() {
-    const card0 = document.getElementById('toolCard_0_alerts');
-    if (!card0) return;
-    const body0 = card0.querySelector('.toolbox-tool-body');
-    if (!body0 || document.getElementById('selAllKnownCommands')) return;
-
-    // 1. Universal Command Catalog Dropdown
-    const select = document.createElement('select');
-    select.id = 'selAllKnownCommands';
-    select.style.cssText = 'width:100% !important; height:28px !important; background:#111827 !important; color:#e2e8f0 !important; border:1px solid #334155 !important; font-size:11px !important; padding:4px 6px !important; margin-bottom:4px !important; box-sizing:border-box !important;';
-    select.innerHTML = `
-      <optgroup label="📞 Telephony (0x04)">
-        <option value="0x01">04.01 - Call (Incoming Ring)</option>
-        <option value="0x02">04.02 - End Call</option>
-        <option value="0x03">04.03 - Mute Call</option>
-      </optgroup>
-      <optgroup label="💬 Social & App Notifications (0x04)">
-        <option value="0x04">04.04 - SMS</option>
-        <option value="0x05">04.05 - QQ</option>
-        <option value="0x06">04.06 - WeChat</option>
-        <option value="0x07">04.07 - Facebook</option>
-        <option value="0x08">04.08 - Twitter / X</option>
-        <option value="0x09">04.09 - LinkedIn</option>
-        <option value="0x0a">04.0A - Instagram</option>
-        <option value="0x0b">04.0B - System Notice</option>
-        <option value="0x0c">04.0C - WhatsApp</option>
-        <option value="0x0d" selected>04.0D - LINE</option>
-        <option value="0x0e">04.0E - Messenger</option>
-        <option value="0x0f">04.0F - KakaoTalk</option>
-        <option value="0x10">04.10 - Skype</option>
-        <option value="0x11">04.11 - Email</option>
-        <option value="0x12">04.12 - Telegram</option>
-        <option value="0x13">04.13 - Viber</option>
-        <option value="0x15">04.15 - Snapchat</option>
-      </optgroup>
-      <optgroup label="🌤️ Weather Telemetry (0x05)">
-        <option value="weather_01">05.01 - Sunny</option>
-        <option value="weather_02">05.02 - Cloudy</option>
-        <option value="weather_03">05.03 - Overcast</option>
-        <option value="weather_04">05.04 - Shower</option>
-        <option value="weather_05">05.05 - Thunder</option>
-        <option value="weather_06">05.06 - Light Rain</option>
-        <option value="weather_07">05.07 - Moderate Rain</option>
-        <option value="weather_08">05.08 - Sleet</option>
-        <option value="weather_09">05.09 - Light Snow</option>
-        <option value="weather_0a">05.0A - Moderate Snow</option>
-        <option value="weather_0b">05.0B - Sand / Dust</option>
-        <option value="weather_0c">05.0C - Foggy</option>
-      </optgroup>
-      <optgroup label="⚙️ System & Hardware (0x02)">
-        <option value="02_3B">02.3B - Find Watch Chime</option>
-      </optgroup>
-    `;
-
-    // 2. Green Send Button with Send Arrow
-    const btn = document.createElement('button');
-    btn.id = 'btnSendCommandMaster';
-    btn.innerHTML = '➤ Send Command';
-    btn.style.cssText = 'width:100% !important; margin:2px 0 8px 0 !important; padding:6px 8px !important; font-size:11px !important; font-weight:700 !important; background:#10b981 !important; color:#fff !important; border:none !important; border-radius:0 !important; cursor:pointer !important; box-sizing:border-box !important;';
-
-    btn.onclick = async () => {
-      const val = select.value;
-      if (val.startsWith('weather_')) {
-        const code = parseInt(val.replace('weather_', ''), 16);
-        if (typeof sendWeather === 'function') sendWeather(code);
-      } else if (val === '02_3B') {
-        const chimeBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Find Watch Chime'));
-        if (chimeBtn) chimeBtn.click();
-      } else {
-        const appCode = parseInt(val, 16);
-        if (typeof sendWatchAlert === 'function') {
-          const msgInput = document.querySelector('input[id*="msg" i]') || Array.from(document.querySelectorAll('input')).find(i => (i.value && i.value.includes('Watch link ok')));
-          const msg = msgInput ? msgInput.value : 'Test Alert';
-          sendWatchAlert(appCode, msg);
-        }
-      }
-    };
-
-    // Insert at the top of Tool 0
-    body0.insertBefore(btn, body0.firstChild);
-    body0.insertBefore(select, btn);
-
-    // Isolate Reset at the very bottom
-    const resetBtn = Array.from(body0.querySelectorAll('button')).find(b => b.textContent.includes('Reset'));
-    if (resetBtn) {
-      resetBtn.style.cssText = 'width:100% !important; margin:6px 0 0 0 !important; padding:5px 8px !important; font-size:11px !important; background:#ef4444 !important; color:#fff !important; border:none !important;';
-      body0.appendChild(resetBtn);
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyTool0);
-  } else {
-    setTimeout(applyTool0, 150);
-  }
-})();
-</script>
 </script>
 <!-- STUDIO_TAB_SYSTEM_END -->
 <!-- HT37_DECOMPILER_MODULE_START -->
@@ -4815,16 +4524,6 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
     position: sticky !important;
     top: 50px !important;
     align-self: start !important;
-  }
-  .decomp-sprite-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    max-height: 360px;
-    overflow-y: auto;
-    padding: 4px 2px;
-    scrollbar-width: thin;
-    scrollbar-color: #38bdf8 #090d16;
   }
   .decomp-card {
     background: #111827;
@@ -4932,10 +4631,6 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
     return s;
   }
   function decompHex(n, w = 4) { return '0x' + (n >>> 0).toString(16).padStart(w, '0'); }
-  function decompRgb565(lo, hi) {
-    const v = lo | (hi << 8);
-    return [((v >> 11) & 31) * 255 / 31 | 0, ((v >> 5) & 63) * 255 / 63 | 0, (v & 31) * 255 / 31 | 0];
-  }
 
   // PA RLE + 7-Bit (2-3-2) RGB565 Delta Decoder
   window.decodePA = function(u, start, expW, expH) {

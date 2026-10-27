@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HT37 Dial Decompiler</title>
+<style>
+:root{
+  --bg:#f4f6f8; --panel:#ffffff; --panel2:#eef1f4; --ink:#14202b; --mute:#5b6b7a; --line:#d5dce3;
+  --accent:#0a8f84; --accent-ink:#ffffff; --warn:#b45309; --bad:#b91c1c; --ok:#15803d;
+  --chk1:#e4e8ec; --chk2:#ffffff; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e141a; --panel:#151d25; --panel2:#1b2630; --ink:#e4ebf1; --mute:#8b9cac; --line:#2a3744;
+    --accent:#2dd4bf; --accent-ink:#04201d; --warn:#f59e0b; --bad:#f87171; --ok:#4ade80;
+    --chk1:#222c36; --chk2:#2b3743;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e141a; --panel:#151d25; --panel2:#1b2630; --ink:#e4ebf1; --mute:#8b9cac; --line:#2a3744;
+  --accent:#2dd4bf; --accent-ink:#04201d; --warn:#f59e0b; --bad:#f87171; --ok:#4ade80;
+  --chk1:#222c36; --chk2:#2b3743;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header.top{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:20}
+header.top h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px}
+header.top .sub{color:var(--mute);font-size:12px}
+.spacer{flex:1}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:6px 12px;border-radius:7px;cursor:pointer}
+button:hover,.btn:hover{border-color:var(--accent)}
+button.primary,.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button:disabled{opacity:.45;cursor:not-allowed}
+input[type=file]{display:none}
+main{max-width:1500px;margin:0 auto;padding:16px}
+#drop{border:2px dashed var(--line);border-radius:12px;padding:44px 20px;text-align:center;background:var(--panel);color:var(--mute)}
+#drop.over{border-color:var(--accent);color:var(--ink)}
+#drop b{color:var(--ink);font-size:16px}
+#drop p{margin:6px 0}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin:14px 0 12px;border-bottom:1px solid var(--line)}
+.tab{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;padding:8px 14px;color:var(--mute)}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.panel h2{font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.6px;color:var(--mute)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mute);font-weight:600;position:sticky;top:0;background:var(--panel)}
+td.m,.m{font-family:var(--mono)}
+.tw{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.tag{display:inline-block;padding:0 7px;border-radius:10px;font-size:11px;border:1px solid var(--line);color:var(--mute);white-space:nowrap}
+.tag.known{color:var(--ok);border-color:var(--ok)}
+.tag.inferred{color:var(--warn);border-color:var(--warn)}
+.tag.unknown{color:var(--bad);border-color:var(--bad)}
+.tag.alpha{color:var(--accent);border-color:var(--accent)}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px}
+.kv dt{color:var(--mute)} .kv dd{margin:0;font-family:var(--mono);word-break:break-all}
+.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+pre.hex{margin:0;font:12px/1.5 var(--mono);overflow:auto;max-height:340px;padding:10px;background:var(--panel2);border-radius:8px;border:1px solid var(--line);white-space:pre}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar label{display:flex;gap:6px;align-items:center;color:var(--mute);font-size:12.5px}
+.toolbar input[type=range]{width:120px}
+.toolbar input[type=search],select{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--ink)}
+#cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--cell,150px),1fr));gap:10px}
+.card{border:1px solid var(--line);border-radius:9px;background:var(--panel);overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
+.card:hover{border-color:var(--accent)}
+.card .pic{display:flex;align-items:center;justify-content:center;min-height:90px;padding:8px;background-color:var(--chk2);
+  background-image:linear-gradient(45deg,var(--chk1) 25%,transparent 25%,transparent 75%,var(--chk1) 75%),linear-gradient(45deg,var(--chk1) 25%,transparent 25%,transparent 75%,var(--chk1) 75%);
+  background-size:12px 12px;background-position:0 0,6px 6px}
+.pic.bg-dark{background:#05080b!important}.pic.bg-light{background:#fff!important}.pic.bg-mag{background:#e0189a!important}.pic.bg-teal{background:#14424a!important}
+.card canvas{image-rendering:pixelated;max-width:100%}
+.card .meta{padding:7px 9px;border-top:1px solid var(--line);font-size:12px;display:flex;flex-direction:column;gap:2px}
+.card .meta b{font-size:13px}
+.card .meta span{color:var(--mute)}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);padding:0;width:min(1100px,96vw);max-height:92vh}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+.dhead{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
+.dbody{display:grid;grid-template-columns:minmax(260px,1fr) minmax(300px,1fr);gap:14px;padding:14px;overflow:auto;max-height:calc(92vh - 56px)}
+@media(max-width:820px){.dbody{grid-template-columns:1fr}}
+.bigpic{overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px;max-height:60vh;background-color:var(--chk2);
+  background-image:linear-gradient(45deg,var(--chk1) 25%,transparent 25%,transparent 75%,var(--chk1) 75%),linear-gradient(45deg,var(--chk1) 25%,transparent 25%,transparent 75%,var(--chk1) 75%);background-size:16px 16px;background-position:0 0,8px 8px}
+.bigpic canvas{image-rendering:pixelated;display:block}
+.note{color:var(--mute);font-size:12.5px}
+.layoutwrap{overflow:auto}
+#layoutCv{image-rendering:pixelated;border:1px solid var(--line);border-radius:8px;background:#000;max-width:100%}
+.spec h3{margin:16px 0 6px;font-size:14px}
+.spec pre{margin:6px 0}
+.spec code,.inl{font-family:var(--mono);background:var(--panel2);padding:0 4px;border-radius:4px}
+#status{color:var(--mute);font-size:12.5px}
+.sr{position:absolute;left:-9999px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>HT37 Dial Decompiler</h1>
+    <div class="sub">TOPSTEP / TBUI watch-face .bin &rarr; sprites, tables, raw regions. Runs entirely in your browser.</div>
+  </div>
+  <div class="spacer"></div>
+  <span id="status"></span>
+  <label class="btn primary" for="file">Open .bin</label>
+  <input id="file" type="file" accept=".bin,application/octet-stream">
+  <button id="btnZip" disabled>Export sprites (ZIP)</button>
+  <button id="btnJson" disabled>Export metadata (JSON)</button>
+</header>
+
+<main>
+  <div id="drop"><p><b>Drop a watch-face .bin here</b></p><p>or use “Open .bin”. Nothing is uploaded; parsing happens locally.</p></div>
+  <div id="app" hidden>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <section id="t-sprites"></section>
+    <section id="t-overview" hidden></section>
+    <section id="t-fields" hidden></section>
+    <section id="t-widgets" hidden></section>
+    <section id="t-spec" hidden></section>
+  </div>
+</main>
+
+<dialog id="dlg">
+  <div class="dhead"><b id="dTitle"></b><span class="spacer"></span>
+    <button id="dPng">PNG</button><button id="dRaw">Raw .pa</button><button id="dJson">Copy JSON</button><button id="dClose">Close</button></div>
+  <div class="dbody" id="dBody"></div>
+</dialog>
+
+<script>
+"use strict";
+/* ====================================================================================
+   FORMAT SPEC (also written to FORMAT.md inside the ZIP)
+   ==================================================================================== */
+const FORMAT_MD = `# TOPSTEP / TBUI watch-face .bin (HT37, IC_568X, uiNum 6009) - reverse-engineered notes
+
+All integers little-endian. "B" = TBUI block offset (u32 at file+0x24, 0x400 in the sample).
+Confidence: [K] verified against the sample (round-trips), [I] inferred, [?] unknown.
+
+## 1. File layout
+    0x000  TOPSTEP header (B bytes, zero padded)
+    B      TBUI block, size = u32 at B+0x0C (+4 byte footer)
+    EOF-4  footer: ASCII "TBUI" (the file size field at 0x0C includes it)
+
+### 1.1 TOPSTEP header
+    0x00  char[7] "TOPSTEP", u8 version (=1)                       [K]
+    0x08  u32 0                                                    [?]
+    0x0C  u32 total file size                                      [K] equals real size
+    0x10  u32 0x0100FDE8  (low 24 bits = 65000, high byte 1)       [?] constant id/flags?
+    0x20  u32 0x0002054C                                           [?]
+    0x24  u32 B (offset of TBUI block, 0x400)                      [K]
+    0x28  u32 0x00054D28 = file size - B                           [K]
+    0x30  u16 1, u16 0x34                                          [?]
+    0x38  char[] file name, NUL terminated ("gui_dial_binfile_watch_<dialId>_1_<yyyymmdd>_ota.bin")  [K]
+
+### 1.2 TBUI header (B .. B+0xA0)
+    +0x00 "TBUI"  +0x04 u32 version (1)                            [K]
+    +0x08 u32: low 24 bits = dial id (1004380 = number in file name), high byte 1   [I]
+    +0x0C u32 block size (excludes 4 byte footer)                  [K]
+    +0x10 u32 header size 0x40                                     [I]
+    +0x14 u32 10                                                   [?]
+    +0x20 u16 screen width, u16 screen height (360x360)            [K]
+    +0x24 u16 2, u16 3                                             [?]
+    +0x40 directory (below), +0x8C int32 -104                      [?]
+No CRC/checksum was found: simple byte sums and CRC32 over the obvious ranges do not match any header field.
+The only integrity fields identified are the two size fields. Verify on-device.
+
+### 1.3 Directory @B+0x40
+    +0x40 u32 widgetOff   u16 widgetCount  u16 widgetSize(0x20)
+    +0x48 u32 spriteDescOff u16 spriteCount u16 spriteDescSize(0x0C)
+    +0x50 u32 fontListOff u16 fontListCount u16 fontListSize (0x60; stride is size*4 = 0x180)   [I]
+    +0x58 u32 4                                                    [?]
+    +0x5C u32 spriteDataOff (all sprite offsets are relative to B, first sprite starts here)    [K]
+    +0x60 u32 70  (= id of the 240x240 preview sprite in the sample)                            [I]
+All table offsets are relative to B.
+
+## 2. Sprite descriptor table (12 bytes each)
+    u16 id | u8 fmt (0x0E) | u8 flag (1 = opaque RGB565, 2 = ARGB8565) | u16 w | u16 h | u32 offset (rel. B)
+flag matches PA header alpha byte (flag 2 <-> alpha 1). [K]
+Sprite blobs are stored in id order, each padded to a 4-byte boundary (0-3 pad bytes). Last blob ends at B+blockSize-pad.
+
+## 3. Sprite blob ("PA")
+    0x00 "PA"  0x02 u8 0  0x03 u8 alpha(0|1)
+    0x04 u16 w  0x06 u16 h
+    0x08 u8 0   0x09 u8 es (row-table entry width: 1 or 2)   0x0A u16 bias   0x0C u32 0     [K]
+    0x10 row table: (h+1) entries of es bytes
+    ...  row streams, one per row, back to back
+Row table: entry[i] = (rowStart_i - bias*i) mod 2^(8*es), rowStart relative to the first stream byte, entry[h] = total.
+es=1 wraps (rows > 255 bytes total), so decode sequentially and use the table only as a checksum.
+Encoder rule that always works: es=2, bias=round(total/h) (entries are stored mod 65536).
+
+### 3.1 Row stream tokens (first byte c, n = c & 0x3F)
+    0x00-0x7F  single pixel, 1 byte, no payload. Repeats the previous pixel (assumed). Low 7 bits meaning UNRESOLVED [?]
+    0x80-0xBF  run of n pixels.  payload: alpha sprites [alpha, lo, hi] (3 B)  opaque sprites [lo, hi] (2 B)
+    0xC0-0xFF  literal n pixels, always opaque, payload n * [lo, hi]
+Each row decodes until exactly w pixels (tokens never cross rows). n=0 never observed.
+Pixel colour is RGB565 little-endian: v = lo | hi<<8, r5=v>>11, g6=(v>>5)&63, b5=v&31.
+Alpha is straight (not premultiplied) 8-bit.
+
+## 4. Widget table (32 bytes each) [I]
+    +0 u8 id  +1 u8 type  +2 u8 (1)  +3 u8 sub  +4 u16 x  +6 u16 y   (top-left, px)   x/y [K]
+    +8 u32 0  +0x0C u16 a  +0x0E u16 b  +0x10 u32 c  rest 0
+Types seen: 2 clock/number?, 3 numeric data field (uses a font list), 4 multi-state icon (a = first sprite id), 5 progress image (a = sprite id), 6 full image (a = sprite id).
+Type semantics are guesses; positions and sprite ids for 4/5/6 line up with the preview sprite.
+
+## 5. Font lists (stride 0x180) [K for contents]
+    u32 count, then count * (u16 charCode, u16 spriteId)      e.g. '0'..'9' -> digit sprites, '.' ':' '-' '/'
+A widget's font is chosen via one of these lists (mapping widget->list is not decoded).
+
+## 6. Recompile checklist
+ 1. Keep every region you did not edit byte-for-byte (see regions/ in the ZIP).
+ 2. Re-encode edited sprites (never emit single tokens), pad each blob to 4 bytes, rewrite the descriptor offsets and w/h.
+ 3. spriteDataOff stays; recompute B+0x0C (block size), file+0x0C (total size) and file+0x28 (size - B).
+ 4. Footer "TBUI" must stay the last 4 bytes.
+ 5. Unknown: any device-side signature/CRC. Test on the watch.
+`;
+
+/* ====================================================================================
+   helpers
+   ==================================================================================== */
+const $=(s,r=document)=>r.querySelector(s);
+const hex=(n,w=0)=>'0x'+n.toString(16).toUpperCase().padStart(w,'0');
+const h2=b=>b.toString(16).padStart(2,'0');
+function ascii(u,o,n){let s='';for(let i=0;i<n&&o+i<u.length;i++){const c=u[o+i];s+=(c>=32&&c<127)?String.fromCharCode(c):'.';}return s;}
+function hexdump(u,start,len,base=0){
+  const end=Math.min(u.length,start+len);let out='';
+  for(let i=start;i<end;i+=16){
+    const row=u.subarray(i,Math.min(end,i+16));
+    out+=(base+i-start).toString(16).padStart(6,'0')+'  '+Array.from(row,h2).join(' ').padEnd(47,' ')+'  '+ascii(u,i,row.length)+'\n';
+  }
+  return out;
+}
+function b64(u){let s='';const ch=0x8000;for(let i=0;i<u.length;i+=ch)s+=String.fromCharCode.apply(null,u.subarray(i,i+ch));return btoa(s);}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function saveBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);}
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(u,c=0){c=~c>>>0;for(let i=0;i<u.length;i++)c=CRC_T[(c^u[i])&255]^(c>>>8);return ~c>>>0;}
+function makeZip(files){
+  const enc=new TextEncoder(),parts=[],central=[];let off=0;
+  const d=new Date();const dt=((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate();const tm=(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1);
+  for(const f of files){
+    const nm=enc.encode(f.name),crc=crc32(f.data),sz=f.data.length;
+    const lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(8,0,true);lh.setUint16(10,tm,true);lh.setUint16(12,dt,true);
+    lh.setUint32(14,crc,true);lh.setUint32(18,sz,true);lh.setUint32(22,sz,true);lh.setUint16(26,nm.length,true);lh.setUint16(28,0,true);
+    parts.push(new Uint8Array(lh.buffer),nm,f.data);
+    const ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);ch.setUint16(10,0,true);ch.setUint16(12,tm,true);ch.setUint16(14,dt,true);
+    ch.setUint32(16,crc,true);ch.setUint32(20,sz,true);ch.setUint32(24,sz,true);ch.setUint16(28,nm.length,true);ch.setUint32(42,off,true);
+    central.push(new Uint8Array(ch.buffer),nm);
+    off+=30+nm.length+sz;
+  }
+  let cd=0;for(const c of central)cd+=c.length;
+  const end=new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true);end.setUint16(8,files.length,true);end.setUint16(10,files.length,true);end.setUint32(12,cd,true);end.setUint32(16,off,true);
+  return new Blob([...parts,...central,new Uint8Array(end.buffer)],{type:'application/zip'});
+}
+const canvasPng=cv=>new Promise(r=>cv.toBlob(b=>r(b),'image/png'));
+
+/* ====================================================================================
+   PA sprite codec
+   ==================================================================================== */
+function rgb565(lo,hi){const v=lo|hi<<8;return[((v>>11)&31)*255/31|0,((v>>5)&63)*255/63|0,(v&31)*255/31|0];}
+function decodePA(u,start,expW,expH){
+  if(u[start]!==0x50||u[start+1]!==0x41)throw new Error('missing "PA" magic at '+hex(start));
+  const dv=new DataView(u.buffer,u.byteOffset);
+  const alpha=u[start+3],w=dv.getUint16(start+4,true),h=dv.getUint16(start+6,true),es=u[start+9],bias=dv.getUint16(start+10,true);
+  if(es!==1&&es!==2)throw new Error('unsupported row-table width '+es);
+  if(expW!=null&&(w!==expW||h!==expH))throw new Error(`size mismatch: descriptor ${expW}x${expH}, PA ${w}x${h}`);
+  const mask=es===1?255:65535,tab=start+16,data0=tab+(h+1)*es;
+  const table=[];for(let i=0;i<=h;i++)table.push(es===1?u[tab+i]:dv.getUint16(tab+i*2,true));
+  const rgba=new Uint8ClampedArray(w*h*4);
+  const st={single:0,run:0,lit:0,singlePx:0,runPx:0,litPx:0};
+  const rowStarts=[],rowTokens=[];let p=data0,tableOk=true,badRow=-1;
+  let last=[0,0,0,255];
+  for(let y=0;y<h;y++){
+    const rs=p-data0;rowStarts.push(rs);
+    if(((table[y]+bias*y)&mask)!==(rs&mask)){tableOk=false;if(badRow<0)badRow=y;}
+    let x=0,tk=0;
+    while(x<w){
+      if(p>=u.length)throw new Error('ran past end of file in row '+y);
+      const c=u[p++],n=c&0x3f;tk++;
+      if(c<0x80){st.single++;st.singlePx++;put(x++,last);}
+      else if(c<0xc0){
+        if(n===0)throw new Error('zero-length run in row '+y);
+        let a=255,lo,hi;if(alpha){a=u[p];lo=u[p+1];hi=u[p+2];p+=3;}else{lo=u[p];hi=u[p+1];p+=2;}
+        const q=rgb565(lo,hi);last=[q[0],q[1],q[2],a];st.run++;st.runPx+=n;
+        for(let k=0;k<n;k++)put(x++,last);
+      }else{
+        if(n===0)throw new Error('zero-length literal in row '+y);
+        st.lit++;st.litPx+=n;
+        for(let k=0;k<n;k++){const q=rgb565(u[p],u[p+1]);p+=2;last=[q[0],q[1],q[2],255];put(x++,last);}
+      }
+      if(x>w)throw new Error(`row ${y} overran width (x=${x}>${w})`);
+    }
+    rowTokens.push(tk);
+    function put(xx,col){const i=(y*w+xx)*4;rgba[i]=col[0];rgba[i+1]=col[1];rgba[i+2]=col[2];rgba[i+3]=col[3];}
+  }
+  const total=p-data0;rowStarts.push(total);
+  if(((table[h]+bias*h)&mask)!==(total&mask))tableOk=false;
+  return{w,h,alpha,es,bias,table,rowStarts,rowTokens,rgba,dataStart:data0-start,end:p,len:p-start,stats:st,tableOk,badRow};
+}
+/* lossless encoder: never emits single tokens. returns Uint8Array blob (not padded). */
+function encodePA(rgba,w,h,alpha,es=2){
+  const q=new Uint16Array(w*h),al=new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++){const r=rgba[i*4],g=rgba[i*4+1],b=rgba[i*4+2];q[i]=((r>>3)<<11)|((g>>2)<<5)|(b>>3);al[i]=alpha?rgba[i*4+3]:255;}
+  const rows=[];
+  for(let y=0;y<h;y++){
+    const out=[];let x=0;const o=y*w;
+    while(x<w){
+      let n=1;while(x+n<w&&n<63&&q[o+x+n]===q[o+x]&&al[o+x+n]===al[o+x])n++;
+      const same=(a,b)=>q[o+a]===q[o+b]&&al[o+a]===al[o+b];
+      if(alpha){
+        if(al[o+x]===255&&n<2){ // literal block of opaque pixels
+          let m=0,k=x;while(k<w&&m<63&&al[o+k]===255){if(k+1<w&&same(k,k+1)&&k+2<w&&same(k,k+2))break;m++;k++;}
+          if(m===0)m=1;
+          out.push(0xc0|m);for(let i=0;i<m;i++){const v=q[o+x+i];out.push(v&255,v>>8);}x+=m;continue;
+        }
+        if(al[o+x]===255&&n>=2){out.push(0x80|n,255,q[o+x]&255,q[o+x]>>8);x+=n;continue;}
+        out.push(0x80|n,al[o+x],q[o+x]&255,q[o+x]>>8);x+=n;
+      }else{
+        if(n>=3){out.push(0x80|n,q[o+x]&255,q[o+x]>>8);x+=n;continue;}
+        let m=0,k=x;while(k<w&&m<63){if(k+2<w&&same(k,k+1)&&same(k,k+2))break;m++;k++;}
+        if(m===0)m=1;
+        out.push(0xc0|m);for(let i=0;i<m;i++){const v=q[o+x+i];out.push(v&255,v>>8);}x+=m;
+      }
+    }
+    rows.push(out);
+  }
+  let total=0;const starts=[];for(const r of rows){starts.push(total);total+=r.length;}starts.push(total);
+  const mask=es===1?255:65535;if(es===1&&total>255)es=2;
+  const bias=Math.round(total/h)&0xffff,m2=es===1?255:65535;
+  const buf=new Uint8Array(16+(h+1)*es+total),dv=new DataView(buf.buffer);
+  buf[0]=0x50;buf[1]=0x41;buf[3]=alpha?1:0;dv.setUint16(4,w,true);dv.setUint16(6,h,true);buf[9]=es;dv.setUint16(10,bias,true);
+  for(let i=0;i<=h;i++){const v=(starts[i]-bias*i)&m2;if(es===1)buf[16+i]=v;else dv.setUint16(16+i*2,v,true);}
+  let p=16+(h+1)*es;for(const r of rows){buf.set(r,p);p+=r.length;}
+  return buf;
+}
+
+/* ====================================================================================
+   container parser
+   ==================================================================================== */
+function parseBin(buf,name){
+  const u=new Uint8Array(buf),dv=new DataView(buf);
+  if(u.length<0x500)throw new Error('File too small ('+u.length+' bytes)');
+  if(ascii(u,0,7)!=='TOPSTEP')throw new Error('Not a TOPSTEP container: first bytes are “'+ascii(u,0,8)+'”. This tool only reads TOPSTEP/TBUI watch-face files.');
+  const M={fileName:name,fileSize:u.length,u,issues:[]};
+  const U32=o=>dv.getUint32(o,true),U16=o=>dv.getUint16(o,true);
+  M.top={version:u[7],f08:U32(8),totalSize:U32(0x0c),f10:U32(0x10),f20:U32(0x20),B:U32(0x24),f28:U32(0x28),f2c:U32(0x2c),f30a:U16(0x30),f30b:U16(0x32),f34:U32(0x34),
+         internalName:ascii(u,0x38,64).split('.')[0]===''?'':(()=>{let e=0x38;while(e<0x78&&u[e])e++;return ascii(u,0x38,e-0x38);})()};
+  const B=M.top.B;M.B=B;
+  if(M.top.totalSize!==u.length)M.issues.push(`TOPSTEP size field ${M.top.totalSize} ≠ real size ${u.length}`);
+  if(B>=u.length-0x70||ascii(u,B,4)!=='TBUI')throw new Error('TBUI block not found at offset '+hex(B));
+  const T=M.tbui={version:U32(B+4),idWord:U32(B+8),blockSize:U32(B+0x0c),hdrSize:U32(B+0x10),f14:U32(B+0x14),f18:U32(B+0x18),
+    f1c:U16(B+0x1c),f1e:U16(B+0x1e),w:U16(B+0x20),h:U16(B+0x22),f24:U16(B+0x24),f26:U16(B+0x26),f8c:dv.getInt32(B+0x8c,true)};
+  T.dialId=T.idWord&0xffffff;T.idHigh=T.idWord>>>24;
+  M.footerOff=B+T.blockSize;M.footer=ascii(u,M.footerOff,4);
+  if(M.footer!=='TBUI')M.issues.push('Footer “TBUI” not found at '+hex(M.footerOff)+' (found “'+M.footer+'”)');
+  if(M.footerOff+4!==u.length)M.issues.push(`Block end+4 (${M.footerOff+4}) ≠ file size (${u.length})`);
+  if(M.top.f28!==u.length-B)M.issues.push(`field 0x28 (${M.top.f28}) ≠ size−B (${u.length-B})`);
+  const dir=[{name:'widgets',o:B+0x40},{name:'sprite descriptors',o:B+0x48},{name:'font lists',o:B+0x50}];
+  M.dir=dir.map(d=>({name:d.name,fileOff:d.o,off:U32(d.o),count:U16(d.o+4),size:U16(d.o+6)}));
+  M.dirExtra={f58:U32(B+0x58),spriteDataOff:U32(B+0x5c),f60:U32(B+0x60)};
+  const [dw,ds,dl]=M.dir;
+  // widgets
+  M.widgets=[];
+  for(let i=0;i<dw.count;i++){
+    const o=B+dw.off+i*dw.size;if(o+dw.size>u.length)break;
+    M.widgets.push({i,abs:o,id:u[o],type:u[o+1],flag:u[o+2],sub:u[o+3],x:U16(o+4),y:U16(o+6),w8:U32(o+8),a:U16(o+0x0c),b:U16(o+0x0e),c:U32(o+0x10),raw:u.slice(o,o+dw.size)});
+  }
+  // font lists
+  M.fonts=[];const stride=dl.size*4;
+  for(let i=0;i<dl.count;i++){
+    const o=B+dl.off+i*stride;if(o+4>u.length)break;
+    const cnt=U32(o),pairs=[];
+    for(let k=0;k<cnt&&k<(stride-4)/4;k++)pairs.push({ch:U16(o+4+k*4),sprite:U16(o+6+k*4)});
+    M.fonts.push({i,abs:o,count:cnt,pairs,stride});
+  }
+  // sprites
+  M.sprites=[];
+  for(let i=0;i<ds.count;i++){
+    const o=B+ds.off+i*ds.size;if(o+ds.size>u.length)break;
+    const d={index:i,abs:o,id:U16(o),fmt:u[o+2],flag:u[o+3],w:U16(o+4),h:U16(o+6),offset:U32(o+8),raw:u.slice(o,o+ds.size)};
+    d.absOff=B+d.offset;
+    try{
+      const r=decodePA(u,d.absOff,d.w,d.h);Object.assign(d,{dec:r});
+      if((d.flag===2)!==(r.alpha===1))M.issues.push(`sprite ${d.id}: descriptor flag ${d.flag} vs PA alpha ${r.alpha}`);
+      if(!r.tableOk)M.issues.push(`sprite ${d.id}: row table mismatch (row ${r.badRow})`);
+    }catch(e){d.error=e.message;M.issues.push(`sprite ${d.id}: ${e.message}`);}
+    M.sprites.push(d);
+  }
+  // contiguity / padding
+  const ok=M.sprites.filter(s=>s.dec).sort((a,b)=>a.absOff-b.absOff);
+  for(let i=0;i<ok.length;i++){
+    const s=ok[i],end=s.absOff+s.dec.len,nx=i+1<ok.length?ok[i+1].absOff:M.footerOff;
+    s.pad=nx-end;s.fileOrder=i;
+    if(s.pad<0||s.pad>3)M.issues.push(`sprite ${s.id}: ${s.pad} bytes between blob end and next blob (expected 0-3 alignment padding)`);
+    if(s.absOff%4)M.issues.push(`sprite ${s.id}: offset not 4-byte aligned`);
+  }
+  M.sprites.forEach(s=>{if(s.dec)s.blob=u.slice(s.absOff,s.absOff+s.dec.len);});
+  // unmapped non-zero spans inside TBUI header..spriteData that no table covers
+  const cover=[[B,B+0xa0]];
+  M.dir.forEach(d=>cover.push([B+d.off,B+d.off+d.count*(d.name==='font lists'?d.size*4:d.size)]));
+  const sd=B+M.dirExtra.spriteDataOff;
+  const spans=[];let s0=-1,lastNZ=-1;
+  for(let i=B;i<sd&&i<u.length;i++){
+    const covered=cover.some(c=>i>=c[0]&&i<c[1]);
+    if(!covered&&u[i]){if(s0<0)s0=i;lastNZ=i;}
+    else if(s0>=0&&i-lastNZ>64){spans.push([s0,lastNZ]);s0=-1;}
+  }
+  if(s0>=0)spans.push([s0,lastNZ]);
+  M.unmapped=spans;
+  M.spriteDataAbs=sd;
+  return M;
+}
+
+/* ====================================================================================
+   rendering
+   ==================================================================================== */
+let M=null,CUR=null;
+const tabs=[['sprites','Sprites'],['overview','Overview & checks'],['fields','Header fields & tables'],['widgets','Widgets & layout'],['spec','Format spec']];
+function buildTabs(){
+  const t=$('#tabs');t.innerHTML='';
+  tabs.forEach(([id,label],i)=>{const b=document.createElement('button');b.className='tab';b.textContent=label;b.setAttribute('role','tab');b.setAttribute('aria-selected',i===0);b.onclick=()=>showTab(id);b.dataset.id=id;t.appendChild(b);});
+}
+function showTab(id){
+  tabs.forEach(([k])=>{$('#t-'+k).hidden=k!==id;});
+  document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.id===id));
+  if(id==='widgets')drawLayout();
+}
+function tag(cls,txt){return `<span class="tag ${cls}">${txt}</span>`;}
+function fieldTable(rows){
+  return `<div class="tw"><table><thead><tr><th>Offset</th><th>Size</th><th>Field</th><th>Value</th><th>Status</th><th>Notes</th></tr></thead><tbody>`+
+  rows.map(r=>`<tr><td class="m">${r[0]}</td><td class="m">${r[1]}</td><td>${esc(r[2])}</td><td class="m">${esc(r[3])}</td><td>${tag(r[4],{known:'verified',inferred:'inferred',unknown:'unknown'}[r[4]])}</td><td>${esc(r[5]||'')}</td></tr>`).join('')+`</tbody></table></div>`;
+}
+function renderAll(){
+  buildTabs();renderSprites();renderOverview();renderFields();renderWidgets();
+  $('#t-spec').innerHTML=`<div class="panel spec"><h2>Format spec</h2><p class="note">Also exported as FORMAT.md inside the ZIP.</p><pre class="hex">${esc(FORMAT_MD)}</pre></div>`;
+  showTab('sprites');
+}
+function spriteCanvas(s,scale=1){
+  const cv=document.createElement('canvas');cv.width=s.dec.w;cv.height=s.dec.h;
+  cv.getContext('2d').putImageData(new ImageData(s.dec.rgba,s.dec.w,s.dec.h),0,0);
+  if(scale!==1){cv.style.width=s.dec.w*scale+'px';cv.style.height=s.dec.h*scale+'px';}
+  return cv;
+}
+function renderSprites(){
+  const el=$('#t-sprites');
+  el.innerHTML=`<div class="toolbar">
+    <input type="search" id="q" placeholder="Filter by id, size (e.g. 48x76)…" aria-label="Filter sprites">
+    <label>Sort <select id="sort"><option value="id">id</option><option value="size">pixel area</option><option value="bytes">packed bytes</option><option value="off">file offset</option></select></label>
+    <label>Type <select id="ftype"><option value="">all</option><option value="a">ARGB8565 (alpha)</option><option value="o">RGB565 (opaque)</option></select></label>
+    <label>Zoom <input type="range" id="zoom" min="1" max="6" step="0.5" value="1"></label>
+    <label>Background <select id="bgsel"><option value="">checker</option><option value="bg-dark">black</option><option value="bg-teal">teal</option><option value="bg-light">white</option><option value="bg-mag">magenta</option></select></label>
+    <button id="btnVerify">Verify re-encode (all)</button>
+    <span id="verifyOut" class="note"></span>
+  </div><div id="cards"></div>`;
+  const draw=()=>{
+    const q=$('#q').value.trim().toLowerCase(),sort=$('#sort').value,ft=$('#ftype').value,zoom=+$('#zoom').value,bg=$('#bgsel').value;
+    let list=M.sprites.filter(s=>s.dec);
+    if(q)list=list.filter(s=>String(s.id)===q||`${s.w}x${s.h}`.includes(q)||String(s.id).startsWith(q));
+    if(ft)list=list.filter(s=>(ft==='a')===(s.dec.alpha===1));
+    const key={id:s=>s.id,size:s=>s.w*s.h,bytes:s=>s.dec.len,off:s=>s.absOff}[sort];
+    list.sort((a,b)=>key(a)-key(b));
+    const cards=$('#cards');cards.innerHTML='';
+    document.documentElement.style.setProperty('--cell',Math.max(130,Math.min(260,40+80*zoom))+'px');
+    for(const s of list){
+      const c=document.createElement('div');c.className='card';c.tabIndex=0;
+      const pic=document.createElement('div');pic.className='pic '+bg;
+      const cv=spriteCanvas(s);
+      const maxW=Math.min(240,Math.max(60,s.w*zoom)),sc=Math.min(zoom,240/s.w,200/s.h);
+      cv.style.width=Math.max(1,s.w*sc)+'px';cv.style.height=Math.max(1,s.h*sc)+'px';
+      pic.appendChild(cv);
+      const m=document.createElement('div');m.className='meta';
+      m.innerHTML=`<b>#${s.id} <span>${s.w}×${s.h}</span></b><span>${s.dec.alpha?tag('alpha','ARGB8565'):tag('','RGB565')} ${s.dec.len} B @ ${hex(s.absOff)}</span>`;
+      c.append(pic,m);c.onclick=()=>openDetail(s);c.onkeydown=e=>{if(e.key==='Enter')openDetail(s);};
+      cards.appendChild(c);
+    }
+    if(!list.length)cards.innerHTML='<p class="note">No sprites match.</p>';
+    const bad=M.sprites.filter(s=>!s.dec);
+    if(bad.length)cards.insertAdjacentHTML('afterbegin',`<div class="panel" style="grid-column:1/-1"><b class="bad">${bad.length} sprite(s) failed to decode:</b> ${bad.map(s=>`#${s.id} (${esc(s.error)})`).join('; ')}</div>`);
+  };
+  ['q','sort','ftype','zoom','bgsel'].forEach(id=>$('#'+id).addEventListener('input',draw));
+  $('#btnVerify').onclick=verifyAll;
+  draw();
+}
+function verifyOne(s){
+  const blob=encodePA(s.dec.rgba,s.dec.w,s.dec.h,s.dec.alpha===1,2);
+  const back=decodePA(blob,0,s.dec.w,s.dec.h);
+  let diff=0;const a=back.rgba,b=s.dec.rgba;
+  for(let i=0;i<a.length;i+=4){if(a[i]!==b[i]||a[i+1]!==b[i+1]||a[i+2]!==b[i+2]||(s.dec.alpha&&a[i+3]!==b[i+3]))diff++;}
+  return{ok:diff===0&&back.tableOk,diff,bytes:blob.length,orig:s.dec.len,blob};
+}
+function verifyAll(){
+  let ok=0,bad=[],o=0,n=0;
+  for(const s of M.sprites.filter(s=>s.dec)){const r=verifyOne(s);if(r.ok)ok++;else bad.push(s.id);o+=r.orig;n+=r.bytes;}
+  $('#verifyOut').innerHTML=bad.length?`<span class="bad">${bad.length} mismatched: ${bad.join(', ')}</span>`:`<span class="ok">All ${ok} sprites re-encode losslessly.</span> Packed size ${o} → ${n} bytes (encoder never uses single tokens).`;
+}
+function openDetail(s){
+  CUR=s;const d=s.dec,st=d.stats;
+  $('#dTitle').textContent=`Sprite #${s.id} — ${s.w}×${s.h} ${d.alpha?'ARGB8565':'RGB565'}`;
+  const body=$('#dBody');
+  const left=document.createElement('div'),right=document.createElement('div');
+  left.innerHTML=`<div class="toolbar"><label>Zoom <input type="range" id="dz" min="1" max="16" value="${Math.max(1,Math.min(8,Math.floor(300/Math.max(s.w,s.h))))}"></label><label>Bg <select id="dbg"><option value="">checker</option><option value="#000">black</option><option value="#fff">white</option><option value="#14424a">teal</option></select></label></div><div class="bigpic" id="bigpic"></div><p class="note">Hover shows nothing; use “Row table” and “Raw hex” for exact bytes.</p>`;
+  const rt=d.rowStarts.slice(0,d.h).map((v,i)=>`<tr><td class="m">${i}</td><td class="m">${hex(d.table[i],d.es*2)}</td><td class="m">${v}</td><td class="m">${d.rowStarts[i+1]-v}</td><td class="m">${d.rowTokens[i]}</td></tr>`).join('');
+  const ratio=(d.len/(d.w*d.h*(d.alpha?3:2))*100).toFixed(1);
+  right.innerHTML=`<div class="panel"><h2>Descriptor</h2><dl class="kv">
+   <dt>table entry</dt><dd>index ${s.index} @ ${hex(s.abs)} · raw ${Array.from(s.raw,h2).join(' ')}</dd>
+   <dt>id / fmt / flag</dt><dd>${s.id} / ${hex(s.fmt,2)} / ${s.flag} (${s.flag===2?'alpha':'opaque'})</dd>
+   <dt>size</dt><dd>${s.w} × ${s.h}</dd>
+   <dt>offset</dt><dd>${hex(s.offset)} rel. TBUI · ${hex(s.absOff)} abs</dd></dl></div>
+   <div class="panel"><h2>PA blob</h2><dl class="kv">
+   <dt>header</dt><dd>${Array.from(M.u.subarray(s.absOff,s.absOff+16),h2).join(' ')}</dd>
+   <dt>alpha / es / bias</dt><dd>${d.alpha} / ${d.es} byte entries / ${d.bias}</dd>
+   <dt>row table</dt><dd>${d.h+1} entries @ blob+0x10, data @ blob+${hex(d.dataStart)}</dd>
+   <dt>blob length</dt><dd>${d.len} B (+${s.pad??'?'} pad → next blob) · ${ratio}% of raw</dd>
+   <dt>tokens</dt><dd>single ${st.single} (${st.singlePx}px) · run ${st.run} (${st.runPx}px) · literal ${st.lit} (${st.litPx}px)</dd>
+   <dt>row table check</dt><dd class="${d.tableOk?'ok':'bad'}">${d.tableOk?'all rows match':'mismatch at row '+d.badRow}</dd></dl></div>
+   <div class="panel"><h2>Re-encode test</h2><div id="reenc" class="note">…</div></div>
+   <div class="panel"><h2>Row table</h2><div class="tw" style="max-height:220px"><table><thead><tr><th>row</th><th>entry</th><th>start</th><th>bytes</th><th>tokens</th></tr></thead><tbody>${rt}</tbody></table></div></div>
+   <div class="panel"><h2>Raw hex (first 256 B)</h2><pre class="hex">${esc(hexdump(M.u,s.absOff,Math.min(256,d.len),0))}</pre></div>`;
+  body.innerHTML='';body.append(left,right);
+  const draw=()=>{const z=+$('#dz').value,bg=$('#dbg').value,bp=$('#bigpic');bp.innerHTML='';bp.style.background=bg||'';bp.style.backgroundImage=bg?'none':'';const cv=spriteCanvas(s,z);bp.appendChild(cv);};
+  $('#dz').oninput=draw;$('#dbg').oninput=draw;draw();
+  const r=verifyOne(s);
+  $('#reenc').innerHTML=r.ok?`<span class="ok">Lossless.</span> Encoder output ${r.bytes} B vs original ${r.orig} B.`:`<span class="bad">Differs in ${r.diff} px</span> (original may rely on single-token semantics).`;
+  $('#dlg').showModal();
+}
+async function dlSpritePng(s){const b=await canvasPng(spriteCanvas(s));saveBlob(b,`sprite_${String(s.id).padStart(3,'0')}.png`);}
+$('#dPng').onclick=()=>CUR&&dlSpritePng(CUR);
+$('#dRaw').onclick=()=>CUR&&saveBlob(new Blob([CUR.blob]),`sprite_${String(CUR.id).padStart(3,'0')}.pa`);
+$('#dClose').onclick=()=>$('#dlg').close();
+$('#dJson').onclick=()=>{if(!CUR)return;navigator.clipboard?.writeText(JSON.stringify(spriteMeta(CUR,true),null,1));};
+
+function renderOverview(){
+  const T=M.tbui,tp=M.top,n=M.sprites.length,okN=M.sprites.filter(s=>s.dec).length;
+  const alphaN=M.sprites.filter(s=>s.dec&&s.dec.alpha).length;
+  const packed=M.sprites.reduce((a,s)=>a+(s.dec?s.dec.len:0),0);
+  const issues=M.issues.length?`<ul>${M.issues.map(i=>`<li class="warn">${esc(i)}</li>`).join('')}</ul>`:'<p class="ok">No structural problems: sizes, footer, row tables and alignment all check out.</p>';
+  $('#t-overview').innerHTML=`<div class="grid2"><div class="panel"><h2>File</h2><dl class="kv">
+    <dt>name</dt><dd>${esc(M.fileName)}</dd><dt>size</dt><dd>${M.fileSize} B (${hex(M.fileSize)})</dd>
+    <dt>internal name</dt><dd>${esc(tp.internalName)}</dd><dt>dial id</dt><dd>${T.dialId}</dd>
+    <dt>screen</dt><dd>${T.w} × ${T.h}</dd><dt>TBUI block</dt><dd>${hex(M.B)} … ${hex(M.footerOff)} (+4 footer “${esc(M.footer)}”)</dd>
+    <dt>sprite data</dt><dd>${hex(M.spriteDataAbs)} … ${hex(M.footerOff)} (${packed} B in blobs)</dd>
+    <dt>sprites</dt><dd>${okN}/${n} decoded · ${alphaN} ARGB8565 · ${okN-alphaN} RGB565</dd>
+    <dt>widgets</dt><dd>${M.widgets.length}</dd><dt>font lists</dt><dd>${M.fonts.length}</dd></dl></div>
+    <div class="panel"><h2>Integrity checks</h2>${issues}</div></div>
+    <div class="panel"><h2>Regions needed to rebuild</h2><p class="note">The ZIP export contains each as a separate file plus original.bin.</p>
+    <div class="tw"><table><thead><tr><th>Region</th><th>Start</th><th>Length</th><th>Edit?</th></tr></thead><tbody>${regionList().map(r=>`<tr><td>${esc(r.name)}</td><td class="m">${hex(r.start)}</td><td class="m">${r.len}</td><td>${esc(r.note)}</td></tr>`).join('')}</tbody></table></div></div>`;
+}
+function regionList(){
+  const B=M.B,[dw,ds,dl]=M.dir;
+  const r=[
+    {name:'TOPSTEP header',start:0,len:B,note:'fix 0x0C, 0x28 after resize'},
+    {name:'TBUI header + directory',start:B,len:0xa0,note:'fix +0x0C block size'},
+    {name:'widget table',start:B+dw.off,len:dw.count*dw.size,note:'layout edits'},
+    {name:'sprite descriptors',start:B+ds.off,len:ds.count*ds.size,note:'rewrite w/h/offset'},
+    {name:'font lists',start:B+dl.off,len:dl.count*dl.size*4,note:'char → sprite maps'},
+    {name:'sprite data',start:M.spriteDataAbs,len:M.footerOff-M.spriteDataAbs,note:'rebuild from PA blobs (4-byte padded)'},
+    {name:'footer',start:M.footerOff,len:4,note:'keep “TBUI”'}];
+  M.unmapped.forEach((u,i)=>r.push({name:'unmapped non-zero #'+(i+1),start:u[0],len:u[1]-u[0]+1,note:'unknown data; preserve'}));
+  return r;
+}
+function renderFields(){
+  const T=M.tbui,tp=M.top,B=M.B,e=M.dirExtra;
+  const top=[
+   ['0x00','7','magic','TOPSTEP','known'],['0x07','1','version',tp.version,'known'],['0x08','4','reserved',hex(tp.f08,8),'unknown'],
+   ['0x0C','4','total file size',`${tp.totalSize}`,'known','must equal file length'],
+   ['0x10','4','id/flags',hex(tp.f10,8)+` (low24=${tp.f10&0xffffff})`,'unknown','constant 65000 | 1<<24 in sample'],
+   ['0x20','4','unknown',hex(tp.f20,8),'unknown'],['0x24','4','TBUI offset B',hex(tp.B),'known'],
+   ['0x28','4','file size − B',hex(tp.f28),'known'],['0x2C','4','reserved',hex(tp.f2c,8),'unknown'],
+   ['0x30','2','unknown',tp.f30a,'unknown'],['0x32','2','unknown',tp.f30b,'unknown'],['0x34','4','reserved',hex(tp.f34,8),'unknown'],
+   ['0x38','64','internal file name',tp.internalName,'known','NUL terminated']];
+  const tb=[
+   ['+0x00','4','magic','TBUI','known'],['+0x04','4','version',T.version,'known'],
+   ['+0x08','4','id word',hex(T.idWord,8)+` → dialId ${T.dialId}, hi ${T.idHigh}`,'inferred','low 24 bits = number in file name'],
+   ['+0x0C','4','block size',`${T.blockSize} (${hex(T.blockSize)})`,'known','footer starts at B+this'],
+   ['+0x10','4','header size',hex(T.hdrSize),'inferred'],['+0x14','4','unknown',T.f14,'unknown'],['+0x18','4','reserved',T.f18,'unknown'],
+   ['+0x1C','2','unknown',T.f1c,'unknown'],['+0x1E','2','unknown',T.f1e,'unknown'],
+   ['+0x20','2','screen width',T.w,'known'],['+0x22','2','screen height',T.h,'known'],['+0x24','2','unknown',T.f24,'unknown'],['+0x26','2','unknown',T.f26,'unknown'],
+   ['+0x8C','4','unknown (int32)',T.f8c,'unknown','−104 in sample'],
+   ['+0x58','4','unknown',e.f58,'unknown'],['+0x5C','4','sprite data offset',hex(e.spriteDataOff),'known','rel. B'],['+0x60','4','unknown',e.f60,'inferred','= preview sprite id in sample']];
+  const dir=M.dir.map(d=>[hex(d.fileOff-B+B-B,0).replace('0x0x','0x'),'8','directory: '+d.name,`off ${hex(d.off)} · count ${d.count} · size ${hex(d.size)}`,d.name==='font lists'?'inferred':'known',d.name==='font lists'?'stride = size×4':'']);
+  const fontRows=M.fonts.map(f=>`<tr><td class="m">${f.i}</td><td class="m">${hex(f.abs)}</td><td class="m">${f.count}</td><td class="m">${f.pairs.map(p=>`${JSON.stringify(String.fromCharCode(p.ch))}→${p.sprite}`).join('  ')}</td></tr>`).join('');
+  const desc=M.sprites.map(s=>`<tr><td class="m">${s.index}</td><td class="m">${s.id}</td><td class="m">${hex(s.fmt,2)}</td><td class="m">${s.flag}</td><td class="m">${s.w}×${s.h}</td><td class="m">${hex(s.offset)}</td><td class="m">${s.dec?s.dec.len:'—'}</td><td class="m">${s.pad??''}</td><td class="m">${s.dec?`${s.dec.es}/${s.dec.bias}`:''}</td><td class="m">${s.dec?`${s.dec.stats.single}/${s.dec.stats.run}/${s.dec.stats.lit}`:''}</td></tr>`).join('');
+  $('#t-fields').innerHTML=`<div class="panel"><h2>TOPSTEP header</h2>${fieldTable(top)}</div>
+   <div class="panel"><h2>TBUI header (offsets relative to B = ${hex(B)})</h2>${fieldTable(tb)}</div>
+   <div class="panel"><h2>Directory</h2>${fieldTable(M.dir.map(d=>[ '+'+(d.fileOff-B).toString(16).toUpperCase(),'8',d.name,`off ${hex(d.off)} · count ${d.count} · size ${hex(d.size)}`,d.name==='font lists'?'inferred':'known',d.name==='font lists'?'record stride = size × 4':'']))}</div>
+   <div class="panel"><h2>Raw TBUI header (first 0xA0 bytes)</h2><pre class="hex">${esc(hexdump(M.u,B,0xa0,B))}</pre></div>
+   <div class="panel"><h2>Raw TOPSTEP header (non-zero part)</h2><pre class="hex">${esc(hexdump(M.u,0,0x80,0))}</pre></div>
+   <div class="panel"><h2>Font lists</h2><div class="tw"><table><thead><tr><th>#</th><th>abs</th><th>count</th><th>char → sprite id</th></tr></thead><tbody>${fontRows}</tbody></table></div></div>
+   <div class="panel"><h2>Sprite descriptors</h2><div class="tw"><table><thead><tr><th>idx</th><th>id</th><th>fmt</th><th>flag</th><th>size</th><th>offset (rel B)</th><th>blob B</th><th>pad</th><th>es/bias</th><th>single/run/lit</th></tr></thead><tbody>${desc}</tbody></table></div></div>
+   ${M.unmapped.length?`<div class="panel"><h2>Unmapped non-zero data</h2>${M.unmapped.map(u=>`<p class="note">${hex(u[0])} … ${hex(u[1])}</p><pre class="hex">${esc(hexdump(M.u,u[0],Math.min(256,u[1]-u[0]+1),u[0]))}</pre>`).join('')}</div>`:''}`;
+}
+function renderWidgets(){
+  const rows=M.widgets.map(w=>{
+    const sp=M.sprites.find(s=>s.id===w.a&&s.dec);
+    return `<tr><td class="m">${w.i}</td><td class="m">${w.id}</td><td class="m">${w.type}</td><td class="m">${w.flag}</td><td class="m">${w.sub}</td><td class="m">${w.x}, ${w.y}</td><td class="m">${w.a} / ${w.b}</td><td class="m">${w.c}</td><td>${sp&&[4,5,6].includes(w.type)?`${sp.w}×${sp.h}`:''}</td><td class="m">${Array.from(w.raw,h2).join(' ')}</td></tr>`;}).join('');
+  $('#t-widgets').innerHTML=`<div class="panel"><h2>Layout preview</h2><p class="note">Types 4/5/6 draw their sprite at (x,y); types 2/3 are outlined. Type meanings are inferred, positions look right.</p><div class="layoutwrap"><canvas id="layoutCv"></canvas></div></div>
+   <div class="panel"><h2>Widget table (${M.widgets.length} × ${M.dir[0].size} bytes)</h2><div class="tw"><table><thead><tr><th>#</th><th>id</th><th>type</th><th>flag</th><th>sub</th><th>x, y</th><th>a / b (+0x0C,+0x0E)</th><th>c (+0x10)</th><th>sprite</th><th>raw</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+function drawLayout(){
+  const cv=$('#layoutCv');if(!cv||!M)return;
+  const W=M.tbui.w||360,H=M.tbui.h||360;cv.width=W;cv.height=H;const c=cv.getContext('2d');c.fillStyle='#000';c.fillRect(0,0,W,H);
+  const put=(s,x,y)=>{const t=spriteCanvas(s);c.drawImage(t,x,y);};
+  const bg=M.widgets.find(w=>w.type===0||w.type===6);
+  for(const w of M.widgets){
+    if([0,6,4,5].includes(w.type)){const s=M.sprites.find(s=>s.id===w.a&&s.dec);if(s&&!(w.type===6&&s.w===240&&w.i===1))put(s,w.x,w.y);}
+  }
+  c.font='10px sans-serif';
+  for(const w of M.widgets){
+    if(w.type===2||w.type===3){c.strokeStyle=w.type===2?'#f59e0b':'#2dd4bf';c.strokeRect(w.x+.5,w.y+.5,40,16);c.fillStyle=c.strokeStyle;c.fillText(`#${w.i} t${w.type}`,w.x+2,w.y+11);}
+  }
+}
+
+/* ====================================================================================
+   export
+   ==================================================================================== */
+function spriteMeta(s,embed){
+  const d=s.dec;
+  const o={id:s.id,index:s.index,descriptor:{abs_offset_of_record:s.abs,fmt:s.fmt,flag:s.flag,width:s.w,height:s.h,offset_rel_tbui:s.offset,raw_hex:Array.from(s.raw,h2).join('')},
+    file_offset:s.absOff,error:s.error||null};
+  if(d)Object.assign(o,{pixel_format:d.alpha?'ARGB8565 (token payload [alpha,lo,hi]; opaque literals/runs [lo,hi])':'RGB565 little-endian',
+    pa_header:{alpha:d.alpha,row_table_entry_bytes:d.es,bias:d.bias,raw_hex:Array.from(s.blob.subarray(0,16),h2).join('')},
+    row_table:d.table,row_start_offsets:d.rowStarts,row_token_counts:d.rowTokens,data_start_in_blob:d.dataStart,blob_length:d.len,padding_after:s.pad,file_order:s.fileOrder,
+    tokens:d.stats,row_table_valid:d.tableOk,png:`sprites/sprite_${String(s.id).padStart(3,'0')}.png`,raw_pa:`raw/sprite_${String(s.id).padStart(3,'0')}.pa`});
+  if(embed&&s.blob)o.raw_pa_base64=b64(s.blob);
+  return o;
+}
+function manifest(embed){
+  const B=M.B,u=M.u;
+  const reg=regionList().map(r=>{const o={name:r.name,start:r.start,length:r.len,note:r.note,file:'regions/'+r.name.replace(/[^a-z0-9]+/gi,'_').toLowerCase()+'.bin'};if(embed&&r.name!=='sprite data')o.base64=b64(u.subarray(r.start,r.start+r.len));return o;});
+  return{tool:'HT37 Dial Decompiler',format:'TOPSTEP/TBUI',source_file:M.fileName,file_size:M.fileSize,
+    topstep:{version:M.top.version,total_size:M.top.totalSize,tbui_offset:B,field_0x10:M.top.f10,field_0x20:M.top.f20,field_0x28:M.top.f28,field_0x30:[M.top.f30a,M.top.f30b],internal_name:M.top.internalName},
+    tbui:{version:M.tbui.version,id_word:M.tbui.idWord,dial_id:M.tbui.dialId,block_size:M.tbui.blockSize,header_size:M.tbui.hdrSize,screen:[M.tbui.w,M.tbui.h],unknown:{f14:M.tbui.f14,f1c:M.tbui.f1c,f1e:M.tbui.f1e,f24:M.tbui.f24,f26:M.tbui.f26,f58:M.dirExtra.f58,f60:M.dirExtra.f60,i32_at_0x8c:M.tbui.f8c},
+      sprite_data_offset:M.dirExtra.spriteDataOff,footer_offset:M.footerOff,footer:M.footer},
+    directory:M.dir.map(d=>({table:d.name,offset_rel_tbui:d.off,count:d.count,record_size:d.size,record_stride:d.name==='font lists'?d.size*4:d.size})),
+    widgets:M.widgets.map(w=>({index:w.i,id:w.id,type:w.type,flag:w.flag,sub:w.sub,x:w.x,y:w.y,a:w.a,b:w.b,c:w.c,raw_hex:Array.from(w.raw,h2).join('')})),
+    font_lists:M.fonts.map(f=>({index:f.i,count:f.count,map:f.pairs.map(p=>({char:String.fromCharCode(p.ch),code:p.ch,sprite:p.sprite}))})),
+    sprites:M.sprites.map(s=>spriteMeta(s,embed)),regions:reg,
+    integrity_issues:M.issues,
+    rebuild_notes:['sprite blobs are 4-byte aligned in id order; pad with 0x00','update descriptor offsets (rel. TBUI), TBUI+0x0C, file+0x0C and file+0x28','footer "TBUI" is the last 4 bytes','encoder rule: es=2, bias=round(total/h), never emit single tokens','no checksum identified; test on device']};
+}
+async function exportZip(){
+  const btn=$('#btnZip');btn.disabled=true;btn.textContent='Building…';
+  try{
+    const enc=new TextEncoder(),files=[],B=M.B;
+    for(const s of M.sprites.filter(s=>s.dec)){
+      const id=String(s.id).padStart(3,'0');
+      files.push({name:`sprites/sprite_${id}.png`,data:new Uint8Array(await (await canvasPng(spriteCanvas(s))).arrayBuffer())});
+      files.push({name:`raw/sprite_${id}.pa`,data:s.blob});
+    }
+    for(const r of regionList()){if(r.name==='sprite data')continue;files.push({name:'regions/'+r.name.replace(/[^a-z0-9]+/gi,'_').toLowerCase()+'.bin',data:M.u.slice(r.start,r.start+r.len)});}
+    files.push({name:'manifest.json',data:enc.encode(JSON.stringify(manifest(false),null,1))});
+    files.push({name:'FORMAT.md',data:enc.encode(FORMAT_MD)});
+    files.push({name:'original.bin',data:M.u});
+    saveBlob(makeZip(files),(M.fileName||'dial').replace(/\.bin$/i,'')+'_sprites.zip');
+  }finally{btn.disabled=false;btn.textContent='Export sprites (ZIP)';}
+}
+function exportJson(){saveBlob(new Blob([JSON.stringify(manifest(true),null,1)],{type:'application/json'}),(M.fileName||'dial').replace(/\.bin$/i,'')+'_metadata.json');}
+$('#btnZip').onclick=exportZip;$('#btnJson').onclick=exportJson;
+
+/* ====================================================================================
+   loading
+   ==================================================================================== */
+async function loadFile(f){
+  const st=$('#status');
+  try{
+    st.textContent='Reading '+f.name+'…';
+    const buf=await f.arrayBuffer();
+    M=parseBin(buf,f.name);
+    $('#drop').hidden=true;$('#app').hidden=false;renderAll();
+    $('#btnZip').disabled=false;$('#btnJson').disabled=false;
+    const ok=M.sprites.filter(s=>s.dec).length;
+    st.textContent=`${f.name}: ${ok}/${M.sprites.length} sprites`+(M.issues.length?` · ${M.issues.length} issue(s)`:'');
+  }catch(e){
+    st.innerHTML=`<span class="bad">${esc(e.message)}</span>`;
+    if(!M){$('#drop').hidden=false;$('#drop').innerHTML=`<p><b class="bad">Could not read file</b></p><p>${esc(e.message)}</p><p>Drop another .bin to try again.</p>`;}
+  }
+}
+$('#file').onchange=e=>{if(e.target.files[0])loadFile(e.target.files[0]);e.target.value='';};
+const drop=document.body;
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();$('#drop').classList.add('over');}));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();$('#drop').classList.remove('over');}));
+drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)loadFile(f);});
+</script>
+</body>
+</html>

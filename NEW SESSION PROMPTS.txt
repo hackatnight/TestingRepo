@@ -1,0 +1,38 @@
+We are developing the HT37 Web Bluetooth Smartwatch Studio (`index.html`).
+- Local working directory: `PS C:\Users\Eliteb00k\Desktop\ht37-web-studio>`
+- Remote GitHub Pages repo: `https://hackatnight.github.io/TestingRepo/`
+- Helpful protocol references: `https://topstep-sdk-doc.htangsmart.com/docs/`, `https://github.com/htangsmart/FitCloudPro-SDK-Android`, `https://dafit-canvas.elabins.com/`
+
+### STRICT WORKFLOW RULES (MUST FOLLOW):
+1. **ONE PowerShell Command Block Per Response:** Never give two PowerShell scripts in the same turn. Give EITHER a single read-only inspection command OR a single surgical micro-patch—never both at once.
+2. **Local Testing First:** Never include `git commit` or `git push` in update scripts unless I explicitly ask to push to GitHub.
+3. **Mandatory Auto-Backup Header:** Every PowerShell edit script must begin by backing up `.\index.html` to `.\UI changes\index_$timestamp.html`.
+4. **Surgical Micro-Patches Only (Zero Code Bloat):** Never regenerate the entire `index.html`, never re-dump the 43-command `<option>` list, and never rewrite working sections. Target only the exact lines being changed using literal `.Replace()` or `[regex]::Replace($content, $pattern, { param($m) $newCode })` (always use a scriptblock evaluator for regex replacements so JavaScript `$` template literals are never mangled by .NET regex).
+5. **Zero UI Deletions:** Do not remove any buttons, inputs, or features from the UI unless I explicitly instruct you to.
+
+### CURRENT UI ARCHITECTURE & DESIGN STANDARD:
+- **Navigation Ribbon:** Square edge-to-edge tabs (`Tab 1: 🎨 Watch Studio`, `Tab 2: 🔔 Alerts & Commands`, `Tab 3: 🚀 DFU Flashing`).
+- **Universal Toolbox & Button Standard:**
+  - Left/Right toolboxes (`#studioToolboxWindow`, `#studioRightToolbox`, `#alertsToolboxWindow`, `#dfuToolboxWindow`) are square (`border-radius: 0`), touching (`gap: 0`), with numbered compact headers (`0.`, `1.`, `2.`) and high-specificity `.is-collapsed` folding.
+  - All toolboxes dynamically tether their `max-height` to the top of the bottom collapsible log dock (`#persistentLogDock`) via CSS `--dock-height` (`220px` open, `38px` minimized).
+  - All standard action buttons share: `height: 28px`, `padding: 5px 6px`, `font-size: 11px`, `font-weight: 600`, `background: #1e293b`, `border: 1px solid #334155`, `border-radius: 0`, cyan `#38bdf8` hover, and `:active` cyan click-and-release highlight (`scale(0.97)`).
+  - Tool bodies use `display: flex; flex-direction: column; gap: 8px;` and 2-column button grids use `grid-template-columns: 1fr 1fr; gap: 6px;`.
+- **Tab 1 (`Watch Studio`):**
+  - Left Toolbox: `0. Canvas & Layer Tools` (`Export .BIN` full-width on top + deduplicated 2x2 grid: Center, Duplicate, Remove, Reset), `1. Add Widget Layer`, `2. Watch Screen & Background Layer`, `3. Live Sensors & Simulation` (canvas preview only).
+  - Center Stage: 360x360 zoomable/scrollable WYSIWYG canvas + bottom-right `PREVIEW` window (`#wysiwygBinPreviewBox`, click to toggle 150x150 <-> 240x240).
+  - Right Toolbox (`#studioRightToolbox`): `0. .BIN Decompiler & Sprite Vault` (includes Locale selector `EN_IMPERIAL` / `EN_METRIC` / `CN_METRIC` and `✨ Auto-Load BG & Layout to Canvas`), `1. Active Widget Layers`, `2. Layer Inspector`.
+- **Tab 2 (`Alerts & Commands`):**
+  - Left Toolbox: `0. Master Command Station` (43 categorized `KNOWN COMMANDS` dropdown + `CMD (0x)`, `KEY (0x)`, `PAYLOAD` fields + `⚡ Send Command` + `Next`/`SIG Battery` + dynamic prediction box + `Enable All Alerts`, `Find Watch Chime`, `ALL TEST` [excludes Reset], and `⚠️ Reset (02/40)` isolated at bottom), `1. Call & Telephony Dispatcher`, `2. Social & App Notifications` (2-col sorted 04/04–04/15), `3. Weather & Sky Dispatch` (`LIVE 0x36 PACKET TELEMETRY` hex monitor, `Push Weather` full-width on top, `TIME & TEMP UNIT` with live °C/°F converter + `WEATHER PKT FORMAT`, centered `Cur/Min/Max` row, 12 `(05/XX)` weather buttons, `⚡ Send All` at bottom, `Receive State`), `4. Dial Slot Switcher (02/70)` (`WF 0`–`WF 5`).
+- **Tab 3 (`DFU Flashing`):**
+  - Left Toolbox: `0. Flashing Handshake & Triggers`, `1. Config TLVs & Dial Tools`, `2. Flashing Progress & Status`.
+
+### REVERSE-ENGINEERED TOPSTEP / TBUI .BIN & .PA SPEC (SOLVED):
+1. **`.PA` RLE + 7-Bit (`2-3-2`) Signed RGB565 Delta Decoder (`window.decodePA`):**
+   - `0xC0..0xFF`: Literal `n` opaque RGB565 pixels (`n = c & 0x3F`).
+   - `0x80..0xBF`: Run of `n` pixels (`[alpha, lo, hi]` if alpha=1, `[lo, hi]` if alpha=0).
+   - `0x00..0x7F`: Single-pixel 7-bit signed RGB565 delta added to previous `(r5, g6, b5)`: `dr = ((c >> 5) & 3) - 2`, `dg = ((c >> 2) & 7) - 4`, `db = (c & 3) - 2`.
+2. **Widget Table (`M.widgets`) & Font Lists (`M.fonts`):**
+   - Types `0, 4, 5, 6` = Sprite widgets (`hw.a` = sprite ID; `#69` = 360x360 BG; `#70` = 240x240 carousel preview thumbnail).
+   - Types `2, 3` = Dynamic Font/Number widgets (`hw.a` = `M.fonts` index; `hw.b` = Horizontal Alignment `0=Left [x + w/2]`, `1=Center [x]`, `2=Right [x - w/2]`).
+   - Sub-types (`hw.sub`): `0`=Steps (`FontList[0]`), `2`=Hour (`"09"`, `FontList[2]`), `3`=Minute (`"40"`, `FontList[2]`), `6`=Distance (`"3.25"`, `FontList[3]`, `b=2`), `7`=Kcal (`"103.4"`, `FontList[1]`, `b=2`), `8`=BPM (`"86"`, `FontList[1]`, `b=0`), `11`=Weather Temp (`"72F"`/`"22C"`, `FontList[3]`, `b=0`), `13`=Date (`"06/28"`, `FontList[0]`).
+   - Bilingual `[Chinese, English]` Sprite Pairs (`+1` offset for English): `82->83`, `84->85`, `86->87 (KM)` / `88->89 (Mi)`, `90->91 (STEP)`, `92->93 (TEMP)`, `107->108..120 (MON..SUN)`.
