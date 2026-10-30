@@ -350,7 +350,6 @@
   }
 </style>
   <script src="ht37-commands.js"></script>
-</script>
 </head>
 <body>
 
@@ -365,7 +364,6 @@
       <span id="bleStatusText">BLE Disconnected</span>
     </div>
     <button id="btnConnectBle" class="primary">🔗 1. Pair & Bind</button>
-    <button id="btnDiscoverTrigger" class="warn" title="Tests the newly discovered 0x7C/0xAD/0xB0/0x88/0xE0 Dial & Flash keys + bumped 53B OTA header">🔬 2. Discover Trigger (Safe)</button>
     <button id="btnFlashWatch" class="success">⚡ 3. Flash to Watch</button>
     <button id="btnCompileBin">📦 Export .BIN</button>
     <button id="btnStopBle" class="danger">🛑 Stop</button>
@@ -374,8 +372,9 @@
 <!-- STUDIO_TAB_NAV_START -->
 <nav id="studioTabNav" class="studio-tab-nav">
   <button type="button" class="studio-tab-btn active" data-tab="tab-studio">Tab 1: 🎨 Watch Studio</button>
-  <button type="button" class="studio-tab-btn" data-tab="tab-alerts">Tab 2: 🔔 Alerts & Commands</button>
-  <button type="button" class="studio-tab-btn" data-tab="tab-dfu">Tab 3: 🚀 DFU Flashing</button>
+  <button type="button" class="studio-tab-btn" data-tab="tab-alerts">Tab 2: 🩺 Diagnostics</button>
+  <button type="button" class="studio-tab-btn" data-tab="tab-dfu">Tab 3: ⚡ Flash to Watch</button>
+  <button type="button" class="studio-tab-btn" data-tab="tab-logs">Tab 4: 📋 Logs</button>
 </nav>
 <!-- STUDIO_TAB_NAV_END -->
 
@@ -869,16 +868,60 @@ test their Write keys!
 
 <script>
 let logHistory = [];
+window.structuredLogHistory = [];
+function renderTab4Entries() {
+  const t4 = document.getElementById('tab4LogTerminal');
+  if (!t4) return;
+  t4.innerHTML = '';
+  const searchInput = document.getElementById('tab4LogSearchInput');
+  const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  const mode = window.currentLogFilter || 'all';
+
+  window.structuredLogHistory.forEach(item => {
+    if (mode === 'err' && !(item.type === 'err' || item.type === 'warn')) return;
+    if (mode !== 'all' && mode !== 'err' && item.type !== mode) return;
+    if (query && !item.line.toLowerCase().includes(query)) return;
+
+    const div = document.createElement('div');
+    div.className = 'log-entry ' + (item.type || '');
+    div.textContent = item.line;
+    t4.appendChild(div);
+  });
+  t4.scrollTop = t4.scrollHeight;
+}
+
 function log(msg, type = '') {
-  const term = document.getElementById('logTerminal');
-  if (!term) return;
-  const div = document.createElement('div');
-  div.className = 'log-entry ' + type;
   const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
   logHistory.push(line);
-  div.textContent = line;
-  term.appendChild(div);
-  term.scrollTop = term.scrollHeight;
+  if (!window.structuredLogHistory) window.structuredLogHistory = [];
+  window.structuredLogHistory.push({ line, type });
+
+  // Update bottom persistent dock
+  const bDock = document.getElementById('logTerminal');
+  if (bDock) {
+    const divB = document.createElement('div');
+    divB.className = 'log-entry ' + type;
+    divB.textContent = line;
+    bDock.appendChild(divB);
+    bDock.scrollTop = bDock.scrollHeight;
+  }
+
+  // Update Tab 4 full-screen terminal if it matches current filter
+  const t4 = document.getElementById('tab4LogTerminal');
+  if (t4) {
+    const mode = window.currentLogFilter || 'all';
+    let match = (mode === 'all') || (mode === 'err' && (type === 'err' || type === 'warn')) || (mode === type);
+    const searchInput = document.getElementById('tab4LogSearchInput');
+    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    if (query && !line.toLowerCase().includes(query)) match = false;
+    if (match) {
+      const div4 = document.createElement('div');
+      div4.className = 'log-entry ' + type;
+      div4.textContent = line;
+      t4.appendChild(div4);
+      t4.scrollTop = t4.scrollHeight;
+    }
+  }
 }
 window.addEventListener('error', (ev) => log(`JS Error: ${ev.message} (line ${ev.lineno})`, 'err'));
 window.addEventListener('unhandledrejection', (ev) => log(`Async Error: ${ev.reason?.message || ev.reason}`, 'err'));
@@ -904,7 +947,15 @@ function toggleSectionCollapse(titleEl, bodyId) {
   titleEl.classList.toggle('collapsed');
   body.classList.toggle('collapsed-body');
 }
-function clearLogs() { logHistory = []; document.getElementById('logTerminal').innerHTML = ''; log('Logs cleared.', 'rx'); }
+function clearLogs() {
+  logHistory = [];
+  window.structuredLogHistory = [];
+  const bDock = document.getElementById('logTerminal');
+  if (bDock) bDock.innerHTML = '';
+  const t4 = document.getElementById('tab4LogTerminal');
+  if (t4) t4.innerHTML = '';
+  log('Logs cleared.', 'rx');
+}
 
 const canvas = document.getElementById('watchCanvas');
 const ctx = canvas.getContext('2d');
@@ -2413,10 +2464,13 @@ function buildCandidatePayloads(bin, slot) {
   };
 }
 
-document.getElementById('btnDiscoverTrigger').addEventListener('click', async () => {
-  log('--- [🔬 2. Discover Trigger (Safe) -> Sending FFB1 Wake & Slot Packet] ---', 'tx');
-  await triggerWhiteArrowFfb1();
-});
+const _btnDisc = document.getElementById('btnDiscoverTrigger');
+if (_btnDisc) {
+  _btnDisc.addEventListener('click', async () => {
+    log('--- [🔬 2. Discover Trigger (Safe) -> Sending FFB1 Wake & Slot Packet] ---', 'tx');
+    await triggerWhiteArrowFfb1();
+  });
+}
 
 /* ============================================================================
  * 7. FLASH TO WATCH
@@ -3475,7 +3529,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
             <div class="studio-col-center">
               <div class="stage-info-panel">
                 <div style="font-size:12px; font-weight:700; color:#38bdf8; text-transform:uppercase;">
-                  🚀 TopStep HT37 DFU & Dial Flashing Engine
+                  ⚡ TopStep HT37 Flash to Watch (Hardware OTA Engine)
                 </div>
                 <div style="font-size:11px; color:#64748b;">
                   Trigger White Arrow upload mode (FFB1) or probe step 2 to flash custom watch face dials (.bin) and firmware updates directly over Web Bluetooth.
@@ -3484,7 +3538,25 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
             </div>
           </div>
         </div>
-      `;
+
+        <!-- TAB 4: LOGS -->
+        <div id="tab-logs" class="studio-tab-pane">
+          <div class="studio-2col-layout">
+            <div class="studio-col-left" id="logsLeftCol"></div>
+            <div class="studio-col-center">
+              <div style="display:flex; flex-direction:column; gap:8px; height:calc(100vh - 160px); box-sizing:border-box;">
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#111827; padding:8px 12px; border:1px solid #1e293b;">
+                  <span id="tab4LogStatusTitle" style="font-size:12px; font-weight:700; color:#38bdf8;">📡 Live System & BLE Protocol Telemetry</span>
+                  <div style="display:flex; gap:8px;">
+                    <button type="button" class="dock-btn" onclick="copyAllLogs()" style="padding:4px 12px; font-size:11px; background:#1e293b; color:#e2e8f0; border:1px solid #334155; cursor:pointer;">📋 Copy All Logs</button>
+                    <button type="button" class="dock-btn danger" onclick="clearLogs()" style="padding:4px 12px; font-size:11px; background:#ef4444; color:#fff; border:none; cursor:pointer;">🧹 Clear</button>
+                  </div>
+                </div>
+                <div id="tab4LogTerminal" class="terminal" style="flex:1; min-height:420px; height:100%; overflow-y:auto; background:#070a12; border:1px solid #1e293b; padding:10px; font-family:monospace; font-size:11px; line-height:1.45;"></div>
+              </div>
+            </div>
+          </div>
+        </div>`;
       nav.parentNode.insertBefore(container, nav.nextSibling);
     }
 
@@ -3530,6 +3602,7 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
     const studioRight = document.getElementById('studioRightCol');
     const alertsLeft = document.getElementById('alertsLeftCol');
     const dfuLeft = document.getElementById('dfuLeftCol');
+    const logsLeft = document.getElementById('logsLeftCol');
 
     // ==========================================
     // 1. POPULATE TAB 1: WATCH STUDIO TOOLBOX
@@ -4286,6 +4359,52 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
         const dfuButtons = Array.from(dfuBody.querySelectorAll('button'));
 
         // Tool 0: Flashing Handshake & Upload Triggers
+                // TOOL 0: ⚡ Flash to Watch Action Card (Linked to Hardware Pipeline)
+        if (!document.getElementById('toolCard_flash_primary')) {
+          const bodyFlash = document.createElement('div');
+          bodyFlash.style.cssText = 'display:flex; flex-direction:column; gap:8px; margin:0; padding:0; width:100%; box-sizing:border-box;';
+
+          const flashBtnTab3 = document.createElement('button');
+          flashBtnTab3.id = 'btnFlashWatchTab3';
+          flashBtnTab3.className = 'success';
+          flashBtnTab3.innerHTML = '⚡ 3. Flash to Watch';
+          flashBtnTab3.style.cssText = 'width:100% !important; height:38px !important; margin:0 !important; font-size:13px !important; font-weight:700 !important; background:#10b981 !important; color:#ffffff !important; border:1px solid #059669 !important; border-radius:0 !important; box-shadow:0 0 12px rgba(16,185,129,0.4) !important; cursor:pointer !important; transition:all 0.15s ease !important;';
+          flashBtnTab3.onclick = () => {
+            const topFlash = document.getElementById('btnFlashWatch');
+            if (topFlash) topFlash.click();
+          };
+
+          const tipText = document.createElement('div');
+          tipText.style.cssText = 'font-size:10px; color:#94a3b8; line-height:1.4;';
+          tipText.innerHTML = 'Flashes the currently compiled watchface binary directly to the watch using the verified <strong>IC_568X OTA protocol (START/HEAD/DATA/END)</strong>.';
+
+                    bodyFlash.appendChild(flashBtnTab3);
+          bodyFlash.appendChild(tipText);
+
+          const discBtn = document.createElement('button');
+          discBtn.id = 'btnDiscoverTrigger';
+          discBtn.className = 'warn';
+          discBtn.innerHTML = '🔬 2. Discover Trigger (Safe)';
+          discBtn.title = 'Tests the newly discovered 0x7C/0xAD/0xB0/0x88/0xE0 Dial & Flash keys + bumped 53B OTA header';
+          discBtn.style.cssText = 'width:100% !important; height:32px !important; margin:6px 0 0 0 !important; font-size:12px !important; font-weight:700 !important; background:#f59e0b !important; color:#030712 !important; border:1px solid #d97706 !important; border-radius:0 !important; cursor:pointer !important; transition:all 0.15s ease !important;';
+          discBtn.onclick = async () => {
+            if (typeof log === 'function') log('--- [🔬 2. Discover Trigger (Safe) -> Sending FFB1 Wake & Slot Packet] ---', 'tx');
+            if (typeof triggerWhiteArrowFfb1 === 'function') await triggerWhiteArrowFfb1();
+          };
+
+          const discTip = document.createElement('div');
+          discTip.style.cssText = 'font-size:10px; color:#94a3b8; line-height:1.4;';
+          discTip.innerHTML = 'Sends FFB1 wake & slot packet to discover OTA dial triggers safely.';
+
+          bodyFlash.appendChild(discBtn);
+          bodyFlash.appendChild(discTip);
+
+          const cardFlash = makeToolCard('0', '⚡ Flash to Watch', bodyFlash);
+          cardFlash.id = 'toolCard_flash_primary';
+          if (cardFlash) dfuToolbox.appendChild(cardFlash);
+        }
+
+        // Tool 1: Flashing Handshake & Upload Triggers
         if (!document.getElementById('toolCard_0_dfu')) {
           const body0D = document.createElement('div');
           body0D.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
@@ -4355,11 +4474,91 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
         }
 
         // Hide original card wrapper so it never leaks
-        if (dfuCard && dfuCard !== dfuBody) {
+                if (dfuCard && dfuCard !== dfuBody) {
           dfuCard.style.display = 'none';
         }
       }
-    } catch(err) { console.warn('DFU Toolbox error:', err); }
+    } catch(err) { console.warn("DFU Toolbox error:", err); }
+
+    // ==========================================
+    // 4. POPULATE TAB 4: LOGS TOOLBOX (INDEPENDENT)
+    // ==========================================
+    try {
+      const logsLeftCol = document.getElementById('logsLeftCol');
+      if (logsLeftCol && !document.getElementById('logsToolboxWindow')) {
+        const logsToolbox = document.createElement('div');
+        logsToolbox.id = 'logsToolboxWindow';
+        logsToolbox.className = 'unified-toolbox-window';
+        logsLeftCol.appendChild(logsToolbox);
+
+        // TOOL 0: Actions & File Export
+        const body0L = document.createElement('div');
+        body0L.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+        body0L.innerHTML = `
+          <button type="button" id="btnTab4CopyLogs" class="dock-btn" style="width:100% !important; padding:6px 8px !important; font-size:11px !important;">📋 Copy All Logs</button>
+          <button type="button" id="btnTab4ExportLogs" class="dock-btn" style="width:100% !important; padding:6px 8px !important; font-size:11px !important; color:#38bdf8 !important;">💾 Download Logs (.txt)</button>
+          <button type="button" id="btnTab4ClearLogs" class="dock-btn danger" style="width:100% !important; padding:6px 8px !important; font-size:11px !important; background:#ef4444 !important; color:#fff !important;">🧹 Clear Logs</button>
+        `;
+        body0L.querySelector('#btnTab4CopyLogs').onclick = () => copyAllLogs();
+        body0L.querySelector('#btnTab4ClearLogs').onclick = () => clearLogs();
+        body0L.querySelector('#btnTab4ExportLogs').onclick = () => {
+          const blob = new Blob([logHistory.join('\n')], { type: 'text/plain;charset=utf-8' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `ht37_ble_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+          a.click();
+        };
+        const card0L = makeToolCard('0', 'Log Actions & Export', body0L);
+        if (card0L) logsToolbox.appendChild(card0L);
+
+        // TOOL 1: Category Filters
+        const body1L = document.createElement('div');
+        body1L.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:6px;';
+        const filterDefs = [
+          { label: '🌐 All Logs', filter: 'all' },
+          { label: '🔵 BLE RX', filter: 'rx' },
+          { label: '🟢 BLE TX', filter: 'tx' },
+          { label: '⚠️ Warn / Err', filter: 'err' },
+          { label: '✨ OTA OK', filter: 'ok' }
+        ];
+
+        window.currentLogFilter = 'all';
+        window.filterTab4Logs = function(mode) {
+          window.currentLogFilter = mode;
+          if (typeof renderTab4Entries === 'function') renderTab4Entries();
+          body1L.querySelectorAll('button').forEach(btn => {
+            const isActive = (btn.dataset.filter === mode);
+            btn.style.borderColor = isActive ? '#38bdf8' : '#334155';
+            btn.style.color = isActive ? '#38bdf8' : '#e2e8f0';
+            btn.style.background = isActive ? '#0c2438' : '#1e293b';
+          });
+        };filterDefs.forEach(fd => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'dock-btn';
+          btn.dataset.filter = fd.filter;
+          btn.textContent = fd.label;
+          btn.style.cssText = 'width:100% !important; padding:5px 6px !important; font-size:11px !important;';
+          if (fd.filter === 'all') { btn.style.borderColor = '#38bdf8'; btn.style.color = '#38bdf8'; }
+          btn.onclick = () => window.filterTab4Logs(fd.filter);
+          body1L.appendChild(btn);
+        });
+        const card1L = makeToolCard('1', 'Category Filters', body1L);
+        if (card1L) logsToolbox.appendChild(card1L);
+
+        // TOOL 2: Search & Highlight
+        const body2L = document.createElement('div');
+        body2L.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+        body2L.innerHTML = `
+          <input type="text" id="tab4LogSearchInput" placeholder="Filter by text (e.g. 0x02, OTA)..." style="width:100% !important; height:28px !important; background:#111827 !important; color:#38bdf8 !important; border:1px solid #334155 !important; font-size:11px !important; padding:4px 8px !important; box-sizing:border-box !important;" />
+        `;
+        const sInput = body2L.querySelector('#tab4LogSearchInput');
+        sInput.oninput = () => {
+          if (typeof renderTab4Entries === 'function') renderTab4Entries();
+        };const card2L = makeToolCard('2', 'Text Search & Filter', body2L);
+        if (card2L) logsToolbox.appendChild(card2L);
+      }
+    } catch(errLogs) { console.warn('Logs Toolbox error:', errLogs); }
 
     // ==========================================
     // 4. WATCH STUDIO CENTER STAGE & RIGHT INSPECTOR
@@ -4498,6 +4697,9 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
       const targetTab = btn.dataset.tab;
       document.querySelectorAll('.studio-tab-btn').forEach(b => b.classList.toggle('active', b === btn));
       document.querySelectorAll('.studio-tab-pane').forEach(p => p.classList.toggle('active', p.id === targetTab));
+      if (targetTab === 'tab-logs') {
+        if (typeof renderTab4Entries === 'function') renderTab4Entries();
+      }
       try { localStorage.setItem('ht37_active_tab', targetTab); } catch(err){}
     });
 
@@ -5758,6 +5960,16 @@ log('👉 Pair & Bind, then click "🔬 2. Discover Trigger (Safe)" with Scope 1
 <!-- HT37_DECOMPILER_MODULE_END -->
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
 
 
 
